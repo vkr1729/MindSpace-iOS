@@ -1,0 +1,89 @@
+name: Build MindSpace Unsigned IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Sources/**'
+      - 'Resources/**'
+      - 'Tests/**'
+      - 'project.yml'
+      - '.github/workflows/build-ipa.yml'
+
+jobs:
+  build:
+    name: Build & Package IPA
+    runs-on: macos-14
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode Version
+        run: |
+          if [ -d "/Applications/Xcode_16.0.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.0.app
+          elif [ -d "/Applications/Xcode_15.4.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_15.4.app
+          fi
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Verify Zero-Network Rule (API Scan)
+        run: |
+          echo "Scanning for forbidden networking symbols in Sources/..."
+          if grep -rnw 'Sources/' -e 'URLSession' -e 'WebKit' -e 'CFNetwork' -e 'Network.framework' -e 'NWPathMonitor'; then
+            echo "ERROR: Network code detected in offline meditation app!"
+            exit 1
+          fi
+          echo "PASS: Zero network APIs detected."
+
+      - name: Generate Xcode Project
+        run: xcodegen generate
+
+      - name: Run Unit & Concurrency Tests
+        run: |
+          # Find available simulator
+          SIM_NAME=$(xcrun simctl list devices available | grep -E "iPhone 16|iPhone 15|iPhone 14" | head -n 1 | sed -E 's/^[[:space:]]+//' | sed -E 's/ \([0-9A-F-]+\).*//')
+          echo "Using Simulator: $SIM_NAME"
+          xcodebuild test \
+            -project MindSpace.xcodeproj \
+            -scheme MindSpace \
+            -destination "platform=iOS Simulator,name=${SIM_NAME:-iPhone 15}" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Compile Unsigned iOS Binary
+        run: |
+          xcodebuild clean build \
+            -project MindSpace.xcodeproj \
+            -scheme MindSpace \
+            -sdk iphoneos \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Assemble & Zip IPA Payload
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/MindSpace.app Payload/
+          zip -qry MindSpace.ipa Payload
+          shasum -a 256 MindSpace.ipa > MindSpace.ipa.sha256
+          echo "IPA SHA-256 Digest: $(cat MindSpace.ipa.sha256)"
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MindSpace-Unsigned-IPA
+          path: |
+            MindSpace.ipa
+            MindSpace.ipa.sha256
+          retention-days: 14

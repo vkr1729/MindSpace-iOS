@@ -1,0 +1,23 @@
+# MindSpace Git Ignore
+
+# Strictly exclude 15.81 GB local media library
+Content/
+MindSpaceLibrary/
+
+# Build and Derived Data
+build/
+DerivedData/
+*.xcodeproj
+*.xcworkspace
+.DS_Store
+
+# Distribution artifacts
+dist/
+Payload/
+*.ipa
+*.ipa.sha256
+*.zip
+
+# Temporary test artifacts
+*.tmp
+*.log
