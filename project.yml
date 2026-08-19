@@ -4,7 +4,7 @@ options:
   deploymentTarget:
     iOS: "18.0"
   swiftVersion: "6.0"
-  xcodeVersion: "16.0"
+  xcodeVersion: "15.4"
   createIntermediateGroups: true
 
 settings:

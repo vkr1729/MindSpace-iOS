@@ -23,10 +23,14 @@ jobs:
 
       - name: Select Xcode Version
         run: |
-          if [ -d "/Applications/Xcode_16.0.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_16.0.app
-          elif [ -d "/Applications/Xcode_15.4.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_15.4.app
+          echo "Available Xcode installations:"
+          ls -d /Applications/Xcode*.app || true
+          
+          # Prioritize newest Xcode 16, then 15
+          XCODE_APP=$(ls -d /Applications/Xcode_16*.app /Applications/Xcode_15*.app 2>/dev/null | head -n 1)
+          if [ -n "$XCODE_APP" ]; then
+            echo "Selecting $XCODE_APP"
+            sudo xcode-select -s "$XCODE_APP"
           fi
           xcodebuild -version
 
@@ -47,7 +51,6 @@ jobs:
 
       - name: Run Unit & Concurrency Tests
         run: |
-          # Find available simulator
           SIM_NAME=$(xcrun simctl list devices available | grep -E "iPhone 16|iPhone 15|iPhone 14" | head -n 1 | sed -E 's/^[[:space:]]+//' | sed -E 's/ \([0-9A-F-]+\).*//')
           echo "Using Simulator: $SIM_NAME"
           xcodebuild test \
