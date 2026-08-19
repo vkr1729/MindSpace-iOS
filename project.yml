@@ -33,7 +33,7 @@ targets:
     dependencies: []
 
   MindSpaceTests:
-    type: bundle.unit-testing
+    type: bundle.unit-test
     platform: iOS
     sources:
       - path: Tests/MindSpaceTests
