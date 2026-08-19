@@ -1,10 +1,10 @@
-import Testing
+import XCTest
 import Foundation
 @testable import MindSpace
 
-struct ProgressTransferTests {
+final class ProgressTransferTests: XCTestCase {
     
-    @Test func testBackupDocumentRoundTrip() throws {
+    func testBackupDocumentRoundTrip() throws {
         let stats = BackupStats(
             totalMindfulMinutes: 324,
             completedSessionsCount: 28,
@@ -45,12 +45,12 @@ struct ProgressTransferTests {
         let decoder = JSONDecoder()
         let decoded = try decoder.decode(MindSpaceBackupDocument.self, from: data)
         
-        #expect(decoded.stats.totalMindfulMinutes == 324)
-        #expect(decoded.stats.currentStreak == 7)
-        #expect(decoded.userSettings.reminderTime == "08:30")
-        #expect(decoded.completionEvents.count == 1)
-        #expect(decoded.completionEvents.first?.reflection == "lighter")
-        #expect(decoded.favorites == ["sess_1_1"])
-        #expect(decoded.achievements.first?.id == "first_orbit")
+        XCTAssertEqual(decoded.stats.totalMindfulMinutes, 324)
+        XCTAssertEqual(decoded.stats.currentStreak, 7)
+        XCTAssertEqual(decoded.userSettings.reminderTime, "08:30")
+        XCTAssertEqual(decoded.completionEvents.count, 1)
+        XCTAssertEqual(decoded.completionEvents.first?.reflection, "lighter")
+        XCTAssertEqual(decoded.favorites, ["sess_1_1"])
+        XCTAssertEqual(decoded.achievements.first?.id, "first_orbit")
     }
 }

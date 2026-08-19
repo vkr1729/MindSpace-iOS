@@ -25,7 +25,7 @@ public final class AudioSessionManager: ObservableObject {
         guard !isConfigured else { return }
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .spacedSpokenAudio, policy: .longFormAudio)
+            try session.setCategory(.playback, mode: .spokenAudio, policy: .longFormAudio)
             try session.setActive(true)
             isConfigured = true
         } catch {

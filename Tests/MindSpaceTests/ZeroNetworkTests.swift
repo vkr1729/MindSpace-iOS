@@ -1,16 +1,15 @@
-import Testing
+import XCTest
 import Foundation
 
-struct ZeroNetworkTests {
+final class ZeroNetworkTests: XCTestCase {
     
-    @Test func testZeroNetworkAPIsReferencedInSource() throws {
+    func testZeroNetworkAPIsReferencedInSource() throws {
         let forbiddenSymbols = ["URLSession", "WebKit", "CFNetwork", "Network.framework", "NWPathMonitor"]
         
         let currentDir = FileManager.default.currentDirectoryPath
         let sourcesURL = URL(fileURLWithPath: currentDir).appendingPathComponent("Sources")
         
         guard FileManager.default.fileExists(atPath: sourcesURL.path) else {
-            // Test run inside bundle where Sources is not directly on disk
             return
         }
         
@@ -31,6 +30,6 @@ struct ZeroNetworkTests {
             }
         }
         
-        #expect(violations.isEmpty, "Zero-network violations detected: \(violations.joined(separator: ", "))")
+        XCTAssertTrue(violations.isEmpty, "Zero-network violations detected: \(violations.joined(separator: ", "))")
     }
 }

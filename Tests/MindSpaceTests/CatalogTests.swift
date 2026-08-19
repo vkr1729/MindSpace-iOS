@@ -1,49 +1,71 @@
-import Testing
+import XCTest
 import Foundation
 @testable import MindSpace
 
-struct CatalogTests {
+final class CatalogTests: XCTestCase {
     
-    @Test func testCatalogManifestLoadsSuccessfully() throws {
-        guard let url = Bundle.main.url(forResource: "catalog", withExtension: "json") else {
-            // If running in test bundle, try relative path
+    func testCatalogManifestLoadsSuccessfully() throws {
+        var catalogData: Data?
+        if let url = Bundle.main.url(forResource: "catalog", withExtension: "json") {
+            catalogData = try? Data(contentsOf: url)
+        }
+        
+        if catalogData == nil {
             let currentDir = FileManager.default.currentDirectoryPath
             let altURL = URL(fileURLWithPath: currentDir).appendingPathComponent("Resources/catalog.json")
-            #expect(FileManager.default.fileExists(atPath: altURL.path))
-            let data = try Data(contentsOf: altURL)
-            let manifest = try JSONDecoder().decode(CatalogManifest.self, from: data)
-            #expect(manifest.totalFiles == 905)
-            #expect(manifest.categories.count == 8)
-            #expect(manifest.singlesCategories.count == 15)
+            if FileManager.default.fileExists(atPath: altURL.path) {
+                catalogData = try? Data(contentsOf: altURL)
+            }
+        }
+        
+        guard let data = catalogData else {
+            XCTFail("catalog.json not found in bundle or Resources/")
             return
         }
         
-        let data = try Data(contentsOf: url)
         let manifest = try JSONDecoder().decode(CatalogManifest.self, from: data)
-        #expect(manifest.totalFiles == 905)
-        #expect(manifest.categories.count == 8)
-        #expect(manifest.singlesCategories.count == 15)
+        XCTAssertEqual(manifest.totalFiles, 905)
+        XCTAssertEqual(manifest.categories.count, 8)
+        XCTAssertEqual(manifest.singlesCategories.count, 15)
     }
     
-    @Test func testTotalCoursesAndSinglesCount() throws {
-        let currentDir = FileManager.default.currentDirectoryPath
-        let catalogURL = URL(fileURLWithPath: currentDir).appendingPathComponent("Resources/catalog.json")
-        let data = try Data(contentsOf: catalogURL)
-        let manifest = try JSONDecoder().decode(CatalogManifest.self, from: data)
+    func testTotalCoursesAndSinglesCount() throws {
+        var catalogData: Data?
+        if let url = Bundle.main.url(forResource: "catalog", withExtension: "json") {
+            catalogData = try? Data(contentsOf: url)
+        } else {
+            let altURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("Resources/catalog.json")
+            catalogData = try? Data(contentsOf: altURL)
+        }
         
+        guard let data = catalogData else {
+            XCTFail("catalog.json not found")
+            return
+        }
+        
+        let manifest = try JSONDecoder().decode(CatalogManifest.self, from: data)
         let totalCourses = manifest.categories.reduce(0) { $0 + $1.courses.count }
-        #expect(totalCourses == 44)
+        XCTAssertEqual(totalCourses, 44)
         
         let totalSingles = manifest.singlesCategories.reduce(0) { $0 + $1.sessions.count }
-        #expect(totalSingles == 151)
+        XCTAssertEqual(totalSingles, 151)
     }
     
-    @Test func testUUIDv5Uniqueness() throws {
-        let currentDir = FileManager.default.currentDirectoryPath
-        let catalogURL = URL(fileURLWithPath: currentDir).appendingPathComponent("Resources/catalog.json")
-        let data = try Data(contentsOf: catalogURL)
-        let manifest = try JSONDecoder().decode(CatalogManifest.self, from: data)
+    func testUUIDv5Uniqueness() throws {
+        var catalogData: Data?
+        if let url = Bundle.main.url(forResource: "catalog", withExtension: "json") {
+            catalogData = try? Data(contentsOf: url)
+        } else {
+            let altURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("Resources/catalog.json")
+            catalogData = try? Data(contentsOf: altURL)
+        }
         
+        guard let data = catalogData else {
+            XCTFail("catalog.json not found")
+            return
+        }
+        
+        let manifest = try JSONDecoder().decode(CatalogManifest.self, from: data)
         var allIDs = Set<String>()
         var duplicateCount = 0
         
@@ -71,20 +93,29 @@ struct CatalogTests {
             }
         }
         
-        #expect(duplicateCount == 0)
-        #expect(allIDs.count == 905)
+        XCTAssertEqual(duplicateCount, 0)
+        XCTAssertEqual(allIDs.count, 905)
     }
     
-    @Test func testPregnancyGapWaiver() throws {
-        let currentDir = FileManager.default.currentDirectoryPath
-        let catalogURL = URL(fileURLWithPath: currentDir).appendingPathComponent("Resources/catalog.json")
-        let data = try Data(contentsOf: catalogURL)
-        let manifest = try JSONDecoder().decode(CatalogManifest.self, from: data)
+    func testPregnancyGapWaiver() throws {
+        var catalogData: Data?
+        if let url = Bundle.main.url(forResource: "catalog", withExtension: "json") {
+            catalogData = try? Data(contentsOf: url)
+        } else {
+            let altURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("Resources/catalog.json")
+            catalogData = try? Data(contentsOf: altURL)
+        }
         
+        guard let data = catalogData else {
+            XCTFail("catalog.json not found")
+            return
+        }
+        
+        let manifest = try JSONDecoder().decode(CatalogManifest.self, from: data)
         let healthCat = manifest.categories.first(where: { $0.name == "Health" })
-        #expect(healthCat != nil)
+        XCTAssertNotNil(healthCat)
         let pregnancyCourse = healthCat?.courses.first(where: { $0.folderName.contains("Pregnancy") })
-        #expect(pregnancyCourse != nil)
-        #expect(pregnancyCourse?.hasGapWaiver == true)
+        XCTAssertNotNil(pregnancyCourse)
+        XCTAssertEqual(pregnancyCourse?.hasGapWaiver, true)
     }
 }

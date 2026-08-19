@@ -79,7 +79,7 @@ public struct ImportPreviewDialogView: View {
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundColor(CosmosTheme.textPrimary)
             
-            Text("MindSpace backup detected (\(document.exportedAt.prefix(10)))")
+            Text("MindSpace backup detected (\(String(document.exportedAt.prefix(10))))")
                 .font(.system(size: 14, weight: .regular, design: .rounded))
                 .foregroundColor(CosmosTheme.textSecondary)
             

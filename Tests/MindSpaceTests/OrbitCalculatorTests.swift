@@ -1,10 +1,10 @@
-import Testing
+import XCTest
 import Foundation
 @testable import MindSpace
 
-struct OrbitCalculatorTests {
+final class OrbitCalculatorTests: XCTestCase {
     
-    @Test func testConsecutiveStreakCalculation() {
+    func testConsecutiveStreakCalculation() {
         let calc = OrbitCalculator()
         let calendar = Calendar.current
         let today = Date()
@@ -23,13 +23,13 @@ struct OrbitCalculatorTests {
         }
         
         let stats = calc.calculateStats(events: events, calendar: calendar, today: today)
-        #expect(stats.currentStreak == 5)
-        #expect(stats.bestStreak == 5)
-        #expect(stats.totalMindfulMinutes == 50)
-        #expect(stats.completedSessionsCount == 5)
+        XCTAssertEqual(stats.currentStreak, 5)
+        XCTAssertEqual(stats.bestStreak, 5)
+        XCTAssertEqual(stats.totalMindfulMinutes, 50)
+        XCTAssertEqual(stats.completedSessionsCount, 5)
     }
     
-    @Test func testCompassionPassPreventsStreakBreak() {
+    func testCompassionPassPreventsStreakBreak() {
         let calc = OrbitCalculator()
         let calendar = Calendar.current
         let today = Date()
@@ -50,31 +50,31 @@ struct OrbitCalculatorTests {
         
         // Without compassion pass: streak is 1
         let statsNoPass = calc.calculateStats(events: events, calendar: calendar, today: today, existingCompassionPasses: 0)
-        #expect(statsNoPass.currentStreak == 1)
+        XCTAssertEqual(statsNoPass.currentStreak, 1)
         
         // With 1 available compassion pass: missed day 1 is protected, streak is 4
         let statsWithPass = calc.calculateStats(events: events, calendar: calendar, today: today, existingCompassionPasses: 1)
-        #expect(statsWithPass.currentStreak == 4)
-        #expect(statsWithPass.compassionPassUsedCount == 1)
+        XCTAssertEqual(statsWithPass.currentStreak, 4)
+        XCTAssertEqual(statsWithPass.compassionPassUsedCount, 1)
     }
     
-    @Test func testSensitiveTopicExemption() {
-        #expect(OrbitCalculator.isSensitiveTopic(courseName: "Depression") == true)
-        #expect(OrbitCalculator.isSensitiveTopic(courseName: "1 - Grief") == true)
-        #expect(OrbitCalculator.isSensitiveTopic(courseName: "Coping with Cancer") == true)
-        #expect(OrbitCalculator.isSensitiveTopic(courseName: "SOS") == true)
-        #expect(OrbitCalculator.isSensitiveTopic(courseName: "Basics") == false)
-        #expect(OrbitCalculator.isSensitiveTopic(courseName: "Managing Anxiety") == false)
+    func testSensitiveTopicExemption() {
+        XCTAssertTrue(OrbitCalculator.isSensitiveTopic(courseName: "Depression"))
+        XCTAssertTrue(OrbitCalculator.isSensitiveTopic(courseName: "1 - Grief"))
+        XCTAssertTrue(OrbitCalculator.isSensitiveTopic(courseName: "Coping with Cancer"))
+        XCTAssertTrue(OrbitCalculator.isSensitiveTopic(courseName: "SOS"))
+        XCTAssertFalse(OrbitCalculator.isSensitiveTopic(courseName: "Basics"))
+        XCTAssertFalse(OrbitCalculator.isSensitiveTopic(courseName: "Managing Anxiety"))
     }
     
-    @Test func testAchievementsUnlockMilestones() {
+    func testAchievementsUnlockMilestones() {
         let calc = OrbitCalculator()
         let badges7 = calc.getAchievements(currentStreak: 7, totalSessions: 10)
         let firstOrbit = badges7.first(where: { $0.id == "first_orbit" })
-        #expect(firstOrbit?.isUnlocked == true)
+        XCTAssertEqual(firstOrbit?.isUnlocked, true)
         
         let badges14 = calc.getAchievements(currentStreak: 14, totalSessions: 20)
         let stellarStart = badges14.first(where: { $0.id == "stellar_start" })
-        #expect(stellarStart?.isUnlocked == true)
+        XCTAssertEqual(stellarStart?.isUnlocked, true)
     }
 }
