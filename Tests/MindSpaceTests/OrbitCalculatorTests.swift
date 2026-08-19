@@ -52,9 +52,9 @@ final class OrbitCalculatorTests: XCTestCase {
         let statsNoPass = calc.calculateStats(events: events, calendar: calendar, today: today, existingCompassionPasses: 0)
         XCTAssertEqual(statsNoPass.currentStreak, 1)
         
-        // With 1 available compassion pass: missed day 1 is protected, streak is 4
+        // With 1 available compassion pass: missed day 1 is protected, streak is 5 (4 practiced + 1 pass)
         let statsWithPass = calc.calculateStats(events: events, calendar: calendar, today: today, existingCompassionPasses: 1)
-        XCTAssertEqual(statsWithPass.currentStreak, 4)
+        XCTAssertEqual(statsWithPass.currentStreak, 5)
         XCTAssertEqual(statsWithPass.compassionPassUsedCount, 1)
     }
     
