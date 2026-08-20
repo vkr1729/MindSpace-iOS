@@ -27,14 +27,22 @@ final class UATComprehensiveTests: XCTestCase {
     // MARK: - UAT Area 2: Media Catalog Integrity & Search Performance
     func testCatalogSearchPerformanceAndCoverage() {
         let manifest = CatalogManifest(
-            schemaVersion: "1.0",
+            schemaVersion: 1,
+            generatedAt: "2026-08-20T00:00:00Z",
             totalFiles: 10,
+            totalDuration: 1800.0,
+            totalDurationHours: 0.5,
+            totalSizeBytes: 1000000,
             categories: [
                 CatalogCategory(
                     id: "cat_health",
+                    type: "pack",
                     name: "Health",
                     folderName: "2 - Health",
                     order: 2,
+                    description: "Health packs",
+                    colorHex: "#14B8A6",
+                    iconName: "heart.fill",
                     courses: [
                         CatalogCourse(
                             id: "course_anxiety",
@@ -59,8 +67,8 @@ final class UATComprehensiveTests: XCTestCase {
                     folderName: "2 - SOS",
                     order: 2,
                     description: "Emergency relief",
+                    colorHex: "#EF4444",
                     iconName: "shield.fill",
-                    colorHex: "EF4444",
                     sessions: [
                         SingleSession(id: "sos_1", title: "Panicking 3min", category: "SOS", relativePath: "s_p1", duration: 180)
                     ]

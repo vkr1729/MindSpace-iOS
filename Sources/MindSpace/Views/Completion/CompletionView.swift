@@ -152,7 +152,7 @@ public struct CompletionView: View {
     
     private func saveReflection() {
         if let reflection = selectedReflection, let latest = completionEvents.first {
-            latest.reflection = reflection
+            latest.reflectionNote = reflection
             try? modelContext.save()
         }
     }
