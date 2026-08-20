@@ -5,6 +5,7 @@ import SwiftData
 
 final class SettingsAndPortabilityTests: XCTestCase {
     
+    @MainActor
     func testExportAndImportMergeModePreservesAndDeduplicatesRecords() throws {
         let manager = ProgressTransferManager.shared
         
@@ -77,6 +78,7 @@ final class SettingsAndPortabilityTests: XCTestCase {
         XCTAssertEqual(updatedSettings?.compassionPassCount, 2, "Compassion passes should be restored.")
     }
     
+    @MainActor
     func testExportAndImportCleanRestoreModeWipesPreviousState() throws {
         let manager = ProgressTransferManager.shared
         

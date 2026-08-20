@@ -13,6 +13,8 @@ public struct CourseDetailView: View {
     @Query(sort: \CompletionEvent.timestamp, order: .reverse) private var completionEvents: [CompletionEvent]
     @Query private var favorites: [FavoriteItem]
     
+    @State private var isShowingBridgeSheet: Bool = false
+    
     public init(course: CatalogCourse) {
         self.course = course
     }
@@ -39,19 +41,52 @@ public struct CourseDetailView: View {
     
     private var constellationNodes: [ConstellationNode] {
         let nextId = nextSession?.id
-        return course.sessions.map { session in
-            let isDone = completedSessionIDs.contains(session.id)
-            let isAct = (session.id == nextId)
-            let isBridge = course.hasGapWaiver && (session.dayNumber == 26)
-            return ConstellationNode(
-                id: session.id,
-                dayNumber: session.dayNumber,
-                title: session.title,
-                isCompleted: isDone,
-                isActive: isAct,
-                isBridgeOfReflection: isBridge
-            )
+        var nodes: [ConstellationNode] = []
+        
+        if course.hasGapWaiver {
+            // Pregnancy Course: Days 1-26, Bridge of Reflection (27-29), Day 30
+            for session in course.sessions {
+                let isDone = completedSessionIDs.contains(session.id)
+                let isAct = (session.id == nextId)
+                
+                if session.dayNumber == 30 {
+                    // Insert distinct Bridge of Reflection node between Day 26 and Day 30
+                    let day26Done = course.sessions.first(where: { $0.dayNumber == 26 }).map { completedSessionIDs.contains($0.id) } ?? false
+                    nodes.append(ConstellationNode(
+                        id: "bridge_reflection_27_29",
+                        dayNumber: 27,
+                        title: "Bridge of Reflection",
+                        isCompleted: day26Done,
+                        isActive: false,
+                        isBridgeOfReflection: true
+                    ))
+                }
+                
+                nodes.append(ConstellationNode(
+                    id: session.id,
+                    dayNumber: session.dayNumber,
+                    title: session.title,
+                    isCompleted: isDone,
+                    isActive: isAct,
+                    isBridgeOfReflection: false
+                ))
+            }
+        } else {
+            for session in course.sessions {
+                let isDone = completedSessionIDs.contains(session.id)
+                let isAct = (session.id == nextId)
+                nodes.append(ConstellationNode(
+                    id: session.id,
+                    dayNumber: session.dayNumber,
+                    title: session.title,
+                    isCompleted: isDone,
+                    isActive: isAct,
+                    isBridgeOfReflection: false
+                ))
+            }
         }
+        
+        return nodes
     }
     
     public var body: some View {
@@ -174,7 +209,10 @@ public struct CourseDetailView: View {
                         ConstellationPathView(
                             nodes: constellationNodes,
                             onSelectNode: { node in
-                                if let session = course.sessions.first(where: { $0.id == node.id }) {
+                                if node.isBridgeOfReflection {
+                                    HapticService.shared.medium()
+                                    isShowingBridgeSheet = true
+                                } else if let session = course.sessions.first(where: { $0.id == node.id }) {
                                     playSession(session)
                                 }
                             }
@@ -248,44 +286,51 @@ public struct CourseDetailView: View {
                                     HStack(spacing: 14) {
                                         Text("\(session.dayNumber)")
                                             .font(.system(size: 15, weight: .bold, design: .rounded))
-                                            .foregroundColor(isNext ? CosmosTheme.cosmicPurple : (isDone ? CosmosTheme.starlightGold : CosmosTheme.textDisabled))
-                                            .frame(width: 24)
+                                            .foregroundColor(isDone ? CosmosTheme.starlightGold : (isNext ? CosmosTheme.cosmicPurple : CosmosTheme.textSecondary))
+                                            .frame(width: 28, height: 28)
+                                            .background(
+                                                Circle()
+                                                    .fill(isDone ? CosmosTheme.starlightGold.opacity(0.2) : (isNext ? CosmosTheme.cosmicPurple.opacity(0.2) : CosmosTheme.spaceCardBorder))
+                                            )
                                         
-                                        VStack(alignment: .leading, spacing: 2) {
+                                        VStack(alignment: .leading, spacing: 3) {
                                             Text(session.title)
-                                                .font(.system(size: 15, weight: .medium, design: .rounded))
-                                                .foregroundColor(isDone ? CosmosTheme.textSecondary : CosmosTheme.textPrimary)
+                                                .font(.system(size: 15, weight: isNext ? .bold : .medium, design: .rounded))
+                                                .foregroundColor(CosmosTheme.textPrimary)
+                                                .lineLimit(1)
                                             
-                                            if let vCount = session.videoAttachments?.count, vCount > 0 {
-                                                Text("Includes Video • \(session.formattedDuration)")
-                                                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                                                    .foregroundColor(CosmosTheme.auroraTeal)
+                                            HStack(spacing: 6) {
+                                                Text(session.condensedDuration)
+                                                    .font(.system(size: 12, weight: .regular, design: .rounded))
+                                                    .foregroundColor(CosmosTheme.textSecondary)
+                                                
+                                                if !(session.videoAttachments ?? []).isEmpty {
+                                                    Text("• Video Attached")
+                                                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                                        .foregroundColor(CosmosTheme.auroraTeal)
+                                                }
                                             }
                                         }
                                         
                                         Spacer()
                                         
-                                        Text(session.formattedDuration)
-                                            .font(.system(size: 13, weight: .regular, design: .rounded))
-                                            .foregroundColor(CosmosTheme.textSecondary)
-                                        
                                         if isDone {
                                             Image(systemName: "checkmark.circle.fill")
-                                                .font(.system(size: 20))
+                                                .font(.system(size: 18))
                                                 .foregroundColor(CosmosTheme.starlightGold)
-                                        } else {
-                                            Image(systemName: isNext ? "play.circle.fill" : "circle")
+                                        } else if isNext {
+                                            Image(systemName: "play.circle.fill")
                                                 .font(.system(size: 20))
-                                                .foregroundColor(isNext ? CosmosTheme.cosmicPurple : CosmosTheme.spaceCardBorder)
+                                                .foregroundColor(CosmosTheme.cosmicPurple)
                                         }
                                     }
                                     .padding(.horizontal, 16)
-                                    .padding(.vertical, 13)
-                                    .background(isNext ? CosmosTheme.spaceCard.opacity(0.9) : CosmosTheme.spaceCard)
+                                    .padding(.vertical, 12)
+                                    .background(isNext ? CosmosTheme.cosmicPurple.opacity(0.12) : CosmosTheme.spaceCard)
                                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                            .stroke(isNext ? CosmosTheme.cosmicPurple.opacity(0.6) : CosmosTheme.spaceCardBorder, lineWidth: 1)
+                                            .stroke(isNext ? CosmosTheme.cosmicPurple.opacity(0.5) : CosmosTheme.spaceCardBorder, lineWidth: 1)
                                     )
                                 }
                                 .buttonStyle(.cosmicPressable)
@@ -299,17 +344,79 @@ public struct CourseDetailView: View {
             }
         }
         .navigationBarHidden(true)
+        .sheet(isPresented: $isShowingBridgeSheet) {
+            bridgeReflectionSheet
+        }
+    }
+    
+    private var bridgeReflectionSheet: some View {
+        NavigationStack {
+            ZStack {
+                CosmosTheme.spaceBackground.ignoresSafeArea()
+                StarsBackgroundView()
+                
+                VStack(spacing: 20) {
+                    Spacer()
+                    
+                    ZStack {
+                        Circle()
+                            .fill(CosmosTheme.moonLavender.opacity(0.2))
+                            .frame(width: 80, height: 80)
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 36))
+                            .foregroundColor(CosmosTheme.moonLavender)
+                    }
+                    
+                    Text("Bridge of Reflection")
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundColor(CosmosTheme.textPrimary)
+                    
+                    Text("Days 27–29: Mindful Transition & Reflection")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundColor(CosmosTheme.starlightGold)
+                    
+                    Text("Take a peaceful moment to integrate everything you have practiced across Days 1–26 before stepping into Day 30. Your course progress remains unbroken.")
+                        .font(.system(size: 14, weight: .regular, design: .rounded))
+                        .foregroundColor(CosmosTheme.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                    
+                    Spacer()
+                    
+                    CosmicPrimaryButton("Continue to Day 30") {
+                        isShowingBridgeSheet = false
+                        if let day30 = course.sessions.first(where: { $0.dayNumber == 30 }) {
+                            playSession(day30)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        isShowingBridgeSheet = false
+                    }
+                    .foregroundColor(CosmosTheme.moonLavender)
+                }
+            }
+        }
     }
     
     private func playSession(_ session: CatalogSession) {
+        let videoAttachment = session.videoAttachments?.first
         let track = PlayableTrack(
             id: session.id,
             title: session.title,
             courseName: course.name,
             relativePath: session.relativePath,
             duration: session.duration,
-            videoAttachmentPath: session.videoAttachments?.first?.relativePath,
-            dayNumber: session.dayNumber
+            videoAttachmentPath: videoAttachment?.relativePath,
+            dayNumber: session.dayNumber,
+            videoDuration: videoAttachment?.duration,
+            contentType: "meditation"
         )
         playbackEngine.loadAndPlay(track: track)
         playbackEngine.isFullPlayerPresented = true
@@ -322,7 +429,9 @@ public struct CourseDetailView: View {
             courseName: course.name,
             relativePath: intro.relativePath,
             duration: intro.duration,
-            videoAttachmentPath: intro.relativePath
+            videoAttachmentPath: intro.relativePath,
+            videoDuration: intro.duration,
+            contentType: "video"
         )
         playbackEngine.loadAndPlay(track: track)
         playbackEngine.isFullPlayerPresented = true
@@ -342,16 +451,13 @@ public struct CourseDetailView: View {
         try? modelContext.save()
     }
     
-    private func planetStyle(for name: String) -> PlanetStyle {
-        let lower = name.lowercased()
-        if lower.contains("health") || lower.contains("anxiety") || lower.contains("stress") { return .auroraTeal }
-        if lower.contains("happiness") || lower.contains("self-esteem") || lower.contains("relationships") { return .solarCoral }
-        if lower.contains("work") || lower.contains("focus") || lower.contains("productivity") { return .electricBlue }
-        if lower.contains("sleep") || lower.contains("night") || lower.contains("unwind") { return .crescentMoon }
-        if lower.contains("brave") || lower.contains("grief") || lower.contains("anger") { return .brave }
-        if lower.contains("student") { return .deepLavender }
-        if lower.contains("pro") { return .pro }
-        if lower.contains("sport") { return .sport }
-        return .purpleRinged
+    private func planetStyle(for courseName: String) -> CelestialPlanetStyle {
+        switch courseName.lowercased() {
+        case let name where name.contains("basics"): return .purpleRinged
+        case let name where name.contains("anxiety") || name.contains("stress"): return .solarCoral
+        case let name where name.contains("health") || name.contains("pregnancy"): return .auroraTeal
+        case let name where name.contains("focus") || name.contains("work"): return .electricBlue
+        default: return .deepCosmos
+        }
     }
 }

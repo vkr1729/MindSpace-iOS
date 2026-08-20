@@ -25,9 +25,11 @@ public struct ConstellationNode: Identifiable, Sendable {
     }
 }
 
-/// Canvas-rendered cosmic star constellation path with Bezier curves and glowing nodes.
+/// Canvas-rendered cosmic star constellation path with Bezier curves, glowing nodes, and VoiceOver accessibility.
 /// Reference: Mock Screen Codex.png (Screen 3: Managing Anxiety)
 public struct ConstellationPathView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    
     public let nodes: [ConstellationNode]
     public let onSelectNode: (ConstellationNode) -> Void
     
@@ -89,12 +91,19 @@ public struct ConstellationPathView: View {
                     }
                 }
                 
-                // Interactive Star Nodes
+                // Interactive Accessible Star Nodes
                 ForEach(Array(nodes.enumerated()), id: \.element.id) { index, node in
                     if index < points.count {
                         let pt = points[index]
                         nodeView(for: node)
                             .position(pt)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(node.isBridgeOfReflection ? "Bridge of Reflection, Days 27 to 29" : "Day \(node.dayNumber), \(node.title)")
+                            .accessibilityValue(accessibilityValue(for: node))
+                            .accessibilityAddTraits(node.isActive ? [.isButton, .isSelected] : [.isButton])
+                            .accessibilityAction(named: node.isBridgeOfReflection ? "View Bridge of Reflection" : "Select Day \(node.dayNumber)") {
+                                onSelectNode(node)
+                            }
                             .onTapGesture {
                                 HapticService.shared.selection()
                                 onSelectNode(node)
@@ -106,11 +115,45 @@ public struct ConstellationPathView: View {
         .frame(height: max(190, CGFloat((nodes.count + 2) / 3) * 68))
     }
     
+    private func accessibilityValue(for node: ConstellationNode) -> String {
+        if node.isBridgeOfReflection {
+            return "Reflective transition node"
+        }
+        if node.isCompleted {
+            return "Completed"
+        }
+        if node.isActive {
+            return "Active next session"
+        }
+        return "Upcoming"
+    }
+    
     @ViewBuilder
     private func nodeView(for node: ConstellationNode) -> some View {
         ZStack {
-            if node.isActive {
-                ActiveNodeView(dayNumber: node.dayNumber)
+            if node.isBridgeOfReflection {
+                // Gentle Bridge of Reflection connecting Day 26 to Day 30
+                ZStack {
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [CosmosTheme.moonLavender, CosmosTheme.auroraTeal],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: 42, height: 26)
+                        .overlay(
+                            Capsule().stroke(Color.white.opacity(0.6), lineWidth: 1)
+                        )
+                        .shadow(color: CosmosTheme.moonLavender.opacity(0.5), radius: 6)
+                    
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(CosmosTheme.spaceBackground)
+                }
+            } else if node.isActive {
+                ActiveNodeView(dayNumber: node.dayNumber, reduceMotion: reduceMotion)
             } else if node.isCompleted {
                 // Completed Golden Node
                 Circle()
@@ -127,14 +170,6 @@ public struct ConstellationPathView: View {
                 Image(systemName: "checkmark")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(CosmosTheme.spaceBackground)
-            } else if node.isBridgeOfReflection {
-                // Gentle Bridge of Reflection for gap waiver
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(CosmosTheme.moonLavender.opacity(0.7))
-                    .frame(width: 34, height: 22)
-                Text("~")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(CosmosTheme.textPrimary)
             } else {
                 // Upcoming Dim Node
                 Circle()
@@ -175,18 +210,21 @@ public struct ConstellationPathView: View {
 }
 
 /// Isolated active node view containing its own pulsing animation,
-/// preventing the parent ConstellationPathView from re-calculating Bezier splines and GeometryReader on every frame.
+/// respecting VoiceOver and Reduce Motion settings.
 private struct ActiveNodeView: View {
     let dayNumber: Int
+    let reduceMotion: Bool
     @State private var pulseScale: CGFloat = 1.0
     
     var body: some View {
         ZStack {
             // Radiant Pulsing Halo
-            Circle()
-                .fill(CosmosTheme.cosmicPurple.opacity(0.25))
-                .frame(width: 46, height: 46)
-                .scaleEffect(pulseScale)
+            if !reduceMotion {
+                Circle()
+                    .fill(CosmosTheme.cosmicPurple.opacity(0.25))
+                    .frame(width: 46, height: 46)
+                    .scaleEffect(pulseScale)
+            }
             
             Circle()
                 .fill(
@@ -207,8 +245,10 @@ private struct ActiveNodeView: View {
                 .foregroundColor(.white)
         }
         .onAppear {
-            withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) {
-                pulseScale = 1.3
+            if !reduceMotion {
+                withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) {
+                    pulseScale = 1.3
+                }
             }
         }
     }

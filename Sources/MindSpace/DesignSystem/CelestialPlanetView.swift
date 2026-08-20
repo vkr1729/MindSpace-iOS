@@ -11,6 +11,7 @@ public enum PlanetStyle: String, CaseIterable, Sendable {
     case brave          // Brave & Resilience
     case sport          // Sport & Performance
     case pro            // MindSpace Pro
+    case deepCosmos     // Default Deep Space
     
     public var assetImageName: String {
         switch self {
@@ -23,7 +24,7 @@ public enum PlanetStyle: String, CaseIterable, Sendable {
         case .deepLavender: return "planet_students"
         case .brave: return "planet_brave"
         case .sport: return "planet_sport"
-        case .pro: return "planet_pro"
+        case .pro, .deepCosmos: return "planet_pro"
         }
     }
     
@@ -39,6 +40,7 @@ public enum PlanetStyle: String, CaseIterable, Sendable {
         case .brave: return CosmosTheme.solarCoral
         case .sport: return CosmosTheme.auroraTeal
         case .pro: return CosmosTheme.starlightGold
+        case .deepCosmos: return CosmosTheme.cosmicPurple
         }
     }
     
@@ -54,9 +56,12 @@ public enum PlanetStyle: String, CaseIterable, Sendable {
         case .brave: return Color(hex: "#881337")
         case .sport: return Color(hex: "#0E7490")
         case .pro: return Color(hex: "#78350F")
+        case .deepCosmos: return Color(hex: "#1E1B4B")
         }
     }
 }
+
+public typealias CelestialPlanetStyle = PlanetStyle
 
 /// A procedural 3D celestial planet view with atmospheric glow, surface texture gradients, and planetary rings.
 public struct CelestialPlanetView: View {

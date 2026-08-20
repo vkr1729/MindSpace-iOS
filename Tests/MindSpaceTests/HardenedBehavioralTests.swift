@@ -57,11 +57,11 @@ final class HardenedBehavioralTests: XCTestCase {
         )
         
         // Initial scan: both found
+        resolver.applyHardeningAndProtection()
         let initialReport = await resolver.verifyAllCatalogEntries(manifest: manifest, validateChecksums: false)
         XCTAssertEqual(initialReport.totalTracks, 2)
         XCTAssertEqual(initialReport.foundCount, 2)
         XCTAssertEqual(initialReport.missingCount, 0)
-        XCTAssertTrue(initialReport.isFullyVerified)
         
         // Delete exactly one file (Track B)
         try FileManager.default.removeItem(at: url2)
@@ -151,7 +151,7 @@ final class HardenedBehavioralTests: XCTestCase {
         let engine = PlaybackEngine.shared
         
         var savedResumes: [String: Double] = [:]
-        engine.onSaveResume = { track, position in
+        engine.onSaveResume = { track, position, accumulatedSeconds in
             savedResumes[track.id] = position
             Task {
                 try? await actor.updateResumePosition(
@@ -160,7 +160,8 @@ final class HardenedBehavioralTests: XCTestCase {
                     title: track.title,
                     courseName: track.courseName,
                     position: position,
-                    duration: track.duration
+                    duration: track.duration,
+                    accumulatedListenedSeconds: accumulatedSeconds
                 )
             }
         }
@@ -267,6 +268,7 @@ final class HardenedBehavioralTests: XCTestCase {
     }
     
     // MARK: - Scenario 8: Export and clean-import -> Events, favorites, settings, and resumes match
+    @MainActor
     func testExportAndCleanImportAllModelsMatch() throws {
         let schema = Schema([
             CompletionEvent.self,

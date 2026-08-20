@@ -68,13 +68,33 @@ public final class HapticService: @unchecked Sendable {
         #endif
     }
     
-    private func dispatchOnMain(_ action: @escaping @MainActor () -> Void) {
+    /// Trigger warning notification for validation failures or alert states
+    public func warning() {
+        #if os(iOS)
+        dispatchOnMain {
+            self.notificationFeedback.notificationOccurred(.warning)
+            self.notificationFeedback.prepare()
+        }
+        #endif
+    }
+    
+    /// Trigger error notification for critical failures
+    public func error() {
+        #if os(iOS)
+        dispatchOnMain {
+            self.notificationFeedback.notificationOccurred(.error)
+            self.notificationFeedback.prepare()
+        }
+        #endif
+    }
+    
+    private func dispatchOnMain(_ action: @escaping @MainActor @Sendable () -> Void) {
         if Thread.isMainThread {
             MainActor.assumeIsolated {
                 action()
             }
         } else {
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 action()
             }
         }

@@ -9,20 +9,24 @@ public actor ProgressActor {
     
     @discardableResult
     public func recordCompletion(
+        id: UUID = UUID(),
         sessionStableId: String,
         courseId: String? = nil,
         playedSeconds: Double,
         isQualifying: Bool,
+        contentType: String = "meditation",
         reflection: String? = nil,
         timestamp: Date = Date(),
         timeZoneIdentifier: String = TimeZone.current.identifier,
         gmtOffsetSeconds: Int = TimeZone.current.secondsFromGMT()
     ) throws -> UUID {
         let event = CompletionEvent(
+            id: id,
             sessionStableId: sessionStableId,
             courseId: courseId,
             actualPlayedSeconds: playedSeconds,
             isQualifying: isQualifying,
+            contentType: contentType,
             reflection: reflection,
             timestamp: timestamp,
             timeZoneIdentifier: timeZoneIdentifier,
@@ -64,7 +68,8 @@ public actor ProgressActor {
         title: String,
         courseName: String?,
         position: Double,
-        duration: Double
+        duration: Double,
+        accumulatedListenedSeconds: Double = 0.0
     ) throws {
         let descriptor = FetchDescriptor<PlaybackResume>(
             predicate: #Predicate { $0.sessionStableId == sessionStableId }
@@ -76,6 +81,7 @@ public actor ProgressActor {
             existing.courseName = courseName
             existing.lastPositionSeconds = position
             existing.durationSeconds = duration
+            existing.accumulatedListenedSeconds = accumulatedListenedSeconds
             existing.updatedAt = Date()
         } else {
             let newResume = PlaybackResume(
@@ -84,7 +90,8 @@ public actor ProgressActor {
                 sessionTitle: title,
                 courseName: courseName,
                 position: position,
-                duration: duration
+                duration: duration,
+                accumulatedListenedSeconds: accumulatedListenedSeconds
             )
             modelContext.insert(newResume)
         }
@@ -172,7 +179,11 @@ public actor ProgressActor {
         reminderEnabled: Bool? = nil,
         themeMode: String? = nil,
         hideStreak: Bool? = nil,
-        compassionPassCount: Int? = nil
+        compassionPassCount: Int? = nil,
+        lastUsedCompassionPassDate: Date? = nil,
+        hasCompletedOnboarding: Bool? = nil,
+        selectedGoals: [String]? = nil,
+        hasAcknowledgedDisclaimer: Bool? = nil
     ) throws {
         let settings = try getOrCreateSettings()
         if let defaultDuration { settings.defaultDurationMinutes = defaultDuration }
@@ -181,6 +192,10 @@ public actor ProgressActor {
         if let themeMode { settings.themeMode = themeMode }
         if let hideStreak { settings.hideStreak = hideStreak }
         if let compassionPassCount { settings.compassionPassCount = compassionPassCount }
+        if let lastUsedCompassionPassDate { settings.lastUsedCompassionPassDate = lastUsedCompassionPassDate }
+        if let hasCompletedOnboarding { settings.hasCompletedOnboarding = hasCompletedOnboarding }
+        if let selectedGoals { settings.selectedGoals = selectedGoals }
+        if let hasAcknowledgedDisclaimer { settings.hasAcknowledgedDisclaimer = hasAcknowledgedDisclaimer }
         try modelContext.save()
     }
 }

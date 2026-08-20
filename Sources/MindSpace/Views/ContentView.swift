@@ -28,15 +28,22 @@ public enum AppTab: Int, CaseIterable, Identifiable {
     }
 }
 
-/// Root application view hosting the 4 cosmic tabs and persistent floating mini-player dock.
+/// Root application view hosting the 4 cosmic tabs, onboarding gate, and persistent mini-player dock.
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var playbackEngine = PlaybackEngine.shared
     
+    @Query private var settingsList: [UserSettings]
+    
     @State private var selectedTab: AppTab = .today
+    @State private var showOnboarding: Bool = false
     
     public init() {}
+    
+    private var hasCompletedOnboarding: Bool {
+        settingsList.first?.hasCompletedOnboarding ?? false
+    }
     
     public var body: some View {
         ZStack(alignment: .bottom) {
@@ -69,13 +76,32 @@ public struct ContentView: View {
         .fullScreenCover(isPresented: $playbackEngine.isFullPlayerPresented) {
             MeditationPlayerView()
         }
+        .fullScreenCover(isPresented: $showOnboarding) {
+            OnboardingView()
+        }
         .onAppear {
             setupPlaybackCallbacks()
+            checkOnboardingStatus()
+        }
+        .onChange(of: settingsList) { _, newList in
+            if let settings = newList.first, !settings.hasCompletedOnboarding {
+                showOnboarding = true
+            }
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .background || newPhase == .inactive {
                 playbackEngine.saveCurrentResumePosition()
             }
+        }
+    }
+    
+    private func checkOnboardingStatus() {
+        if let settings = settingsList.first {
+            if !settings.hasCompletedOnboarding {
+                showOnboarding = true
+            }
+        } else {
+            showOnboarding = true
         }
     }
     
@@ -125,17 +151,19 @@ public struct ContentView: View {
             Task {
                 let actor = ProgressActor(modelContainer: container)
                 try? await actor.recordCompletion(
+                    id: completionId,
                     sessionStableId: track.id,
                     courseId: track.courseName,
                     playedSeconds: playedSeconds,
                     isQualifying: isQualifying,
+                    contentType: track.contentType,
                     reflection: nil,
                     timestamp: Date()
                 )
             }
         }
         
-        playbackEngine.onSaveResume = { track, position in
+        playbackEngine.onSaveResume = { track, position, accumulatedListenedSeconds in
             Task {
                 let actor = ProgressActor(modelContainer: container)
                 try? await actor.updateResumePosition(
@@ -144,7 +172,8 @@ public struct ContentView: View {
                     title: track.title,
                     courseName: track.courseName,
                     position: position,
-                    duration: track.duration
+                    duration: track.duration,
+                    accumulatedListenedSeconds: accumulatedListenedSeconds
                 )
             }
         }

@@ -59,6 +59,9 @@ public struct BackupUserSettings: Codable, Sendable {
     public let themeMode: String
     public let hideStreak: Bool
     public let compassionPassCount: Int
+    public let hasCompletedOnboarding: Bool?
+    public let selectedGoals: [String]?
+    public let hasAcknowledgedDisclaimer: Bool?
     
     public init(
         defaultDurationMinutes: Int,
@@ -66,7 +69,10 @@ public struct BackupUserSettings: Codable, Sendable {
         reminderEnabled: Bool = false,
         themeMode: String,
         hideStreak: Bool,
-        compassionPassCount: Int
+        compassionPassCount: Int,
+        hasCompletedOnboarding: Bool? = true,
+        selectedGoals: [String]? = nil,
+        hasAcknowledgedDisclaimer: Bool? = true
     ) {
         self.defaultDurationMinutes = defaultDurationMinutes
         self.reminderTime = reminderTime
@@ -74,9 +80,11 @@ public struct BackupUserSettings: Codable, Sendable {
         self.themeMode = themeMode
         self.hideStreak = hideStreak
         self.compassionPassCount = compassionPassCount
+        self.hasCompletedOnboarding = hasCompletedOnboarding
+        self.selectedGoals = selectedGoals
+        self.hasAcknowledgedDisclaimer = hasAcknowledgedDisclaimer
     }
     
-    // Custom decoding to support legacy backups without reminderEnabled
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.defaultDurationMinutes = try container.decode(Int.self, forKey: .defaultDurationMinutes)
@@ -85,6 +93,9 @@ public struct BackupUserSettings: Codable, Sendable {
         self.themeMode = try container.decode(String.self, forKey: .themeMode)
         self.hideStreak = try container.decode(Bool.self, forKey: .hideStreak)
         self.compassionPassCount = try container.decode(Int.self, forKey: .compassionPassCount)
+        self.hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding)
+        self.selectedGoals = try container.decodeIfPresent([String].self, forKey: .selectedGoals)
+        self.hasAcknowledgedDisclaimer = try container.decodeIfPresent(Bool.self, forKey: .hasAcknowledgedDisclaimer)
     }
 }
 
@@ -96,6 +107,7 @@ public struct BackupCompletionEvent: Codable, Sendable {
     public let timeZone: String
     public let playedSeconds: Double
     public let isQualifying: Bool
+    public let contentType: String?
     public let reflection: String?
     
     public init(
@@ -106,6 +118,7 @@ public struct BackupCompletionEvent: Codable, Sendable {
         timeZone: String,
         playedSeconds: Double,
         isQualifying: Bool,
+        contentType: String? = "meditation",
         reflection: String?
     ) {
         self.id = id
@@ -115,6 +128,7 @@ public struct BackupCompletionEvent: Codable, Sendable {
         self.timeZone = timeZone
         self.playedSeconds = playedSeconds
         self.isQualifying = isQualifying
+        self.contentType = contentType
         self.reflection = reflection
     }
 }
@@ -126,6 +140,7 @@ public struct BackupPlaybackResume: Codable, Sendable {
     public let courseName: String?
     public let lastPositionSeconds: Double
     public let durationSeconds: Double
+    public let accumulatedListenedSeconds: Double?
     public let updatedAt: String
     
     public init(
@@ -135,6 +150,7 @@ public struct BackupPlaybackResume: Codable, Sendable {
         courseName: String? = nil,
         lastPositionSeconds: Double,
         durationSeconds: Double,
+        accumulatedListenedSeconds: Double? = 0.0,
         updatedAt: String = DateFormatterCache.iso8601String(from: Date())
     ) {
         self.sessionStableId = sessionStableId
@@ -143,6 +159,7 @@ public struct BackupPlaybackResume: Codable, Sendable {
         self.courseName = courseName
         self.lastPositionSeconds = lastPositionSeconds
         self.durationSeconds = durationSeconds
+        self.accumulatedListenedSeconds = accumulatedListenedSeconds
         self.updatedAt = updatedAt
     }
 }
@@ -156,4 +173,3 @@ public struct BackupAchievement: Codable, Sendable {
         self.unlockedAt = unlockedAt
     }
 }
-

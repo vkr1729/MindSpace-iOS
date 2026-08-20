@@ -8,7 +8,7 @@ public struct OrbitStats: Sendable {
     public let nextMilestoneDays: Int
     public let compassionPassesAvailable: Int
     public let compassionPassUsedCount: Int
-    public let activeDates: Set<String> // YYYY-MM-DD
+    public let activeDates: Set<String> // YYYY-MM-DD (all mindful activity)
     public let dailyMinutes: [String: Int] // YYYY-MM-DD -> total minutes
 }
 
@@ -35,67 +35,116 @@ public struct OrbitCalculator: Sendable {
         return sensitiveTopicKeywords.contains { name.contains($0) }
     }
     
+    /// Determines whether a completion event is eligible to advance the meditation Orbit streak.
+    public static func isStreakEligible(event: CompletionEvent) -> Bool {
+        guard event.isQualifyingMeditation else { return false }
+        if isSensitiveTopic(courseName: event.courseId) { return false }
+        let type = event.contentType.lowercased()
+        if type == "sleep" || type == "video" || type == "sos" || type == "sensitive" {
+            return false
+        }
+        return true
+    }
+    
+    public func calculateStats(
+        events: [CompletionEvent],
+        existingCompassionPasses: Int = 0,
+        lastUsedPassDate: Date? = nil
+    ) -> OrbitStats {
+        return calculateStats(
+            events: events,
+            calendar: .current,
+            today: Date(),
+            existingCompassionPasses: existingCompassionPasses,
+            lastUsedPassDate: lastUsedPassDate
+        )
+    }
+    
     public func calculateStats(
         events: [CompletionEvent],
         calendar: Calendar = .current,
         today: Date = Date(),
-        existingCompassionPasses: Int = 0
+        existingCompassionPasses: Int = 0,
+        lastUsedPassDate: Date? = nil
     ) -> OrbitStats {
         let qualifyingEvents = events.filter { $0.isQualifyingMeditation }
         
-        // Calculate total mindful minutes
+        // Total mindful minutes and sessions include all listening content
         let totalSeconds = qualifyingEvents.reduce(0.0) { $0 + $1.actualPlayedSeconds }
         let totalMinutes = Int(totalSeconds / 60.0)
         let totalCount = qualifyingEvents.count
         
-        // Map events to unique local calendar day strings "YYYY-MM-DD"
+        // Map all qualifying activity to unique calendar day strings "YYYY-MM-DD"
         var dailyMinutes: [String: Int] = [:]
-        var daySessions: [String: [CompletionEvent]] = [:]
-        
         for event in qualifyingEvents {
             let dayKey = DateFormatterCache.dayKey(from: event.timestamp, timeZoneIdentifier: event.timeZoneIdentifier)
             let mins = Int(event.actualPlayedSeconds / 60.0)
             dailyMinutes[dayKey, default: 0] += max(1, mins)
-            daySessions[dayKey, default: []].append(event)
+        }
+        let allActiveDays = Set(dailyMinutes.keys)
+        
+        // Filter events strictly eligible for Orbit streaks (meditation only, excluding passive/sensitive)
+        let streakEvents = qualifyingEvents.filter { Self.isStreakEligible(event: $0) }
+        var streakDays: Set<String> = []
+        for event in streakEvents {
+            let dayKey = DateFormatterCache.dayKey(from: event.timestamp, timeZoneIdentifier: event.timeZoneIdentifier)
+            streakDays.insert(dayKey)
         }
         
-        let uniqueDays = Set(dailyMinutes.keys)
+        // Calculate passes earned chronologically from historical active days (1 pass per 7 active days)
+        let chronologicalDays = streakDays.sorted()
+        let earnedFromHistory = chronologicalDays.count / 7
+        let initialAvailablePasses = max(existingCompassionPasses, earnedFromHistory)
         
-        // Calculate Streaks with Compassion Pass support
-        var currentStreak = 0
-        var bestStreak = 0
-        var passesAvailable = existingCompassionPasses
+        var passesAvailable = initialAvailablePasses
         var passesUsed = 0
+        var recordedUsedDates: [Date] = []
+        if let last = lastUsedPassDate {
+            recordedUsedDates.append(last)
+        }
         
-        // Start checking backwards from today
+        // Calculate current streak working backwards from today
         let checkDate = calendar.startOfDay(for: today)
+        let todayKey = DateFormatterCache.dayKey(from: checkDate)
         
-        // If today is practiced, start streak = 1; if not, check if yesterday was practiced
-        var consecutiveDays = 0
-        var usedPassForRecentMiss = false
-        
-        // Rolling backwards day-by-day
         var cursor = checkDate
-        var checkedCount = 0
+        var consecutiveDays = 0
+        var consecutiveMisses = 0
         
+        // Check if today was practiced
+        if !streakDays.contains(todayKey) {
+            // If today is not practiced yet, allow streak calculation to begin from yesterday without breaking
+            if let yesterday = calendar.date(byAdding: .day, value: -1, to: checkDate) {
+                cursor = yesterday
+            }
+        }
+        
+        var checkedCount = 0
+        var confirmedStreak = 0
         while checkedCount < 365 {
             let key = DateFormatterCache.dayKey(from: cursor)
-            if uniqueDays.contains(key) {
+            if streakDays.contains(key) {
                 consecutiveDays += 1
-                // Earning a compassion pass for every 7 days reached
-                if consecutiveDays % 7 == 0 {
-                    passesAvailable += 1
-                }
+                confirmedStreak = consecutiveDays
+                consecutiveMisses = 0
             } else {
-                // If today itself has not been practiced yet, allow streak to continue from yesterday
-                if cursor == checkDate {
-                    // Today not yet practiced, continue checking yesterday
-                } else if passesAvailable > 0 && !usedPassForRecentMiss {
-                    // Use Compassion Pass for 1 missed day
+                consecutiveMisses += 1
+                if consecutiveMisses > 1 {
+                    // Cannot cover more than 1 consecutive missed day; rollback unconfirmed pass
+                    break
+                }
+                
+                // Check if a pass can be used for this single missed day
+                let canUseInRollingWindow = recordedUsedDates.allSatisfy { prevUsed in
+                    let diffDays = abs(calendar.dateComponents([.day], from: calendar.startOfDay(for: prevUsed), to: cursor).day ?? 0)
+                    return diffDays >= 30
+                }
+                
+                if passesAvailable > 0 && canUseInRollingWindow {
                     passesAvailable -= 1
                     passesUsed += 1
-                    usedPassForRecentMiss = true
-                    consecutiveDays += 1 // Compassion pass keeps orbit intact
+                    recordedUsedDates.append(cursor)
+                    consecutiveDays += 1 // Tentatively protected by Compassion Pass
                 } else {
                     break
                 }
@@ -106,10 +155,9 @@ public struct OrbitCalculator: Sendable {
             checkedCount += 1
         }
         
-        currentStreak = consecutiveDays
-        bestStreak = max(currentStreak, computeHistoricalBestStreak(uniqueDays: uniqueDays, calendar: calendar))
+        let currentStreak = confirmedStreak
+        let bestStreak = max(currentStreak, computeHistoricalBestStreak(uniqueDays: streakDays, calendar: calendar))
         
-        // Next milestone: 7 -> 14 -> 30 -> 60 -> 100 -> 365
         let milestones = [7, 14, 30, 60, 100, 365]
         let nextMilestone = milestones.first(where: { $0 > currentStreak }) ?? (currentStreak + 30)
         
@@ -121,7 +169,7 @@ public struct OrbitCalculator: Sendable {
             nextMilestoneDays: nextMilestone,
             compassionPassesAvailable: passesAvailable,
             compassionPassUsedCount: passesUsed,
-            activeDates: uniqueDays,
+            activeDates: allActiveDays,
             dailyMinutes: dailyMinutes
         )
     }
@@ -159,7 +207,7 @@ public struct OrbitCalculator: Sendable {
             CelestialAchievement(
                 id: "first_orbit",
                 title: "First Orbit",
-                description: "Complete a 7-day unbroken orbit",
+                description: "Complete a 7-day unbroken meditation orbit",
                 requiredStreak: 7,
                 iconName: "sparkles",
                 isUnlocked: currentStreak >= 7
@@ -175,7 +223,7 @@ public struct OrbitCalculator: Sendable {
             CelestialAchievement(
                 id: "deep_space",
                 title: "Deep Space",
-                description: "Reach a 30-day celestial orbit",
+                description: "Reach a 30-day celestial meditation orbit",
                 requiredStreak: 30,
                 iconName: "globe.americas.fill",
                 isUnlocked: currentStreak >= 30

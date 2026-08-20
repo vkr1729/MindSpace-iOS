@@ -100,6 +100,26 @@ public struct CatalogCourse: Codable, Identifiable, Sendable, Hashable {
         self.introVideo = introVideo
         self.sessions = sessions
     }
+    
+    public init(
+        id: String,
+        name: String,
+        folderName: String,
+        order: Int = 1,
+        description: String = "",
+        totalSessions: Int = 10,
+        sessions: [CatalogSession]
+    ) {
+        self.id = id
+        self.name = name
+        self.folderName = folderName
+        self.order = order
+        self.description = description
+        self.totalSessions = totalSessions
+        self.hasGapWaiver = false
+        self.introVideo = nil
+        self.sessions = sessions
+    }
 }
 
 // MARK: - Catalog Session (Pack Daily Session)
@@ -250,6 +270,24 @@ public struct SingleSession: Codable, Identifiable, Sendable, Hashable {
         self.sizeBytes = sizeBytes
         self.sha256 = sha256
         self.codec = codec
+    }
+    
+    public init(
+        id: String,
+        title: String,
+        category: String,
+        relativePath: String,
+        duration: Double
+    ) {
+        self.id = id
+        self.title = title
+        self.category = category
+        self.subCategory = nil
+        self.relativePath = relativePath
+        self.duration = duration
+        self.sizeBytes = 0
+        self.sha256 = ""
+        self.codec = "mp3"
     }
     
     public var formattedDuration: String {

@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UserNotifications
 
 /// Settings & Library Management Screen
 public struct SettingsView: View {
@@ -15,11 +16,14 @@ public struct SettingsView: View {
     @State private var exportURL: URL?
     @State private var isShowingShareSheet = false
     @State private var isShowingDocumentPicker = false
+    @State private var isShowingDisclaimerSheet = false
     @State private var pendingImportDocument: MindSpaceBackupDocument?
     @State private var importStatusMessage: String?
     @State private var isScanningLibrary = false
+    @State private var isVerifyingChecksums = false
     @State private var verificationReport: LibraryVerificationReport?
     @State private var reminderDate: Date = Date()
+    @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
     
     public init() {}
     
@@ -35,9 +39,11 @@ public struct SettingsView: View {
     
     private var orbitStats: OrbitStats {
         let passes = settingsList.first?.compassionPassCount ?? 0
+        let lastPassDate = settingsList.first?.lastUsedCompassionPassDate
         return OrbitCalculator().calculateStats(
             events: completionEvents,
-            existingCompassionPasses: passes
+            existingCompassionPasses: passes,
+            lastUsedPassDate: lastPassDate
         )
     }
     
@@ -98,7 +104,7 @@ public struct SettingsView: View {
                                     }
                                     Spacer()
                                     Circle()
-                                        .fill(CosmosTheme.auroraTeal)
+                                        .fill(storageSizeBytes > 0 ? CosmosTheme.auroraTeal : CosmosTheme.solarCoral)
                                         .frame(width: 10, height: 10)
                                 }
                                 
@@ -116,32 +122,57 @@ public struct SettingsView: View {
                                     Spacer()
                                 }
                                 
-                                Button(action: {
-                                    rescanAndVerifyLibrary()
-                                }) {
-                                    HStack(spacing: 8) {
-                                        if isScanningLibrary {
-                                            ProgressView().tint(.white)
-                                                .scaleEffect(0.8)
-                                            Text("Scanning & Verifying Checksums...")
-                                                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                        } else {
-                                            Image(systemName: "arrow.triangle.2.circlepath")
-                                            Text("Rescan & Verify Library")
-                                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                HStack(spacing: 10) {
+                                    Button(action: {
+                                        rescanAndVerifyLibrary(validateChecksums: false)
+                                    }) {
+                                        HStack(spacing: 6) {
+                                            if isScanningLibrary && !isVerifyingChecksums {
+                                                ProgressView().tint(.white).scaleEffect(0.8)
+                                                Text("Scanning...")
+                                            } else {
+                                                Image(systemName: "arrow.triangle.2.circlepath")
+                                                Text("Quick Scan")
+                                            }
                                         }
+                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                        .foregroundColor(CosmosTheme.textPrimary)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 11)
+                                        .background(CosmosTheme.spacePill)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12).stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
+                                        )
                                     }
-                                    .foregroundColor(CosmosTheme.textPrimary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(CosmosTheme.spacePill)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12).stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
-                                    )
+                                    .buttonStyle(.cosmicPressable)
+                                    .disabled(isScanningLibrary)
+                                    
+                                    Button(action: {
+                                        rescanAndVerifyLibrary(validateChecksums: true)
+                                    }) {
+                                        HStack(spacing: 6) {
+                                            if isScanningLibrary && isVerifyingChecksums {
+                                                ProgressView().tint(.white).scaleEffect(0.8)
+                                                Text("Verifying...")
+                                            } else {
+                                                Image(systemName: "checkmark.shield")
+                                                Text("SHA-256 Audit")
+                                            }
+                                        }
+                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                        .foregroundColor(CosmosTheme.starlightGold)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 11)
+                                        .background(CosmosTheme.spacePill)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12).stroke(CosmosTheme.starlightGold.opacity(0.4), lineWidth: 1)
+                                        )
+                                    }
+                                    .buttonStyle(.cosmicPressable)
+                                    .disabled(isScanningLibrary)
                                 }
-                                .buttonStyle(.cosmicPressable)
-                                .disabled(isScanningLibrary)
                                 
                                 // Detailed Verification Results Banner
                                 if let report = verificationReport {
@@ -189,20 +220,22 @@ public struct SettingsView: View {
                                                         .fontWeight(.semibold)
                                                 }
                                             }
-                                            HStack {
-                                                Text("• Total Mindfulness Duration:")
-                                                    .foregroundColor(CosmosTheme.textSecondary)
-                                                Spacer()
-                                                Text(report.totalHoursFormatted)
-                                                    .foregroundColor(CosmosTheme.textPrimary)
-                                                    .fontWeight(.semibold)
+                                            if report.checksumMismatchedCount > 0 {
+                                                HStack {
+                                                    Text("• Checksum Mismatches:")
+                                                        .foregroundColor(CosmosTheme.textSecondary)
+                                                    Spacer()
+                                                    Text("\(report.checksumMismatchedCount)")
+                                                        .foregroundColor(CosmosTheme.solarCoral)
+                                                        .fontWeight(.semibold)
+                                                }
                                             }
                                             HStack {
                                                 Text("• Offline Storage Hardening:")
                                                     .foregroundColor(CosmosTheme.textSecondary)
                                                 Spacer()
-                                                Text(report.isHardened ? "Protected (No iCloud Leaks)" : "Active")
-                                                    .foregroundColor(CosmosTheme.starlightGold)
+                                                Text(report.isHardened ? "Protected (iCloud excluded & secure)" : "Not hardened")
+                                                    .foregroundColor(report.isHardened ? CosmosTheme.starlightGold : CosmosTheme.solarCoral)
                                                     .fontWeight(.semibold)
                                             }
                                         }
@@ -299,19 +332,7 @@ public struct SettingsView: View {
                                 Toggle(isOn: Binding(
                                     get: { settingsList.first?.reminderEnabled ?? false },
                                     set: { val in
-                                        let s = getOrCreateSettings()
-                                        s.reminderEnabled = val
-                                        try? modelContext.save()
-                                        HapticService.shared.selection()
-                                        Task {
-                                            if val {
-                                                _ = await NotificationScheduler.shared.requestAuthorization()
-                                            }
-                                            NotificationScheduler.shared.scheduleDailyReminder(
-                                                timeString: s.reminderTime,
-                                                enabled: val
-                                            )
-                                        }
+                                        handleReminderToggle(val)
                                     }
                                 )) {
                                     VStack(alignment: .leading, spacing: 2) {
@@ -324,6 +345,23 @@ public struct SettingsView: View {
                                     }
                                 }
                                 .tint(CosmosTheme.cosmicPurple)
+                                
+                                if notificationStatus == .denied {
+                                    HStack {
+                                        Text("Notifications are disabled in iOS Settings.")
+                                            .font(.system(size: 12, weight: .regular, design: .rounded))
+                                            .foregroundColor(CosmosTheme.solarCoral)
+                                        Spacer()
+                                        Button("Open Settings") {
+                                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                                UIApplication.shared.open(url)
+                                            }
+                                        }
+                                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                                        .foregroundColor(CosmosTheme.starlightGold)
+                                    }
+                                    .padding(.top, 4)
+                                }
                                 
                                 if settingsList.first?.reminderEnabled == true {
                                     Divider().background(CosmosTheme.spaceCardBorder)
@@ -375,6 +413,38 @@ public struct SettingsView: View {
                         .padding(.horizontal, 20)
                     }
                     
+                    // MARK: - Medical & Wellness Disclaimer Link
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Legal & Safety")
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(CosmosTheme.textSecondary)
+                            .padding(.horizontal, 20)
+                        
+                        CosmicCard(padding: 16) {
+                            Button(action: {
+                                HapticService.shared.light()
+                                isShowingDisclaimerSheet = true
+                            }) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Medical & Wellness Disclaimer")
+                                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                            .foregroundColor(CosmosTheme.textPrimary)
+                                        Text("Health notices, non-clinical scope & safe usage")
+                                            .font(.system(size: 12, weight: .regular, design: .rounded))
+                                            .foregroundColor(CosmosTheme.textSecondary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(CosmosTheme.textSecondary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 20)
+                    }
+                    
                     // MARK: - Privacy & Zero Network Guarantee
                     CosmicCard(padding: 16) {
                         VStack(alignment: .leading, spacing: 6) {
@@ -400,6 +470,7 @@ public struct SettingsView: View {
         .onAppear {
             _ = getOrCreateSettings()
             syncReminderDateFromSettings()
+            checkNotificationAuth()
         }
         #if os(iOS)
         .sheet(isPresented: $isShowingShareSheet) {
@@ -411,6 +482,9 @@ public struct SettingsView: View {
             DocumentPickerView { url in
                 handlePickedDocument(url: url)
             }
+        }
+        .sheet(isPresented: $isShowingDisclaimerSheet) {
+            wellnessDisclaimerSheet
         }
         #endif
         .sheet(item: Binding(
@@ -434,9 +508,99 @@ public struct SettingsView: View {
         }
     }
     
+    private var wellnessDisclaimerSheet: some View {
+        NavigationStack {
+            ZStack {
+                CosmosTheme.spaceBackground.ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Important Health & Safety Notice")
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .foregroundColor(CosmosTheme.starlightGold)
+                        
+                        Text("MindSpace provides self-guided mindfulness meditation, breathing exercises, and relaxation audio for general wellbeing and stress management. MindSpace is NOT a medical device, diagnosis, clinical therapy, or healthcare provider.\n\nMeditation and mindfulness are complementary wellness practices and are not intended to diagnose, treat, cure, or prevent any mental or physical illness, psychiatric condition, or clinical disorder. If you are experiencing severe depression, anxiety, panic disorder, trauma, or psychiatric distress, please consult a licensed healthcare professional.\n\nNever listen to meditation tracks or sleep sounds while driving, operating machinery, or performing any activity requiring active attention.")
+                            .font(.system(size: 14, weight: .regular, design: .rounded))
+                            .foregroundColor(CosmosTheme.textSecondary)
+                            .lineSpacing(6)
+                        
+                        Spacer()
+                    }
+                    .padding(24)
+                }
+            }
+            .navigationTitle("Wellness Disclaimer")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        isShowingDisclaimerSheet = false
+                    }
+                    .foregroundColor(CosmosTheme.moonLavender)
+                }
+            }
+        }
+    }
+    
     private struct IdentifiableBackup: Identifiable {
         let id = UUID()
         let doc: MindSpaceBackupDocument
+    }
+    
+    private func checkNotificationAuth() {
+        Task {
+            let settings = await UNUserNotificationCenter.current().notificationSettings()
+            await MainActor.run {
+                self.notificationStatus = settings.authorizationStatus
+                if settings.authorizationStatus != .authorized && settings.authorizationStatus != .provisional {
+                    let s = getOrCreateSettings()
+                    if s.reminderEnabled {
+                        s.reminderEnabled = false
+                        try? modelContext.save()
+                    }
+                }
+            }
+        }
+    }
+    
+    private func handleReminderToggle(_ val: Bool) {
+        if val {
+            Task {
+                let notifSettings = await UNUserNotificationCenter.current().notificationSettings()
+                if notifSettings.authorizationStatus == .denied {
+                    await MainActor.run {
+                        self.notificationStatus = .denied
+                        let s = getOrCreateSettings()
+                        s.reminderEnabled = false
+                        try? modelContext.save()
+                        HapticService.shared.warning()
+                    }
+                    return
+                }
+                
+                let granted = await NotificationScheduler.shared.requestAuthorization()
+                await MainActor.run {
+                    let s = getOrCreateSettings()
+                    if granted {
+                        self.notificationStatus = .authorized
+                        s.reminderEnabled = true
+                        NotificationScheduler.shared.scheduleDailyReminder(timeString: s.reminderTime, enabled: true)
+                        HapticService.shared.selection()
+                    } else {
+                        self.notificationStatus = .denied
+                        s.reminderEnabled = false
+                        HapticService.shared.warning()
+                    }
+                    try? modelContext.save()
+                }
+            }
+        } else {
+            let s = getOrCreateSettings()
+            s.reminderEnabled = false
+            NotificationScheduler.shared.scheduleDailyReminder(timeString: s.reminderTime, enabled: false)
+            try? modelContext.save()
+            HapticService.shared.selection()
+        }
     }
     
     private func syncReminderDateFromSettings() {
@@ -488,8 +652,9 @@ public struct SettingsView: View {
         }
     }
     
-    private func rescanAndVerifyLibrary() {
+    private func rescanAndVerifyLibrary(validateChecksums: Bool) {
         isScanningLibrary = true
+        isVerifyingChecksums = validateChecksums
         HapticService.shared.medium()
         
         LibraryPathResolver.shared.applyHardeningAndProtection()
@@ -498,13 +663,14 @@ public struct SettingsView: View {
         Task {
             let report = await LibraryPathResolver.shared.verifyAllCatalogEntries(
                 manifest: catalogService.manifest,
-                validateChecksums: false
+                validateChecksums: validateChecksums
             )
             
             await MainActor.run {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                     self.verificationReport = report
                     self.isScanningLibrary = false
+                    self.isVerifyingChecksums = false
                 }
                 
                 if report.isFullyVerified {

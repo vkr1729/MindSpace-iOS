@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// Append-only log of completed mindful meditations.
+/// Append-only log of completed mindful meditations and listening events.
 @Model
 public final class CompletionEvent {
     @Attribute(.unique) public var id: UUID
@@ -12,6 +12,7 @@ public final class CompletionEvent {
     public var gmtOffsetSeconds: Int
     public var actualPlayedSeconds: Double
     public var isQualifyingMeditation: Bool
+    public var contentType: String // "meditation", "sleep", "video", "sos", "sensitive"
     public var reflectionNote: String? // "lighter", "same", "heavier"
     
     public init(
@@ -20,6 +21,7 @@ public final class CompletionEvent {
         courseId: String? = nil,
         actualPlayedSeconds: Double,
         isQualifying: Bool,
+        contentType: String = "meditation",
         reflection: String? = nil,
         timestamp: Date = Date(),
         timeZoneIdentifier: String = TimeZone.current.identifier,
@@ -33,11 +35,12 @@ public final class CompletionEvent {
         self.gmtOffsetSeconds = gmtOffsetSeconds
         self.actualPlayedSeconds = actualPlayedSeconds
         self.isQualifyingMeditation = isQualifying
+        self.contentType = contentType
         self.reflectionNote = reflection
     }
 }
 
-/// Resume point storing relative media path and playback progress.
+/// Resume point storing relative media path, playback progress, and verified listened time.
 @Model
 public final class PlaybackResume {
     @Attribute(.unique) public var sessionStableId: String
@@ -46,6 +49,7 @@ public final class PlaybackResume {
     public var courseName: String?
     public var lastPositionSeconds: Double
     public var durationSeconds: Double
+    public var accumulatedListenedSeconds: Double
     public var updatedAt: Date
     
     public init(
@@ -54,7 +58,8 @@ public final class PlaybackResume {
         sessionTitle: String,
         courseName: String? = nil,
         position: Double,
-        duration: Double
+        duration: Double,
+        accumulatedListenedSeconds: Double = 0.0
     ) {
         self.sessionStableId = sessionStableId
         self.relativePath = relativePath
@@ -62,6 +67,7 @@ public final class PlaybackResume {
         self.courseName = courseName
         self.lastPositionSeconds = position
         self.durationSeconds = duration
+        self.accumulatedListenedSeconds = accumulatedListenedSeconds
         self.updatedAt = Date()
     }
 }
@@ -93,6 +99,9 @@ public final class UserSettings {
     public var hideStreak: Bool
     public var compassionPassCount: Int
     public var lastUsedCompassionPassDate: Date?
+    public var hasCompletedOnboarding: Bool
+    public var selectedGoalsCSV: String // Comma-separated list of goal IDs
+    public var hasAcknowledgedDisclaimer: Bool
     
     public init(
         id: String = "primary_settings",
@@ -102,7 +111,10 @@ public final class UserSettings {
         themeMode: String = "quiet_cosmos",
         hideStreak: Bool = false,
         compassionPassCount: Int = 0,
-        lastUsedCompassionPassDate: Date? = nil
+        lastUsedCompassionPassDate: Date? = nil,
+        hasCompletedOnboarding: Bool = false,
+        selectedGoals: [String] = [],
+        hasAcknowledgedDisclaimer: Bool = false
     ) {
         self.id = id
         self.defaultDurationMinutes = defaultDuration
@@ -112,5 +124,17 @@ public final class UserSettings {
         self.hideStreak = hideStreak
         self.compassionPassCount = compassionPassCount
         self.lastUsedCompassionPassDate = lastUsedCompassionPassDate
+        self.hasCompletedOnboarding = hasCompletedOnboarding
+        self.selectedGoalsCSV = selectedGoals.joined(separator: ",")
+        self.hasAcknowledgedDisclaimer = hasAcknowledgedDisclaimer
+    }
+    
+    public var selectedGoals: [String] {
+        get {
+            selectedGoalsCSV.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        }
+        set {
+            selectedGoalsCSV = newValue.joined(separator: ",")
+        }
     }
 }

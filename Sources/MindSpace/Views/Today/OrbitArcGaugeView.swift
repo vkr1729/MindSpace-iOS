@@ -22,6 +22,20 @@ public struct OrbitArcGaugeView: View {
         self.lineWidth = lineWidth
     }
     
+    public init(
+        currentStreak: Int = 7,
+        milestoneDays: Int = 14,
+        totalMinutes: Int = 0,
+        passesAvailable: Int = 0,
+        size: CGFloat = 170,
+        lineWidth: CGFloat = 14
+    ) {
+        self.currentStreak = currentStreak
+        self.milestoneGoal = max(1, milestoneDays)
+        self.size = size
+        self.lineWidth = lineWidth
+    }
+    
     private var progress: Double {
         min(1.0, Double(currentStreak) / Double(milestoneGoal))
     }

@@ -36,7 +36,7 @@ public struct LibraryVerificationReport: Sendable, Equatable {
     }
     
     public var isFullyVerified: Bool {
-        totalTracks > 0 && missingCount == 0 && sizeMismatchedCount == 0 && checksumMismatchedCount == 0
+        totalTracks > 0 && missingCount == 0 && sizeMismatchedCount == 0 && checksumMismatchedCount == 0 && isHardened
     }
 }
 
@@ -75,7 +75,6 @@ public struct LibraryPathResolver: Sendable {
             }
         }
         
-        // Return nil if file does not exist on disk
         return nil
     }
     
@@ -84,26 +83,56 @@ public struct LibraryPathResolver: Sendable {
         return resolveURL(for: relativePath) != nil
     }
     
-    /// Hardens the library folder with iCloud backup exclusion and background read permissions.
-    public func applyHardeningAndProtection() {
+    /// Checks whether the library directory is correctly hardened with iCloud backup exclusion and complete-until-auth protection.
+    public func checkHardeningStatus() -> Bool {
         let url = libraryDirectoryURL
         let fileManager = FileManager.default
         
-        if !fileManager.fileExists(atPath: url.path) {
-            try? fileManager.createDirectory(at: url, withIntermediateDirectories: true)
+        guard fileManager.fileExists(atPath: url.path) else {
+            return false
         }
         
-        // 1. Exclude from iCloud backup
-        var mutableURL = url
-        var values = URLResourceValues()
-        values.isExcludedFromBackup = true
-        try? mutableURL.setResourceValues(values)
+        var isExcludedFromBackup = false
+        if let values = try? url.resourceValues(forKeys: [.isExcludedFromBackupKey]),
+           let excluded = values.isExcludedFromBackup {
+            isExcludedFromBackup = excluded
+        }
         
-        // 2. Set NSFileProtectionCompleteUntilFirstUserAuthentication
-        try? fileManager.setAttributes(
-            [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
-            ofItemAtPath: url.path
-        )
+        var isProtected = false
+        if let attributes = try? fileManager.attributesOfItem(atPath: url.path),
+           let protection = attributes[.protectionKey] as? FileProtectionType {
+            isProtected = (protection == .completeUntilFirstUserAuthentication)
+        }
+        
+        return isExcludedFromBackup && isProtected
+    }
+    
+    /// Hardens the library folder with iCloud backup exclusion and background read permissions.
+    @discardableResult
+    public func applyHardeningAndProtection() -> Bool {
+        let url = libraryDirectoryURL
+        let fileManager = FileManager.default
+        
+        do {
+            if !fileManager.fileExists(atPath: url.path) {
+                try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
+            }
+            
+            // 1. Exclude from iCloud backup
+            var mutableURL = url
+            var values = URLResourceValues()
+            values.isExcludedFromBackup = true
+            try mutableURL.setResourceValues(values)
+            
+            // 2. Set NSFileProtectionCompleteUntilFirstUserAuthentication
+            try fileManager.setAttributes(
+                [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+                ofItemAtPath: url.path
+            )
+            return checkHardeningStatus()
+        } catch {
+            return false
+        }
     }
     
     /// Computes total storage size currently occupied by Documents/MindSpaceLibrary/
@@ -127,6 +156,8 @@ public struct LibraryPathResolver: Sendable {
         manifest: CatalogManifest?,
         validateChecksums: Bool = false
     ) async -> LibraryVerificationReport {
+        let isHardened = checkHardeningStatus()
+        
         guard let manifest = manifest else {
             return LibraryVerificationReport(
                 totalTracks: 0,
@@ -136,7 +167,7 @@ public struct LibraryPathResolver: Sendable {
                 checksumMismatchedCount: 0,
                 missingPaths: [],
                 totalHoursFormatted: "0.0 hrs",
-                isHardened: true,
+                isHardened: isHardened,
                 verifiedAt: Date()
             )
         }
@@ -238,9 +269,8 @@ public struct LibraryPathResolver: Sendable {
             checksumMismatchedCount: checksumMismatchCount,
             missingPaths: missingList,
             totalHoursFormatted: hoursFormatted,
-            isHardened: true,
+            isHardened: isHardened,
             verifiedAt: Date()
         )
     }
 }
-

@@ -87,11 +87,21 @@ final class LockScreenPlaybackTests: XCTestCase {
     @MainActor
     func testHeadphoneDisconnectHandlerPausesAudio() {
         let engine = PlaybackEngine.shared
+        let resolver = LibraryPathResolver.shared
+        let relPath = "Packs/2 - Health/1 - Managing Anxiety/session_1.mp3"
+        let testURL = resolver.libraryDirectoryURL.appendingPathComponent(relPath)
+        
+        try? FileManager.default.createDirectory(at: testURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? "dummy audio".data(using: .utf8)?.write(to: testURL)
+        defer {
+            try? FileManager.default.removeItem(at: testURL)
+        }
+        
         let track = PlayableTrack(
             id: "test_track_airpods",
             title: "Ocean Calm",
             courseName: "Health",
-            relativePath: "Packs/2 - Health/1 - Managing Anxiety/session_1.mp3",
+            relativePath: relPath,
             duration: 900.0
         )
         

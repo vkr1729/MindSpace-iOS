@@ -12,6 +12,7 @@ public struct MindfulReminderSheet: View {
     @State private var isEnabled: Bool = false
     @State private var permissionStatus: UNAuthorizationStatus = .notDetermined
     @State private var showSavedToast: Bool = false
+    @State private var showDeniedAlert: Bool = false
     
     public init() {}
     
@@ -62,15 +63,50 @@ public struct MindfulReminderSheet: View {
                                 .padding(.horizontal, 24)
                         }
                         
+                        // MARK: - Permission Denied Alert Banner
+                        if permissionStatus == .denied {
+                            CosmicCard(padding: 14) {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "exclamationmark.triangle.fill")
+                                            .foregroundColor(CosmosTheme.solarCoral)
+                                            .font(.system(size: 18))
+                                        
+                                        Text("Notifications Disabled in iOS")
+                                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                                            .foregroundColor(CosmosTheme.textPrimary)
+                                    }
+                                    
+                                    Text("iOS notification permissions are turned off for MindSpace. Enable them in Settings to receive daily mindful reminders.")
+                                        .font(.system(size: 12, weight: .regular, design: .rounded))
+                                        .foregroundColor(CosmosTheme.textSecondary)
+                                    
+                                    Button(action: {
+                                        HapticService.shared.medium()
+                                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                                            UIApplication.shared.open(url)
+                                        }
+                                    }) {
+                                        Text("Open iOS Settings")
+                                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                                            .foregroundColor(CosmosTheme.spaceBackground)
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 8)
+                                            .background(CosmosTheme.starlightGold)
+                                            .clipShape(Capsule())
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                        }
+                        
                         // MARK: - Main Toggle Card
                         CosmicCard(padding: 16) {
                             VStack(spacing: 16) {
                                 Toggle(isOn: Binding(
                                     get: { isEnabled },
                                     set: { val in
-                                        isEnabled = val
-                                        HapticService.shared.selection()
-                                        saveSettings(enabled: val, date: reminderDate)
+                                        handleToggleChanged(val)
                                     }
                                 )) {
                                     VStack(alignment: .leading, spacing: 3) {
@@ -95,7 +131,7 @@ public struct MindfulReminderSheet: View {
                                             set: { newDate in
                                                 reminderDate = newDate
                                                 HapticService.shared.selection()
-                                                saveSettings(enabled: isEnabled, date: newDate)
+                                                saveReminderSchedule(enabled: isEnabled, date: newDate)
                                             }
                                         ),
                                         displayedComponents: .hourAndMinute
@@ -189,7 +225,7 @@ public struct MindfulReminderSheet: View {
             if let date = Calendar.current.date(from: components) {
                 reminderDate = date
                 HapticService.shared.medium()
-                saveSettings(enabled: isEnabled, date: date)
+                saveReminderSchedule(enabled: isEnabled, date: date)
             }
         }) {
             Text(label)
@@ -208,7 +244,6 @@ public struct MindfulReminderSheet: View {
     
     private func loadInitialState() {
         let settings = getOrCreateSettings()
-        self.isEnabled = settings.reminderEnabled
         
         let parts = settings.reminderTime.split(separator: ":")
         if parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]) {
@@ -221,40 +256,73 @@ public struct MindfulReminderSheet: View {
         }
         
         Task {
-            let settings = await UNUserNotificationCenter.current().notificationSettings()
+            let notificationSettings = await UNUserNotificationCenter.current().notificationSettings()
             await MainActor.run {
-                self.permissionStatus = settings.authorizationStatus
+                self.permissionStatus = notificationSettings.authorizationStatus
+                if notificationSettings.authorizationStatus == .authorized || notificationSettings.authorizationStatus == .provisional {
+                    self.isEnabled = settings.reminderEnabled
+                } else {
+                    self.isEnabled = false
+                    settings.reminderEnabled = false
+                    try? modelContext.save()
+                }
             }
         }
     }
     
-    private func saveSettings(enabled: Bool, date: Date) {
+    private func handleToggleChanged(_ enabled: Bool) {
+        if enabled {
+            Task {
+                let notifSettings = await UNUserNotificationCenter.current().notificationSettings()
+                if notifSettings.authorizationStatus == .denied {
+                    await MainActor.run {
+                        self.permissionStatus = .denied
+                        self.isEnabled = false
+                        let settings = getOrCreateSettings()
+                        settings.reminderEnabled = false
+                        try? modelContext.save()
+                        HapticService.shared.warning()
+                    }
+                    return
+                }
+                
+                let granted = await NotificationScheduler.shared.requestAuthorization()
+                await MainActor.run {
+                    if granted {
+                        self.permissionStatus = .authorized
+                        self.isEnabled = true
+                        saveReminderSchedule(enabled: true, date: reminderDate)
+                    } else {
+                        self.permissionStatus = .denied
+                        self.isEnabled = false
+                        let settings = getOrCreateSettings()
+                        settings.reminderEnabled = false
+                        try? modelContext.save()
+                        HapticService.shared.warning()
+                    }
+                }
+            }
+        } else {
+            self.isEnabled = false
+            saveReminderSchedule(enabled: false, date: reminderDate)
+        }
+    }
+    
+    private func saveReminderSchedule(enabled: Bool, date: Date) {
         let timeStr = DateFormatterCache.timeString(from: date)
-        
         let settings = getOrCreateSettings()
         settings.reminderEnabled = enabled
         settings.reminderTime = timeStr
         try? modelContext.save()
         
-        Task {
-            if enabled {
-                let granted = await NotificationScheduler.shared.requestAuthorization()
-                if granted {
-                    NotificationScheduler.shared.scheduleDailyReminder(timeString: timeStr, enabled: true)
-                }
-            } else {
-                NotificationScheduler.shared.scheduleDailyReminder(timeString: timeStr, enabled: false)
-            }
-            
-            await MainActor.run {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    showSavedToast = true
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    withAnimation {
-                        showSavedToast = false
-                    }
-                }
+        NotificationScheduler.shared.scheduleDailyReminder(timeString: timeStr, enabled: enabled)
+        
+        withAnimation(.easeInOut(duration: 0.3)) {
+            showSavedToast = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            withAnimation {
+                showSavedToast = false
             }
         }
     }

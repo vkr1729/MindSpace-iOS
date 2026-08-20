@@ -17,8 +17,23 @@ public struct TodayView: View {
     
     public init() {}
     
-    private var completedSessionIDs: Set<String> {
+    private var currentSettings: UserSettings {
+        settingsList.first ?? UserSettings()
+    }
+    
+    private var lifetimeCompletedSessionIDs: Set<String> {
         Set(completionEvents.filter { $0.isQualifyingMeditation }.map { $0.sessionStableId })
+    }
+    
+    private var todayCompletedSessionIDs: Set<String> {
+        let calendar = Calendar.current
+        let today = Date()
+        let todayKey = DateFormatterCache.dayKey(from: today)
+        return Set(
+            completionEvents
+                .filter { $0.isQualifyingMeditation && DateFormatterCache.dayKey(from: $0.timestamp, timeZoneIdentifier: $0.timeZoneIdentifier) == todayKey }
+                .map { $0.sessionStableId }
+        )
     }
     
     private var timeGreeting: (greeting: String, prompt: String, icon: String) {
@@ -33,10 +48,20 @@ public struct TodayView: View {
     }
     
     private var orbitStats: OrbitStats {
-        let passes = settingsList.first?.compassionPassCount ?? 0
+        let passes = currentSettings.compassionPassCount
+        let lastPassDate = currentSettings.lastUsedCompassionPassDate
         return OrbitCalculator().calculateStats(
             events: completionEvents,
-            existingCompassionPasses: passes
+            existingCompassionPasses: passes,
+            lastUsedPassDate: lastPassDate
+        )
+    }
+    
+    private var recommendations: [RecommendedItem] {
+        RecommendationEngine.shared.getRecommendations(
+            manifest: catalogService.manifest,
+            settings: currentSettings,
+            completedSessionIDs: lifetimeCompletedSessionIDs
         )
     }
     
@@ -77,7 +102,7 @@ public struct TodayView: View {
                 // Subtle top background aura
                 VStack {
                     LinearGradient(
-                        colors: [CosmosTheme.cosmicIndigo.opacity(0.25), Color.clear],
+                        colors: [CosmosTheme.cosmicPurple.opacity(0.18), Color.clear],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -86,397 +111,318 @@ public struct TodayView: View {
                     Spacer()
                 }
                 
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 22) {
-                        // MARK: - App Bar Header
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("MindSpace")
-                                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textPrimary)
-                                
-                                HStack(spacing: 4) {
-                                    Image(systemName: timeGreeting.icon)
-                                        .font(.system(size: 11))
-                                        .foregroundColor(CosmosTheme.starlightGold)
-                                    Text(timeGreeting.greeting)
-                                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                                        .foregroundColor(CosmosTheme.textSecondary)
-                                }
-                            }
-                            
-                            Spacer()
-                            
-                            HStack(spacing: 10) {
-                                // Mindful Daily Reminder Button (Bell)
-                                Button(action: {
-                                    HapticService.shared.medium()
-                                    isShowingReminderSheet = true
-                                }) {
-                                    ZStack(alignment: .topTrailing) {
-                                        Image(systemName: "bell.fill")
-                                            .font(.system(size: 17))
-                                            .foregroundColor(settingsList.first?.reminderEnabled == true ? CosmosTheme.starlightGold : CosmosTheme.textSecondary)
-                                            .frame(width: 40, height: 40)
-                                            .background(CosmosTheme.spaceCard)
-                                            .clipShape(Circle())
-                                            .overlay(Circle().stroke(settingsList.first?.reminderEnabled == true ? CosmosTheme.starlightGold.opacity(0.4) : CosmosTheme.spaceCardBorder, lineWidth: 1))
-                                        
-                                        if settingsList.first?.reminderEnabled == true {
-                                            Circle()
-                                                .fill(CosmosTheme.starlightGold)
-                                                .frame(width: 8, height: 8)
-                                                .offset(x: 2, y: -2)
-                                        }
-                                    }
-                                }
-                                .buttonStyle(.cosmicPressable)
-                                
-                                // Settings Link (Gear)
-                                NavigationLink(destination: SettingsView()) {
-                                    Image(systemName: "gearshape.fill")
-                                        .font(.system(size: 17))
-                                        .foregroundColor(CosmosTheme.textSecondary)
-                                        .frame(width: 40, height: 40)
-                                        .background(CosmosTheme.spaceCard)
-                                        .clipShape(Circle())
-                                        .overlay(Circle().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
-                                }
-                                .buttonStyle(.cosmicPressable)
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 12)
-                        
-                        // MARK: - Unified Cosmic Orbit Hero Banner
-                        if settingsList.first?.hideStreak != true {
-                            cosmicOrbitHero
-                                .padding(.horizontal, 20)
-                        }
-                        
-                        // MARK: - Quick Intention Chips
-                        quickIntentionsRow
-                            .padding(.horizontal, 20)
-                        
-                        // MARK: - Daily Journey (3-item Micro-Path)
-                        DailyJourneyView(
-                            items: $dailyJourneyItems,
-                            onSelectTrack: { track in
-                                playbackEngine.loadAndPlay(track: track)
-                                playbackEngine.isFullPlayerPresented = true
-                            }
-                        )
-                        .padding(.horizontal, 20)
-                        
-                        // MARK: - Tonight's Featured Sleep Sound Sanctuary Card
-                        if let sleepSound = dailySleepSound {
-                            sleepSanctuaryCard(sleepSound)
-                                .padding(.horizontal, 20)
-                        }
-                        
-                        // MARK: - Continue Previous Session Card (if available)
-                        if let lastResume = resumes.first {
-                            continueSessionCard(lastResume)
-                                .padding(.horizontal, 20)
-                        }
-                        
-                        // MARK: - SOS Emergency Relief
-                        sosReliefCard
-                            .padding(.horizontal, 20)
-                        
-                        Spacer(minLength: 90)
-                    }
-                }
+                mainContentScrollView
             }
             .navigationBarHidden(true)
             .sheet(isPresented: $isShowingReminderSheet) {
                 MindfulReminderSheet()
             }
             .onAppear {
-                setupDynamicDailyJourney()
+                buildDailyJourney()
             }
-            .onChange(of: completionEvents.count) { _, _ in
-                setupDynamicDailyJourney()
+            .onChange(of: completionEvents) { _, _ in
+                buildDailyJourney()
             }
         }
     }
     
-    // MARK: - Cosmic Orbit Hero Banner
-    private var cosmicOrbitHero: some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    Text("ORBIT STREAK")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundColor(CosmosTheme.moonLavender)
-                        .tracking(1.0)
-                    
-                    if orbitStats.compassionPassesAvailable > 0 {
-                        HStack(spacing: 3) {
-                            Image(systemName: "shield.fill")
-                                .font(.system(size: 10))
-                            Text("\(orbitStats.compassionPassesAvailable) pass")
-                                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        }
-                        .foregroundColor(CosmosTheme.starlightGold)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(CosmosTheme.starlightGold.opacity(0.15))
-                        .clipShape(Capsule())
-                    }
+    private var mainContentScrollView: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 22) {
+                headerBar
+                streakHeroSection
+                storageNoticeCard
+                resumeSection
+                dailyJourneySection
+                
+                if !recommendations.isEmpty {
+                    recommendationsSection
                 }
                 
-                Text("\(orbitStats.currentStreak) \(orbitStats.currentStreak == 1 ? "Day" : "Days") Mindful")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                if let sleepInfo = dailySleepSound {
+                    dailySleepSection(title: sleepInfo.soundName, sessions: sleepInfo.sessions)
+                        .padding(.horizontal, 20)
+                }
+                
+                Spacer(minLength: 90)
+            }
+        }
+    }
+    
+    private var headerBar: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("MindSpace")
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
                     .foregroundColor(CosmosTheme.textPrimary)
                 
-                Text(timeGreeting.prompt)
-                    .font(.system(size: 13, weight: .regular, design: .rounded))
-                    .foregroundColor(CosmosTheme.textSecondary)
-                    .lineLimit(2)
+                HStack(spacing: 4) {
+                    Image(systemName: timeGreeting.icon)
+                        .font(.system(size: 11))
+                        .foregroundColor(CosmosTheme.starlightGold)
+                    Text("\(timeGreeting.greeting) • \(timeGreeting.prompt)")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(CosmosTheme.textSecondary)
+                }
             }
             
             Spacer()
             
-            // Mini Orbit Arc Gauge
-            ZStack {
-                Circle()
-                    .stroke(CosmosTheme.spaceCardBorder, lineWidth: 10)
-                    .frame(width: 78, height: 78)
-                
-                let progress = orbitStats.nextMilestoneDays > 0 ? min(1.0, Double(orbitStats.currentStreak) / Double(orbitStats.nextMilestoneDays)) : 0.0
-                Circle()
-                    .trim(from: 0, to: CGFloat(progress))
-                    .stroke(
-                        CosmosTheme.orbitGaugeGradient,
-                        style: StrokeStyle(lineWidth: 10, lineCap: .round)
-                    )
-                    .frame(width: 78, height: 78)
-                    .rotationEffect(.degrees(-90))
-                
-                VStack(spacing: 0) {
-                    Text("\(orbitStats.currentStreak)")
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundColor(CosmosTheme.textPrimary)
-                    Text("of \(orbitStats.nextMilestoneDays)d")
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
-                        .foregroundColor(CosmosTheme.textSecondary)
-                }
-            }
-        }
-        .cosmicHeroStyle(cornerRadius: 22, glowColor: CosmosTheme.cosmicPurple, padding: 18)
-    }
-    
-    // MARK: - Quick Intentions Row
-    private var quickIntentionsRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                quickIntentionPill("🌅 Awaken", color: CosmosTheme.starlightGold) {
-                    playFirstAvailable(matching: "morning")
-                }
-                quickIntentionPill("⚡ 5-min Reset", color: CosmosTheme.auroraTeal) {
-                    playFirstAvailable(matching: "reset")
-                }
-                quickIntentionPill("🌙 Sleep Sanctuary", color: CosmosTheme.moonLavender) {
-                    if let sound = dailySleepSound, let first = sound.sessions.first {
-                        playSleepSession(first, soundName: sound.soundName)
-                    }
-                }
-                quickIntentionPill("🛡️ SOS Calm", color: CosmosTheme.solarCoral) {
-                    startSOSQuickRelief()
-                }
-            }
-        }
-    }
-    
-    private func quickIntentionPill(_ label: String, color: Color, action: @escaping () -> Void) -> some View {
-        Button(action: {
-            HapticService.shared.light()
-            action()
-        }) {
-            HStack(spacing: 6) {
-                Text(label)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundColor(CosmosTheme.textPrimary)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(CosmosTheme.spaceCard)
-            .clipShape(Capsule())
-            .overlay(
-                Capsule()
-                    .stroke(color.opacity(0.4), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.cosmicPressable)
-    }
-    
-    // MARK: - Tonight's Sleep Sanctuary Card
-    private func sleepSanctuaryCard(_ sleepSound: (soundName: String, sessions: [SingleSession])) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 14) {
-                CelestialPlanetView(style: .crescentMoon, size: 48, hasRings: false)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Tonight's Sleep Sound")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundColor(CosmosTheme.moonLavender)
-                        .tracking(0.8)
+            Button(action: {
+                HapticService.shared.light()
+                isShowingReminderSheet = true
+            }) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: currentSettings.reminderEnabled ? "bell.fill" : "bell")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(currentSettings.reminderEnabled ? CosmosTheme.starlightGold : CosmosTheme.textSecondary)
+                        .frame(width: 42, height: 42)
+                        .background(CosmosTheme.spaceCard)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
                     
-                    Text(sleepSound.soundName)
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
-                        .foregroundColor(CosmosTheme.textPrimary)
-                }
-                
-                Spacer()
-                
-                if let firstSession = sleepSound.sessions.first {
-                    Button(action: {
-                        HapticService.shared.medium()
-                        playSleepSession(firstSession, soundName: sleepSound.soundName)
-                    }) {
-                        Image(systemName: "play.circle.fill")
-                            .font(.system(size: 38))
-                            .foregroundColor(CosmosTheme.moonLavender)
+                    if currentSettings.reminderEnabled {
+                        Circle()
+                            .fill(CosmosTheme.starlightGold)
+                            .frame(width: 8, height: 8)
+                            .offset(x: -2, y: 2)
                     }
-                    .buttonStyle(.cosmicPressable)
                 }
             }
-            
-            // Duration Option Pills
-            HStack(spacing: 8) {
-                ForEach(sleepSound.sessions) { session in
-                    Button(action: {
-                        HapticService.shared.medium()
-                        playSleepSession(session, soundName: sleepSound.soundName)
-                    }) {
-                        Text(session.condensedDuration)
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundColor(CosmosTheme.textPrimary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(CosmosTheme.spacePill)
-                            .clipShape(Capsule())
-                            .overlay(
-                                Capsule().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
-                            )
-                    }
-                    .buttonStyle(.cosmicPressable)
-                }
-            }
+            .buttonStyle(.cosmicPressable)
         }
-        .cosmicCardStyle(cornerRadius: 20, borderColor: CosmosTheme.moonLavender.opacity(0.3), padding: 16)
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
     }
     
-    // MARK: - Continue Last Session Card
-    private func continueSessionCard(_ lastResume: PlaybackResume) -> some View {
-        HStack(spacing: 14) {
-            CelestialPlanetView(style: .purpleRinged, size: 46, hasRings: false)
-            
-            VStack(alignment: .leading, spacing: 3) {
-                Text("CONTINUE LISTENING")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundColor(CosmosTheme.moonLavender)
-                    .tracking(0.8)
-                
-                Text(lastResume.sessionTitle)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
+    @ViewBuilder
+    private var streakHeroSection: some View {
+        if !currentSettings.hideStreak {
+            OrbitArcGaugeView(
+                currentStreak: orbitStats.currentStreak,
+                milestoneDays: orbitStats.nextMilestoneDays,
+                totalMinutes: orbitStats.totalMindfulMinutes,
+                passesAvailable: orbitStats.compassionPassesAvailable
+            )
+            .padding(.horizontal, 20)
+        }
+    }
+    
+    @ViewBuilder
+    private var storageNoticeCard: some View {
+        if LibraryPathResolver.shared.getLibraryStorageSizeBytes() == 0 {
+            CosmicCard(padding: 14) {
+                HStack(spacing: 12) {
+                    Image(systemName: "info.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(CosmosTheme.moonLavender)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Content Setup Available")
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundColor(CosmosTheme.textPrimary)
+                        Text("Transfer your 15.81 GB library anytime via USB or Files app. Catalog browsing is 100% active.")
+                            .font(.system(size: 12, weight: .regular, design: .rounded))
+                            .foregroundColor(CosmosTheme.textSecondary)
+                    }
+                    Spacer()
+                }
+            }
+            .padding(.horizontal, 20)
+        }
+    }
+    
+    @ViewBuilder
+    private var resumeSection: some View {
+        if let latestResume = resumes.first {
+            resumeCard(latestResume)
+                .padding(.horizontal, 20)
+        }
+    }
+    
+    private var dailyJourneySection: some View {
+        DailyJourneyView(items: $dailyJourneyItems, onSelectTrack: { track in
+            handleTrackTap(track: track)
+        })
+        .padding(.horizontal, 20)
+    }
+    
+    // MARK: - Recommendations Section
+    private var recommendationsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Recommended for You")
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
                     .foregroundColor(CosmosTheme.textPrimary)
-                    .lineLimit(1)
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(recommendations) { item in
+                        Button(action: {
+                            HapticService.shared.medium()
+                            playbackEngine.loadAndPlay(track: item.track)
+                            playbackEngine.isFullPlayerPresented = true
+                        }) {
+                            CosmicCard(padding: 14) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack {
+                                        Text(item.subtitle)
+                                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                            .foregroundColor(CosmosTheme.moonLavender)
+                                        Spacer()
+                                        Text(item.durationLabel)
+                                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                                            .foregroundColor(CosmosTheme.textSecondary)
+                                    }
+                                    
+                                    Text(item.title)
+                                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                                        .foregroundColor(CosmosTheme.textPrimary)
+                                        .lineLimit(1)
+                                    
+                                    Text(item.reason)
+                                        .font(.system(size: 12, weight: .regular, design: .rounded))
+                                        .foregroundColor(CosmosTheme.textSecondary)
+                                        .lineLimit(1)
+                                }
+                                .frame(width: 200)
+                            }
+                        }
+                        .buttonStyle(.cosmicPressable)
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+        }
+    }
+    
+    // MARK: - Resume Card
+    private func resumeCard(_ resume: PlaybackResume) -> some View {
+        CosmicCard(padding: 14) {
+            HStack(spacing: 12) {
+                Button(action: {
+                    HapticService.shared.medium()
+                    let track = PlayableTrack(
+                        id: resume.sessionStableId,
+                        title: resume.sessionTitle,
+                        courseName: resume.courseName,
+                        relativePath: resume.relativePath,
+                        duration: resume.durationSeconds,
+                        contentType: "meditation"
+                    )
+                    playbackEngine.loadAndPlay(
+                        track: track,
+                        startPosition: resume.lastPositionSeconds,
+                        accumulatedListenedSeconds: resume.accumulatedListenedSeconds,
+                        startInAudioPhase: true
+                    )
+                    playbackEngine.isFullPlayerPresented = true
+                }) {
+                    ZStack {
+                        Circle()
+                            .fill(CosmosTheme.cosmicPurple)
+                            .frame(width: 44, height: 44)
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.white)
+                    }
+                }
+                .buttonStyle(.plain)
                 
-                if let cName = lastResume.courseName {
-                    Text(cName)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Resume where you left off")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(CosmosTheme.moonLavender)
+                    
+                    Text(resume.sessionTitle)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundColor(CosmosTheme.textPrimary)
+                        .lineLimit(1)
+                    
+                    let remSecs = max(0, resume.durationSeconds - resume.lastPositionSeconds)
+                    let remMins = max(1, Int(round(remSecs / 60.0)))
+                    Text("\(remMins) min remaining")
                         .font(.system(size: 12, weight: .regular, design: .rounded))
                         .foregroundColor(CosmosTheme.textSecondary)
                 }
-            }
-            
-            Spacer()
-            
-            Button(action: {
-                HapticService.shared.medium()
-                let track = PlayableTrack(
-                    id: lastResume.sessionStableId,
-                    title: lastResume.sessionTitle,
-                    courseName: lastResume.courseName,
-                    relativePath: lastResume.relativePath,
-                    duration: lastResume.durationSeconds
-                )
-                playbackEngine.loadAndPlay(track: track, startPosition: lastResume.lastPositionSeconds)
-                playbackEngine.isFullPlayerPresented = true
-            }) {
-                Image(systemName: "play.circle.fill")
-                    .font(.system(size: 36))
-                    .foregroundColor(CosmosTheme.cosmicPurple)
-            }
-            .buttonStyle(.cosmicPressable)
-        }
-        .cosmicCardStyle(cornerRadius: 18, padding: 16)
-    }
-    
-    // MARK: - SOS Emergency Relief Card
-    private var sosReliefCard: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(CosmosTheme.solarCoral.opacity(0.15))
-                    .frame(width: 44, height: 44)
-                Image(systemName: "shield.lefthalf.filled")
-                    .font(.system(size: 22))
-                    .foregroundColor(CosmosTheme.solarCoral)
-            }
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Need Immediate Calm?")
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundColor(CosmosTheme.textPrimary)
                 
-                Text("3-minute SOS reset for sudden stress")
-                    .font(.system(size: 12, weight: .regular, design: .rounded))
-                    .foregroundColor(CosmosTheme.textSecondary)
+                Spacer()
             }
-            
-            Spacer()
-            
-            Button(action: {
-                HapticService.shared.medium()
-                startSOSQuickRelief()
-            }) {
-                Text("SOS")
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundColor(CosmosTheme.textPrimary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 7)
-                    .background(CosmosTheme.solarCoral)
-                    .clipShape(Capsule())
-                    .shadow(color: CosmosTheme.solarCoral.opacity(0.4), radius: 6, x: 0, y: 2)
-            }
-            .buttonStyle(.cosmicPressable)
         }
-        .cosmicCardStyle(cornerRadius: 18, borderColor: CosmosTheme.solarCoral.opacity(0.3), padding: 16)
     }
     
-    // MARK: - Helpers
-    private func setupDynamicDailyJourney() {
-        var items: [DailyJourneyItem] = []
-        let allCourses = catalogService.manifest?.categories.flatMap { $0.courses } ?? []
-        
-        var activeCourse: CatalogCourse?
-        var nextSessionToPlay: CatalogSession?
-        
-        if let latestResume = resumes.first,
-           let matched = allCourses.first(where: { $0.name == latestResume.courseName || $0.folderName == latestResume.courseName || $0.sessions.contains(where: { $0.id == latestResume.sessionStableId }) }) {
-            activeCourse = matched
-            nextSessionToPlay = matched.sessions.first(where: { !completedSessionIDs.contains($0.id) }) ?? matched.sessions.first
-        } else if let latestEvent = completionEvents.first(where: { $0.isQualifyingMeditation }),
-                  let matched = allCourses.first(where: { c in c.sessions.contains(where: { $0.id == latestEvent.sessionStableId }) }) {
-            activeCourse = matched
-            nextSessionToPlay = matched.sessions.first(where: { !completedSessionIDs.contains($0.id) }) ?? matched.sessions.first
+    // MARK: - Sleep Sound Section
+    private func dailySleepSection(title: String, sessions: [SingleSession]) -> some View {
+        CosmicCard(padding: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    ZStack {
+                        Circle()
+                            .fill(CosmosTheme.cosmicPurple.opacity(0.3))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: "moon.stars.fill")
+                            .foregroundColor(CosmosTheme.starlightGold)
+                            .font(.system(size: 16))
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Tonight's Wind Down")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundColor(CosmosTheme.moonLavender)
+                        Text(title)
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(CosmosTheme.textPrimary)
+                    }
+                    Spacer()
+                }
+                
+                HStack(spacing: 8) {
+                    ForEach(sessions) { session in
+                        let mins = Int(round(session.duration / 60.0))
+                        Button(action: {
+                            HapticService.shared.medium()
+                            let track = PlayableTrack(
+                                id: session.id,
+                                title: session.title,
+                                courseName: "Sleep Sounds",
+                                relativePath: session.relativePath,
+                                duration: session.duration,
+                                contentType: "sleep"
+                            )
+                            playbackEngine.loadAndPlay(track: track)
+                            playbackEngine.isFullPlayerPresented = true
+                        }) {
+                            Text("\(mins) min")
+                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                                .foregroundColor(CosmosTheme.textPrimary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(CosmosTheme.spaceCardBorder)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.cosmicPressable)
+                    }
+                }
+            }
         }
+    }
+    
+    private func handleTrackTap(track: PlayableTrack) {
+        HapticService.shared.medium()
+        playbackEngine.loadAndPlay(track: track)
+        playbackEngine.isFullPlayerPresented = true
+    }
+    
+    private func buildDailyJourney() {
+        var items: [DailyJourneyItem] = []
         
-        if activeCourse == nil {
-            activeCourse = allCourses.first(where: { $0.name.contains("Basics") || $0.folderName.contains("Basics") }) ?? allCourses.first
-            nextSessionToPlay = activeCourse?.sessions.first(where: { !completedSessionIDs.contains($0.id) }) ?? activeCourse?.sessions.first
+        let activeCourse = catalogService.manifest?.categories.first?.courses.first
+        var nextSessionToPlay: CatalogSession?
+        if let course = activeCourse {
+            nextSessionToPlay = course.sessions.first(where: { !lifetimeCompletedSessionIDs.contains($0.id) }) ?? course.sessions.first
         }
         
         if let course = activeCourse, let session = nextSessionToPlay {
@@ -487,9 +433,10 @@ public struct TodayView: View {
                 relativePath: session.relativePath,
                 duration: session.duration,
                 videoAttachmentPath: session.videoAttachments?.first?.relativePath,
-                dayNumber: session.dayNumber
+                dayNumber: session.dayNumber,
+                contentType: "meditation"
             )
-            let isDoneToday = completedSessionIDs.contains(session.id)
+            let isDoneToday = todayCompletedSessionIDs.contains(session.id)
             items.append(DailyJourneyItem(
                 id: "journey_1",
                 title: "\(isDoneToday ? "Completed" : "Continue") \(course.name) — Day \(session.dayNumber)",
@@ -509,15 +456,16 @@ public struct TodayView: View {
         }
         
         if let unwindCat = catalogService.manifest?.singlesCategories.first(where: { $0.name == "Unwind" }),
-           let reset5Min = unwindCat.sessions.first(where: { $0.title.localizedCaseInsensitiveContains("reset") && ($0.title.contains("5") || ($0.duration >= 280 && $0.duration <= 320)) }) ?? unwindCat.sessions.first {
+           let reset5Min = findResetSession(in: unwindCat) ?? unwindCat.sessions.first {
             let track = PlayableTrack(
                 id: reset5Min.id,
                 title: reset5Min.title,
                 courseName: "Unwind",
                 relativePath: reset5Min.relativePath,
-                duration: reset5Min.duration
+                duration: reset5Min.duration,
+                contentType: "meditation"
             )
-            let isDone2 = completedSessionIDs.contains(reset5Min.id)
+            let isDone2 = todayCompletedSessionIDs.contains(reset5Min.id)
             items.append(DailyJourneyItem(
                 id: "journey_2",
                 title: "\(isDone2 ? "Completed" : "") 5 min reset",
@@ -536,19 +484,21 @@ public struct TodayView: View {
             ))
         }
         
-        if let nightSession = catalogService.manifest?.singlesCategories.first(where: { $0.name.contains("Good Night") || $0.name.contains("Sleep") })?.sessions.first {
+        let sleepCategory = catalogService.manifest?.singlesCategories.first(where: { $0.name.contains("Good Night") || $0.name.contains("Sleep") })
+        if let nightSession = sleepCategory?.sessions.first {
             let track = PlayableTrack(
                 id: nightSession.id,
                 title: nightSession.title,
                 courseName: "Sleep & Rest",
                 relativePath: nightSession.relativePath,
-                duration: nightSession.duration
+                duration: nightSession.duration,
+                contentType: "sleep"
             )
-            let isDone3 = completedSessionIDs.contains(nightSession.id)
+            let isDone3 = todayCompletedSessionIDs.contains(nightSession.id)
             items.append(DailyJourneyItem(
                 id: "journey_3",
                 title: "\(isDone3 ? "Completed" : "") Evening wind-down",
-                durationLabel: "\(max(1, Int(nightSession.duration / 60))) min",
+                durationLabel: "10 min",
                 isPrimaryAction: false,
                 isCompleted: isDone3,
                 playableTrack: track
@@ -563,48 +513,16 @@ public struct TodayView: View {
             ))
         }
         
-        dailyJourneyItems = items
+        self.dailyJourneyItems = items
     }
     
-    private func playSleepSession(_ session: SingleSession, soundName: String) {
-        let track = PlayableTrack(
-            id: session.id,
-            title: "\(soundName) (\(session.formattedDuration))",
-            courseName: "Sleep Sounds",
-            relativePath: session.relativePath,
-            duration: session.duration
-        )
-        playbackEngine.loadAndPlay(track: track)
-        playbackEngine.isFullPlayerPresented = true
-    }
-    
-    private func playFirstAvailable(matching keyword: String) {
-        let lower = keyword.lowercased()
-        if let match = catalogService.manifest?.singlesCategories.flatMap({ $0.sessions }).first(where: { $0.title.lowercased().contains(lower) }) {
-            let track = PlayableTrack(
-                id: match.id,
-                title: match.title,
-                courseName: match.category,
-                relativePath: match.relativePath,
-                duration: match.duration
-            )
-            playbackEngine.loadAndPlay(track: track)
-            playbackEngine.isFullPlayerPresented = true
+    private func findResetSession(in category: SinglesCategory) -> SingleSession? {
+        for session in category.sessions {
+            let title = session.title.lowercased()
+            if title.contains("reset") && (title.contains("5") || (session.duration >= 280 && session.duration <= 320)) {
+                return session
+            }
         }
-    }
-    
-    private func startSOSQuickRelief() {
-        if let sosCat = catalogService.manifest?.singlesCategories.first(where: { $0.name == "SOS" }),
-           let firstSOS = sosCat.sessions.first(where: { $0.title.localizedCaseInsensitiveContains("panic") || $0.title.localizedCaseInsensitiveContains("overwhelm") }) ?? sosCat.sessions.first {
-            let track = PlayableTrack(
-                id: firstSOS.id,
-                title: firstSOS.title,
-                courseName: "SOS Relief",
-                relativePath: firstSOS.relativePath,
-                duration: firstSOS.duration
-            )
-            playbackEngine.loadAndPlay(track: track)
-            playbackEngine.isFullPlayerPresented = true
-        }
+        return nil
     }
 }

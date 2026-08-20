@@ -7,6 +7,7 @@ public struct CompletionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @ObservedObject private var playbackEngine = PlaybackEngine.shared
+    @ObservedObject private var catalogService = CatalogService.shared
     
     public let completionId: UUID?
     public let sessionTitle: String
@@ -37,10 +38,37 @@ public struct CompletionView: View {
     
     private var orbitStats: OrbitStats {
         let passes = settingsList.first?.compassionPassCount ?? 0
+        let lastPassDate = settingsList.first?.lastUsedCompassionPassDate
         return OrbitCalculator().calculateStats(
             events: completionEvents,
-            existingCompassionPasses: passes
+            existingCompassionPasses: passes,
+            lastUsedPassDate: lastPassDate
         )
+    }
+    
+    /// Resolves the next session in the active course (including Pregnancy gap waiver from Day 26 -> Day 30)
+    private var nextCourseSession: (course: CatalogCourse, session: CatalogSession)? {
+        guard let name = courseName,
+              let manifest = catalogService.manifest else { return nil }
+        
+        for category in manifest.categories {
+            if let course = category.courses.first(where: { $0.name == name }) {
+                let completedIDs = Set(completionEvents.filter { $0.isQualifyingMeditation }.map { $0.sessionStableId })
+                // If this is Pregnancy course and day 26 just completed, next is day 30
+                if course.hasGapWaiver {
+                    let uncompleted = course.sessions.filter { !completedIDs.contains($0.id) }
+                    if let next = uncompleted.first {
+                        return (course, next)
+                    }
+                } else {
+                    let uncompleted = course.sessions.filter { !completedIDs.contains($0.id) }
+                    if let next = uncompleted.first {
+                        return (course, next)
+                    }
+                }
+            }
+        }
+        return nil
     }
     
     public var body: some View {
@@ -60,12 +88,13 @@ public struct CompletionView: View {
             )
             .ignoresSafeArea()
             
-            VStack(spacing: 22) {
+            VStack(spacing: 20) {
                 // MARK: - Header
                 HStack {
                     Spacer()
                     Button(action: {
                         HapticService.shared.light()
+                        saveReflection()
                         dismiss()
                     }) {
                         Image(systemName: "xmark")
@@ -95,7 +124,7 @@ public struct CompletionView: View {
                 }
                 
                 // MARK: - Constellation Arc Celebration Visual
-                VStack(spacing: 14) {
+                VStack(spacing: 12) {
                     ZStack {
                         // Pulsing outer halo
                         Circle()
@@ -124,16 +153,16 @@ public struct CompletionView: View {
                             .foregroundColor(isQualifying ? CosmosTheme.starlightGold : CosmosTheme.moonLavender)
                             .shadow(color: (isQualifying ? CosmosTheme.starlightGold : CosmosTheme.cosmicPurple).opacity(0.85), radius: 18)
                     }
-                    .frame(height: 125)
+                    .frame(height: 120)
                     
                     Text(isQualifying ? "You're building something beautiful." : "Every moment of awareness counts.")
                         .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundColor(CosmosTheme.textSecondary)
                 }
-                .padding(.vertical, 6)
+                .padding(.vertical, 4)
                 
                 // MARK: - Milestone Progress Card
-                CosmicCard(padding: 16) {
+                CosmicCard(padding: 14) {
                     HStack(spacing: 14) {
                         CelestialPlanetView(style: isQualifying ? .goldenSun : .purpleRinged, size: 48, hasRings: !isQualifying)
                         
@@ -178,13 +207,61 @@ public struct CompletionView: View {
                 
                 Spacer()
                 
-                // MARK: - Action Buttons
+                // MARK: - Action Buttons (Primary: Next session, Secondary: Done)
                 VStack(spacing: 12) {
-                    CosmicPrimaryButton("Done") {
-                        HapticService.shared.medium()
+                    if let next = nextCourseSession {
+                        Button(action: {
+                            HapticService.shared.medium()
+                            saveReflection()
+                            dismiss()
+                            
+                            let nextTrack = PlayableTrack(
+                                id: next.session.id,
+                                title: next.session.title,
+                                courseName: next.course.name,
+                                relativePath: next.session.relativePath,
+                                duration: next.session.duration,
+                                videoAttachmentPath: next.session.videoAttachments?.first?.relativePath,
+                                dayNumber: next.session.dayNumber,
+                                contentType: "meditation"
+                            )
+                            playbackEngine.loadAndPlay(track: nextTrack)
+                            playbackEngine.isFullPlayerPresented = true
+                        }) {
+                            HStack {
+                                Text("Next session (Day \(next.session.dayNumber))")
+                                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                                Image(systemName: "arrow.right")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                            .foregroundColor(CosmosTheme.textPrimary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(CosmosTheme.cosmicPurple)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .shadow(color: CosmosTheme.cosmicPurple.opacity(0.4), radius: 10, y: 4)
+                        }
+                        .buttonStyle(.cosmicPressable)
+                    }
+                    
+                    Button(action: {
+                        HapticService.shared.light()
                         saveReflection()
                         dismiss()
+                    }) {
+                        Text("Done")
+                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .foregroundColor(CosmosTheme.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(CosmosTheme.spaceCard)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
+                            )
                     }
+                    .buttonStyle(.cosmicPressable)
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)
@@ -257,4 +334,3 @@ public struct CompletionView: View {
         .buttonStyle(.cosmicPressable)
     }
 }
-

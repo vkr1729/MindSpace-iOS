@@ -24,6 +24,7 @@ public struct ProgressTransferManager: Sendable {
                 timeZone: e.timeZoneIdentifier,
                 playedSeconds: e.actualPlayedSeconds,
                 isQualifying: e.isQualifyingMeditation,
+                contentType: e.contentType,
                 reflection: e.reflectionNote
             )
         }
@@ -43,7 +44,10 @@ public struct ProgressTransferManager: Sendable {
             reminderEnabled: settings.reminderEnabled,
             themeMode: settings.themeMode,
             hideStreak: settings.hideStreak,
-            compassionPassCount: settings.compassionPassCount
+            compassionPassCount: settings.compassionPassCount,
+            hasCompletedOnboarding: settings.hasCompletedOnboarding,
+            selectedGoals: settings.selectedGoals,
+            hasAcknowledgedDisclaimer: settings.hasAcknowledgedDisclaimer
         )
         
         let achievements = OrbitCalculator().getAchievements(
@@ -61,6 +65,7 @@ public struct ProgressTransferManager: Sendable {
                 courseName: r.courseName,
                 lastPositionSeconds: r.lastPositionSeconds,
                 durationSeconds: r.durationSeconds,
+                accumulatedListenedSeconds: r.accumulatedListenedSeconds,
                 updatedAt: DateFormatterCache.iso8601String(from: r.updatedAt)
             )
         }
@@ -97,6 +102,7 @@ public struct ProgressTransferManager: Sendable {
     }
     
     /// Restores or merges imported progress into SwiftData context.
+    @MainActor
     public func applyImport(
         document: MindSpaceBackupDocument,
         modelContext: ModelContext,
@@ -127,6 +133,7 @@ public struct ProgressTransferManager: Sendable {
                     courseId: bEvent.courseId,
                     actualPlayedSeconds: bEvent.playedSeconds,
                     isQualifying: bEvent.isQualifying,
+                    contentType: bEvent.contentType ?? "meditation",
                     reflection: bEvent.reflection,
                     timestamp: eventDate,
                     timeZoneIdentifier: bEvent.timeZone,
@@ -163,12 +170,14 @@ public struct ProgressTransferManager: Sendable {
             var resumeMap = Dictionary(uniqueKeysWithValues: existingResumes.map { ($0.sessionStableId, $0) })
             
             for bResume in docResumes {
+                let accSecs = bResume.accumulatedListenedSeconds ?? 0.0
                 if let existing = resumeMap[bResume.sessionStableId] {
                     existing.relativePath = bResume.relativePath
                     existing.sessionTitle = bResume.sessionTitle
                     existing.courseName = bResume.courseName
                     existing.lastPositionSeconds = bResume.lastPositionSeconds
                     existing.durationSeconds = bResume.durationSeconds
+                    existing.accumulatedListenedSeconds = accSecs
                     if let updatedDate = DateFormatterCache.dateFromISO8601(bResume.updatedAt) {
                         existing.updatedAt = updatedDate
                     }
@@ -179,7 +188,8 @@ public struct ProgressTransferManager: Sendable {
                         sessionTitle: bResume.sessionTitle,
                         courseName: bResume.courseName,
                         position: bResume.lastPositionSeconds,
-                        duration: bResume.durationSeconds
+                        duration: bResume.durationSeconds,
+                        accumulatedListenedSeconds: accSecs
                     )
                     if let updatedDate = DateFormatterCache.dateFromISO8601(bResume.updatedAt) {
                         resume.updatedAt = updatedDate
@@ -199,6 +209,15 @@ public struct ProgressTransferManager: Sendable {
         settings.themeMode = document.userSettings.themeMode
         settings.hideStreak = document.userSettings.hideStreak
         settings.compassionPassCount = document.userSettings.compassionPassCount
+        if let onb = document.userSettings.hasCompletedOnboarding {
+            settings.hasCompletedOnboarding = onb
+        }
+        if let goals = document.userSettings.selectedGoals {
+            settings.selectedGoals = goals
+        }
+        if let ack = document.userSettings.hasAcknowledgedDisclaimer {
+            settings.hasAcknowledgedDisclaimer = ack
+        }
         modelContext.insert(settings)
         
         try modelContext.save()

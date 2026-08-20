@@ -13,6 +13,11 @@ public enum PlaybackState: Sendable, Equatable {
     case completed
 }
 
+public enum PlaybackPhase: String, Sendable, Equatable {
+    case video = "video"
+    case audio = "audio"
+}
+
 public enum PlaybackSpeed: Float, CaseIterable, Sendable {
     case slow = 0.75
     case normal = 1.0
@@ -35,6 +40,8 @@ public struct PlayableTrack: Identifiable, Sendable, Equatable {
     public let duration: Double
     public let videoAttachmentPath: String?
     public let dayNumber: Int?
+    public let videoDuration: Double?
+    public let contentType: String // "meditation", "sleep", "video", "sos", "sensitive"
     
     public init(
         id: String,
@@ -43,7 +50,9 @@ public struct PlayableTrack: Identifiable, Sendable, Equatable {
         relativePath: String,
         duration: Double,
         videoAttachmentPath: String? = nil,
-        dayNumber: Int? = nil
+        dayNumber: Int? = nil,
+        videoDuration: Double? = nil,
+        contentType: String = "meditation"
     ) {
         self.id = id
         self.title = title
@@ -52,6 +61,8 @@ public struct PlayableTrack: Identifiable, Sendable, Equatable {
         self.duration = duration
         self.videoAttachmentPath = videoAttachmentPath
         self.dayNumber = dayNumber
+        self.videoDuration = videoDuration
+        self.contentType = contentType
     }
 }
 
@@ -77,6 +88,7 @@ public final class PlaybackEngine: ObservableObject {
     // MARK: - Published State
     @Published public private(set) var state: PlaybackState = .idle
     @Published public private(set) var currentTrack: PlayableTrack?
+    @Published public private(set) var currentPhase: PlaybackPhase = .audio
     @Published public private(set) var currentTime: Double = 0.0
     @Published public private(set) var duration: Double = 0.0
     @Published public var speed: PlaybackSpeed = .normal {
@@ -106,7 +118,7 @@ public final class PlaybackEngine: ObservableObject {
     
     // MARK: - Persistence Callbacks
     public var onSessionCompleted: ((PlayableTrack, Double, Bool, UUID) -> Void)?
-    public var onSaveResume: ((PlayableTrack, Double) -> Void)?
+    public var onSaveResume: ((PlayableTrack, Double, Double) -> Void)? // (track, position, accumulatedListenedSeconds)
     public var onClearResume: ((String) -> Void)?
     
     public init() {
@@ -115,12 +127,17 @@ public final class PlaybackEngine: ObservableObject {
     }
     
     deinit {
-        cleanupObservers()
+        // Observers are cleaned up during stop() and track switches.
     }
     
     // MARK: - Playback Commands
     
-    public func loadAndPlay(track: PlayableTrack, startPosition: Double = 0.0) {
+    public func loadAndPlay(
+        track: PlayableTrack,
+        startPosition: Double = 0.0,
+        accumulatedListenedSeconds: Double = 0.0,
+        startInAudioPhase: Bool = false
+    ) {
         playbackError = nil
         
         // 1. If previous track was running and has not finalized, evaluate completion or save resume
@@ -128,7 +145,7 @@ public final class PlaybackEngine: ObservableObject {
             if let acc = accumulator, acc.hasQualified && !hasFinalizedCurrentSession {
                 finalizeCurrentSession(trigger: "track_switch")
             } else if !hasFinalizedCurrentSession && currentTime > 3.0 {
-                onSaveResume?(previousTrack, currentTime)
+                saveCurrentResumePosition()
             }
         }
         
@@ -140,18 +157,49 @@ public final class PlaybackEngine: ObservableObject {
         NowPlayingCoordinator.shared.setupRemoteCommands()
         
         self.currentTrack = track
+        self.hasCompletedCurrentSession = false
+        self.hasFinalizedCurrentSession = false
+        self.isMiniPlayerVisible = true
+        
+        // 4. Check if there is an attached day-video to play first
+        if let videoRel = track.videoAttachmentPath,
+           !startInAudioPhase && startPosition == 0.0,
+           let videoURL = LibraryPathResolver.shared.resolveURL(for: videoRel) {
+            // Play attached day video first
+            self.currentPhase = .video
+            self.duration = track.videoDuration ?? 0.0
+            self.currentTime = 0.0
+            self.lastSavedResumePosition = 0.0
+            self.state = .loading
+            
+            let playerItem = AVPlayerItem(url: videoURL)
+            let avPlayer = AVPlayer(playerItem: playerItem)
+            avPlayer.automaticallyWaitsToMinimizeStalling = false
+            self.player = avPlayer
+            
+            setupTimeObserver()
+            setupItemObservers(for: playerItem)
+            
+            avPlayer.playImmediately(atRate: speed.rawValue)
+            self.state = .playing
+            updateNowPlayingCenter()
+            return
+        }
+        
+        // 5. Play audio session
+        startAudioPhase(track: track, startPosition: startPosition, accumulatedSeconds: accumulatedListenedSeconds)
+    }
+    
+    private func startAudioPhase(track: PlayableTrack, startPosition: Double, accumulatedSeconds: Double) {
+        self.currentPhase = .audio
         self.duration = track.duration
         self.currentTime = startPosition
         self.lastSavedResumePosition = startPosition
         self.state = .loading
-        self.isMiniPlayerVisible = true
-        self.hasCompletedCurrentSession = false
-        self.hasFinalizedCurrentSession = false
         
-        let acc = ListeningAccumulator(duration: track.duration)
+        let acc = ListeningAccumulator(duration: track.duration, initialAccumulatedSeconds: accumulatedSeconds)
         self.accumulator = acc
         
-        // 4. Resolve media file; if missing, publish clear error and do NOT enter playing state
         guard let url = LibraryPathResolver.shared.resolveURL(for: track.relativePath) else {
             self.state = .idle
             self.playbackError = "Media file not found: \(track.title). Please rescan or transfer your library in Settings."
@@ -173,8 +221,15 @@ public final class PlaybackEngine: ObservableObject {
         
         avPlayer.playImmediately(atRate: speed.rawValue)
         self.state = .playing
-        
         updateNowPlayingCenter()
+    }
+    
+    public func skipVideoToAudio() {
+        guard currentPhase == .video, let track = currentTrack else { return }
+        cleanupObservers()
+        player?.pause()
+        player = nil
+        startAudioPhase(track: track, startPosition: 0.0, accumulatedSeconds: 0.0)
     }
     
     public func togglePlayPause() {
@@ -191,6 +246,7 @@ public final class PlaybackEngine: ObservableObject {
         
         if state == .completed {
             seek(to: 0.0)
+            accumulator?.reset()
             hasCompletedCurrentSession = false
             hasFinalizedCurrentSession = false
         }
@@ -212,7 +268,7 @@ public final class PlaybackEngine: ObservableObject {
     public func stop(preserveMiniPlayer: Bool = false) {
         cleanupObservers()
         
-        if let track = currentTrack, !hasFinalizedCurrentSession {
+        if currentTrack != nil && !hasFinalizedCurrentSession && currentPhase == .audio {
             if let acc = accumulator, acc.hasQualified {
                 finalizeCurrentSession(trigger: "stop")
             } else if currentTime > 3.0 {
@@ -279,9 +335,10 @@ public final class PlaybackEngine: ObservableObject {
     }
     
     public func saveCurrentResumePosition() {
-        guard let track = currentTrack, currentTime > 0.0, !hasFinalizedCurrentSession else { return }
+        guard let track = currentTrack, currentTime > 0.0, !hasFinalizedCurrentSession, currentPhase == .audio else { return }
         lastSavedResumePosition = currentTime
-        onSaveResume?(track, currentTime)
+        let accSeconds = accumulator?.accumulatedSeconds ?? 0.0
+        onSaveResume?(track, currentTime, accSeconds)
     }
     
     // MARK: - Time & Item Observers
@@ -293,20 +350,21 @@ public final class PlaybackEngine: ObservableObject {
             timeObserverToken = nil
         }
         
-        // Battery-optimized 4Hz observer (every 250ms)
         let interval = CMTime(seconds: 0.25, preferredTimescale: 600)
         
         timeObserverToken = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
-            guard let self = self else { return }
-            let secs = time.seconds
-            if !secs.isNaN && !secs.isInfinite {
-                self.currentTime = secs
-                let isPlaying = (self.state == .playing)
-                self.accumulator?.tick(currentTime: secs, isPlaying: isPlaying, speed: Double(self.speed.rawValue))
-                
-                // Save resume position approximately every 10 seconds during playback
-                if isPlaying && abs(secs - self.lastSavedResumePosition) >= 10.0 {
-                    self.saveCurrentResumePosition()
+            MainActor.assumeIsolated {
+                guard let self = self else { return }
+                let secs = time.seconds
+                if !secs.isNaN && !secs.isInfinite {
+                    self.currentTime = secs
+                    let isPlaying = (self.state == .playing)
+                    if self.currentPhase == .audio {
+                        self.accumulator?.tick(currentTime: secs, isPlaying: isPlaying, speed: Double(self.speed.rawValue))
+                        if isPlaying && abs(secs - self.lastSavedResumePosition) >= 10.0 {
+                            self.saveCurrentResumePosition()
+                        }
+                    }
                 }
             }
         }
@@ -320,7 +378,9 @@ public final class PlaybackEngine: ObservableObject {
             object: item,
             queue: .main
         ) { [weak self] _ in
-            self?.handleTrackEnded()
+            MainActor.assumeIsolated {
+                self?.handleTrackEnded()
+            }
         }
         playerItemObserverTokens.append(endToken)
         
@@ -329,10 +389,12 @@ public final class PlaybackEngine: ObservableObject {
             object: item,
             queue: .main
         ) { [weak self] notification in
-            guard let self = self else { return }
-            self.state = .idle
-            let err = (notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error)?.localizedDescription ?? "Corrupt or unreadable audio stream"
-            self.playbackError = "Playback error: \(err). Please rescan library in Settings."
+            MainActor.assumeIsolated {
+                guard let self = self else { return }
+                self.state = .idle
+                let err = (notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error)?.localizedDescription ?? "Corrupt or unreadable media stream"
+                self.playbackError = "Playback error: \(err). Please rescan library in Settings."
+            }
         }
         playerItemObserverTokens.append(failToken)
     }
@@ -344,7 +406,7 @@ public final class PlaybackEngine: ObservableObject {
         playerItemObserverTokens.removeAll()
     }
     
-    private func cleanupObservers() {
+    public func cleanupObservers() {
         if let token = timeObserverToken {
             player?.removeTimeObserver(token)
             timeObserverToken = nil
@@ -353,6 +415,15 @@ public final class PlaybackEngine: ObservableObject {
     }
     
     private func handleTrackEnded() {
+        if currentPhase == .video, let track = currentTrack, track.videoAttachmentPath != nil && track.relativePath != track.videoAttachmentPath {
+            // Attached day video completed -> smoothly transition to associated audio session
+            cleanupObservers()
+            player?.pause()
+            player = nil
+            startAudioPhase(track: track, startPosition: 0.0, accumulatedSeconds: 0.0)
+            return
+        }
+        
         state = .completed
         finalizeCurrentSession(trigger: "track_ended")
         updateNowPlayingCenter()
@@ -419,8 +490,9 @@ public final class PlaybackEngine: ObservableObject {
     private func updateNowPlayingCenter() {
         guard let track = currentTrack else { return }
         let rate: Float = (state == .playing) ? speed.rawValue : 0.0
+        let displayTitle = (currentPhase == .video) ? "\(track.title) (Video)" : track.title
         NowPlayingCoordinator.shared.updateNowPlaying(
-            title: track.title,
+            title: displayTitle,
             albumTitle: track.courseName,
             duration: duration > 0 ? duration : track.duration,
             currentTime: currentTime,
@@ -428,4 +500,3 @@ public final class PlaybackEngine: ObservableObject {
         )
     }
 }
-
