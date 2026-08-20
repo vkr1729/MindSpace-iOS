@@ -9,19 +9,19 @@ final class DailyRecommendationTests: XCTestCase {
         let sessions = (1...5).map { day in
             CatalogSession(
                 id: "anxiety_day_\(day)",
-                dayNumber: day,
                 title: "Anxiety Day \(day)",
-                duration: 600.0,
-                formattedDuration: "10:00",
-                relativePath: "Packs/2 - Health/1 - Managing Anxiety/session_\(day).mp3"
+                dayNumber: day,
+                relativePath: "Packs/2 - Health/1 - Managing Anxiety/session_\(day).mp3",
+                duration: 600.0
             )
         }
         let course = CatalogCourse(
             id: "health_anxiety",
             name: "Managing Anxiety",
             folderName: "1 - Managing Anxiety",
-            totalSessions: 5,
+            order: 1,
             description: "Calm your mind",
+            totalSessions: 5,
             sessions: sessions
         )
         
@@ -58,20 +58,18 @@ final class DailyRecommendationTests: XCTestCase {
         // Verify Unwind Reset 5min has duration ~300s
         let unwindResetSession = SingleSession(
             id: "unwind_reset_5min",
-            category: "Unwind",
             title: "Reset 5min",
-            duration: 300.149,
-            formattedDuration: "05:00",
-            relativePath: "Singles/6 - Unwind/Reset/Reset 5min.mp3"
+            category: "Unwind",
+            relativePath: "Singles/6 - Unwind/Reset/Reset 5min.mp3",
+            duration: 300.149
         )
         
         let sosPanicSession = SingleSession(
             id: "sos_panicking_3min",
-            category: "SOS",
             title: "Panicking 3min",
-            duration: 180.0,
-            formattedDuration: "03:00",
-            relativePath: "Singles/2 - SOS/Single - Panicking 3min.mp3"
+            category: "SOS",
+            relativePath: "Singles/2 - SOS/Single - Panicking 3min.mp3",
+            duration: 180.0
         )
         
         XCTAssertNotEqual(unwindResetSession.category, sosPanicSession.category)

@@ -117,18 +117,18 @@ final class ProgressSimulationTests: XCTestCase {
         
         // Simulate course 1: Basics (has 3 completed sessions)
         let basicsSessions = [
-            CatalogSession(id: "basics_day_1", dayNumber: 1, title: "Day 1", duration: 600, formattedDuration: "10:00", relativePath: "p1"),
-            CatalogSession(id: "basics_day_2", dayNumber: 2, title: "Day 2", duration: 600, formattedDuration: "10:00", relativePath: "p2"),
-            CatalogSession(id: "basics_day_3", dayNumber: 3, title: "Day 3", duration: 600, formattedDuration: "10:00", relativePath: "p3"),
-            CatalogSession(id: "basics_day_4", dayNumber: 4, title: "Day 4", duration: 600, formattedDuration: "10:00", relativePath: "p4")
+            CatalogSession(id: "basics_day_1", title: "Day 1", dayNumber: 1, relativePath: "p1", duration: 600),
+            CatalogSession(id: "basics_day_2", title: "Day 2", dayNumber: 2, relativePath: "p2", duration: 600),
+            CatalogSession(id: "basics_day_3", title: "Day 3", dayNumber: 3, relativePath: "p3", duration: 600),
+            CatalogSession(id: "basics_day_4", title: "Day 4", dayNumber: 4, relativePath: "p4", duration: 600)
         ]
-        let basicsCourse = CatalogCourse(id: "c_basics", name: "Basics", folderName: "Basics", totalSessions: 4, description: "Foundation", sessions: basicsSessions)
+        let basicsCourse = CatalogCourse(id: "c_basics", name: "Basics", folderName: "Basics", order: 1, description: "Foundation", totalSessions: 4, sessions: basicsSessions)
         
         // Simulate course 2: Sleep (0 completed sessions)
         let sleepSessions = [
-            CatalogSession(id: "sleep_day_1", dayNumber: 1, title: "Day 1", duration: 600, formattedDuration: "10:00", relativePath: "s1")
+            CatalogSession(id: "sleep_day_1", title: "Day 1", dayNumber: 1, relativePath: "s1", duration: 600)
         ]
-        let sleepCourse = CatalogCourse(id: "c_sleep", name: "Sleep", folderName: "Sleep", totalSessions: 1, description: "Rest", sessions: sleepSessions)
+        let sleepCourse = CatalogCourse(id: "c_sleep", name: "Sleep", folderName: "Sleep", order: 2, description: "Rest", totalSessions: 1, sessions: sleepSessions)
         
         let allCourses = [basicsCourse, sleepCourse]
         

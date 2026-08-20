@@ -83,12 +83,12 @@ public struct CatalogCourse: Codable, Identifiable, Sendable, Hashable {
         id: String,
         name: String,
         folderName: String,
-        order: Int,
-        description: String,
-        totalSessions: Int,
-        hasGapWaiver: Bool,
-        introVideo: VideoAttachment?,
-        sessions: [CatalogSession]
+        order: Int = 1,
+        description: String = "",
+        totalSessions: Int = 10,
+        hasGapWaiver: Bool = false,
+        introVideo: VideoAttachment? = nil,
+        sessions: [CatalogSession] = []
     ) {
         self.id = id
         self.name = name
@@ -120,10 +120,10 @@ public struct CatalogSession: Codable, Identifiable, Sendable, Hashable {
         dayNumber: Int,
         relativePath: String,
         duration: Double,
-        sizeBytes: Int64,
-        sha256: String,
-        codec: String,
-        videoAttachments: [VideoAttachment]?
+        sizeBytes: Int64 = 0,
+        sha256: String = "",
+        codec: String = "mp3",
+        videoAttachments: [VideoAttachment]? = nil
     ) {
         self.id = id
         self.title = title
@@ -161,11 +161,11 @@ public struct VideoAttachment: Codable, Identifiable, Sendable, Hashable {
         title: String,
         relativePath: String,
         duration: Double,
-        sizeBytes: Int64,
-        sha256: String,
-        width: Int?,
-        height: Int?,
-        codec: String,
+        sizeBytes: Int64 = 0,
+        sha256: String = "",
+        width: Int? = nil,
+        height: Int? = nil,
+        codec: String = "h264",
         placement: String? = nil
     ) {
         self.id = id
@@ -196,11 +196,11 @@ public struct SinglesCategory: Codable, Identifiable, Sendable, Hashable {
         id: String,
         name: String,
         folderName: String,
-        order: Int,
-        description: String,
-        colorHex: String,
-        iconName: String,
-        sessions: [SingleSession]
+        order: Int = 1,
+        description: String = "",
+        colorHex: String = "#7C3AED",
+        iconName: String = "sparkles",
+        sessions: [SingleSession] = []
     ) {
         self.id = id
         self.name = name
@@ -229,12 +229,12 @@ public struct SingleSession: Codable, Identifiable, Sendable, Hashable {
         id: String,
         title: String,
         category: String,
-        subCategory: String?,
+        subCategory: String? = nil,
         relativePath: String,
         duration: Double,
-        sizeBytes: Int64,
-        sha256: String,
-        codec: String
+        sizeBytes: Int64 = 0,
+        sha256: String = "",
+        codec: String = "mp3"
     ) {
         self.id = id
         self.title = title
