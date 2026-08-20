@@ -95,18 +95,18 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest
-          name: "MindSpace v1.0.2 (Latest Release)"
+          name: "MindSpace v1.0.3 (Latest Release)"
           body: |
-            ## MindSpace v1.0.2 Offline Celestial Meditation
+            ## MindSpace v1.0.3 Offline Celestial Meditation
             
-            ### What's New in v1.0.2:
-            - **Lock Screen Remote Controls Fixed**: Resolved lock screen & Control Center play/pause/skip commands with active session registration and XPC anti-flooding.
-            - **AVAudioSession Dynamic Reactivation**: Robust reactivation whenever audio begins or resumes, with auto-pause on headphone disconnect.
-            - **Favorite Meditations**: Instant star/favorite toggle directly from the player and library.
-            - **Session Reflection Persistence**: Post-meditation reflections saved directly into SwiftData and .mindspace backups.
-            - **Full-Screen Native Video**: Clean aspect-fit video playback with background detachment protection.
-            - **Dynamic Daily Journey**: Next session recommendations based on your current course progress.
-            - **100% Comprehensive UAT Verification**: All 7 functional modules verified with full test coverage.
+            ### What's New in v1.0.3 (UI/UX Pro Max Redesign):
+            - **Celestial Breathing Aura**: Subtle 6-breaths/min radiant expansion behind the planet to pace mindful breathing.
+            - **Luminous Scrubber**: Touch-magnified scrubber thumb with real-time drag tooltip bubble and continuous tactile detents.
+            - **Tactile Sensory Feedback (HapticService)**: Context-aware Taptic engine feedback on button taps, session completion, and scrubbing.
+            - **Unified Cosmic Orbit Hero**: Integrated daily greeting, avatar, and orbital streak gauge in an elevated hero surface.
+            - **Living Constellation Path**: Serpentine starlight Bezier curves with pulsing radar ripple on the active node and gold aura on completed nodes.
+            - **Tonight's Sleep Sanctuary**: Direct 1-tap duration pills (10m, 20m, 45m, 60m) and OLED night mode.
+            - **Zen / Dim Screen Mode**: Rest eyes with a one-tap minimalist dark interface for nighttime meditation.
             
             ### Direct Installation / Auto-Update:
             - **Direct Web & IPA Download**: https://mindspace-ios.vercel.app

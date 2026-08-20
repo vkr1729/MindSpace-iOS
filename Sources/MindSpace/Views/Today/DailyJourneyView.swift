@@ -25,7 +25,7 @@ public struct DailyJourneyItem: Identifiable, Sendable {
     }
 }
 
-/// 3-Item Daily Journey checklist component on the Today screen.
+/// 3-Item Daily Journey checklist component on the Today screen with tactile interactions.
 public struct DailyJourneyView: View {
     @Binding public var items: [DailyJourneyItem]
     public let onSelectTrack: (PlayableTrack) -> Void
@@ -39,13 +39,26 @@ public struct DailyJourneyView: View {
     }
     
     public var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Daily Journey")
-                .font(.system(size: 18, weight: .bold, design: .rounded))
-                .foregroundColor(CosmosTheme.textPrimary)
-                .padding(.horizontal, 4)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Daily Journey")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(CosmosTheme.textPrimary)
+                
+                Spacer()
+                
+                let completedCount = items.filter { $0.isCompleted }.count
+                Text("\(completedCount)/\(items.count) Completed")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundColor(completedCount == items.count ? CosmosTheme.starlightGold : CosmosTheme.moonLavender)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(CosmosTheme.spacePill)
+                    .clipShape(Capsule())
+            }
+            .padding(.horizontal, 4)
             
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 ForEach($items) { $item in
                     journeyRow(for: $item)
                 }
@@ -57,20 +70,22 @@ public struct DailyJourneyView: View {
     private func journeyRow(for item: Binding<DailyJourneyItem>) -> some View {
         let currentItem = item.wrappedValue
         HStack(spacing: 14) {
-            // Checkbox Icon
+            // Interactive Checkbox Icon with Haptic Feedback
             Button(action: {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                HapticService.shared.light()
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
                     item.wrappedValue.isCompleted.toggle()
                 }
             }) {
                 ZStack {
                     Circle()
                         .stroke(currentItem.isCompleted ? CosmosTheme.starlightGold : CosmosTheme.spaceCardBorder, lineWidth: 1.5)
-                        .frame(width: 26, height: 26)
+                        .frame(width: 28, height: 28)
                         .background(
                             Circle()
                                 .fill(currentItem.isCompleted ? CosmosTheme.starlightGold : Color.clear)
                         )
+                        .shadow(color: currentItem.isCompleted ? CosmosTheme.starlightGold.opacity(0.4) : Color.clear, radius: 4)
                     
                     if currentItem.isCompleted {
                         Image(systemName: "checkmark")
@@ -82,9 +97,9 @@ public struct DailyJourneyView: View {
             .buttonStyle(.plain)
             
             // Text Details
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(currentItem.title)
-                    .font(.system(size: 16, weight: .medium, design: .rounded))
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundColor(currentItem.isCompleted ? CosmosTheme.textSecondary : CosmosTheme.textPrimary)
                     .strikethrough(currentItem.isCompleted, color: CosmosTheme.textSecondary)
                 
@@ -98,38 +113,60 @@ public struct DailyJourneyView: View {
             // Quick Continue Button if Primary Action
             if currentItem.isPrimaryAction && !currentItem.isCompleted {
                 Button(action: {
+                    HapticService.shared.medium()
                     if let track = currentItem.playableTrack {
                         onSelectTrack(track)
                     }
                 }) {
-                    Text("Continue")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundColor(CosmosTheme.textPrimary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(CosmosTheme.cosmicPurple)
-                        .clipShape(Capsule())
-                        .shadow(color: CosmosTheme.cosmicPurple.opacity(0.4), radius: 6, x: 0, y: 2)
+                    HStack(spacing: 4) {
+                        Text("Continue")
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 11))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(
+                        LinearGradient(
+                            colors: [CosmosTheme.cosmicPurple, Color(hex: "#6344E0")],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .clipShape(Capsule())
+                    .shadow(color: CosmosTheme.cosmicPurple.opacity(0.4), radius: 6, x: 0, y: 2)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.cosmicPressable)
             } else if let track = currentItem.playableTrack {
                 Button(action: {
+                    HapticService.shared.medium()
                     onSelectTrack(track)
                 }) {
-                    Image(systemName: "play.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(CosmosTheme.moonLavender)
+                    Image(systemName: currentItem.isCompleted ? "arrow.counterclockwise.circle.fill" : "play.circle.fill")
+                        .font(.system(size: 26))
+                        .foregroundColor(currentItem.isCompleted ? CosmosTheme.textSecondary : CosmosTheme.moonLavender)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.cosmicPressable)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .background(CosmosTheme.spaceCard)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(
+            ZStack {
+                CosmosTheme.spaceCard
+                if currentItem.isPrimaryAction && !currentItem.isCompleted {
+                    CosmosTheme.cosmicPurple.opacity(0.08)
+                }
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(
+                    currentItem.isPrimaryAction && !currentItem.isCompleted ? CosmosTheme.cosmicPurple.opacity(0.4) : CosmosTheme.spaceCardBorder,
+                    lineWidth: 1
+                )
         )
     }
 }

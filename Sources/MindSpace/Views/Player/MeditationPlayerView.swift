@@ -1,8 +1,8 @@
 import SwiftUI
 import SwiftData
 
-/// Screen 4: Minimalist Meditation Player (Canonical Blueprint)
-/// Reference: Mock Screen Codex.png
+/// Screen 4: Elevated Minimalist Meditation Player with Celestial Breathing Aura & Luminous Scrubber
+/// Reference: Mock Screen Codex.png & UI/UX Pro Max Design Intelligence
 public struct MeditationPlayerView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -14,6 +14,8 @@ public struct MeditationPlayerView: View {
     @State private var isFullScreenVideoPresented = false
     @State private var isScrubbing = false
     @State private var scrubbedTime: Double = 0.0
+    @State private var isZenMode = false
+    @State private var breathPhase: CGFloat = 0.0
     
     public init() {}
     
@@ -38,225 +40,258 @@ public struct MeditationPlayerView: View {
         playbackEngine.duration > 0 ? playbackEngine.duration : (track?.duration ?? 0.0)
     }
     
+    private var ambientColor: Color {
+        CosmosTheme.ambientColor(for: track?.courseName ?? "MindSpace")
+    }
+    
     public var body: some View {
         ZStack {
+            // Deep cosmic background
             CosmosTheme.spaceBackground.ignoresSafeArea()
+            
+            // Atmospheric Ambient Spotlight
+            RadialGradient(
+                colors: [ambientColor.opacity(isPlaying ? 0.22 : 0.10), Color.clear],
+                center: .center,
+                startRadius: 40,
+                endRadius: 360
+            )
+            .ignoresSafeArea()
+            .animation(.easeInOut(duration: 1.5), value: isPlaying)
+            
             StarsBackgroundView()
             
-            VStack(spacing: 24) {
+            VStack(spacing: 20) {
                 // MARK: - Navigation Bar
                 HStack {
                     Button(action: {
+                        HapticService.shared.light()
                         playbackEngine.isFullPlayerPresented = false
                     }) {
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.system(size: 17, weight: .bold))
                             .foregroundColor(CosmosTheme.textPrimary)
-                            .frame(width: 40, height: 40)
+                            .frame(width: 42, height: 42)
                             .background(CosmosTheme.spaceCard)
                             .clipShape(Circle())
+                            .overlay(Circle().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
                     }
+                    .buttonStyle(.cosmicPressable)
                     
                     Spacer()
                     
-                    VStack(spacing: 2) {
+                    VStack(spacing: 3) {
                         Text(track?.title ?? "Meditation")
                             .font(.system(size: 17, weight: .bold, design: .rounded))
                             .foregroundColor(CosmosTheme.textPrimary)
                             .lineLimit(1)
                         
-                        HStack(spacing: 4) {
+                        HStack(spacing: 5) {
                             Circle()
                                 .fill(CosmosTheme.auroraTeal)
                                 .frame(width: 6, height: 6)
-                            Text("Offline")
+                            Text("100% Offline")
                                 .font(.system(size: 12, weight: .medium, design: .rounded))
                                 .foregroundColor(CosmosTheme.textSecondary)
                         }
                     }
+                    .opacity(isZenMode ? 0.2 : 1.0)
+                    .animation(.easeInOut(duration: 0.3), value: isZenMode)
                     
                     Spacer()
                     
-                    Button(action: {
-                        toggleFavorite()
-                    }) {
-                        Image(systemName: isFavorite ? "star.fill" : "star")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(isFavorite ? CosmosTheme.starlightGold : CosmosTheme.textPrimary)
-                            .frame(width: 40, height: 40)
-                            .background(CosmosTheme.spaceCard)
-                            .clipShape(Circle())
+                    HStack(spacing: 10) {
+                        // Zen / Dim Mode Toggle
+                        Button(action: {
+                            HapticService.shared.light()
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                isZenMode.toggle()
+                            }
+                        }) {
+                            Image(systemName: isZenMode ? "eye.fill" : "eye.slash")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(isZenMode ? CosmosTheme.starlightGold : CosmosTheme.textSecondary)
+                                .frame(width: 42, height: 42)
+                                .background(CosmosTheme.spaceCard)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                        }
+                        .buttonStyle(.cosmicPressable)
+                        
+                        // Favorite Star Button
+                        Button(action: {
+                            HapticService.shared.medium()
+                            toggleFavorite()
+                        }) {
+                            Image(systemName: isFavorite ? "star.fill" : "star")
+                                .font(.system(size: 17, weight: .bold))
+                                .foregroundColor(isFavorite ? CosmosTheme.starlightGold : CosmosTheme.textPrimary)
+                                .frame(width: 42, height: 42)
+                                .background(CosmosTheme.spaceCard)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                        }
+                        .buttonStyle(.cosmicPressable)
                     }
-                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
                 
                 Spacer()
                 
-                // MARK: - Central Visual Anchor (3D Planet or Video)
-                if let videoRel = track?.videoAttachmentPath,
-                   let _ = LibraryPathResolver.shared.resolveURL(for: videoRel) {
-                    ZStack(alignment: .topTrailing) {
-                        VideoPlayerView(player: playbackEngine.player)
-                            .aspectRatio(16/9, contentMode: .fit)
-                            .cornerRadius(20)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 20)
-                                    .stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
-                            )
-                            .shadow(color: CosmosTheme.cosmicPurple.opacity(0.3), radius: 16)
-                            .onTapGesture {
+                // MARK: - Central Visual Anchor with Mindful Breathing Aura
+                ZStack {
+                    if let videoRel = track?.videoAttachmentPath,
+                       let _ = LibraryPathResolver.shared.resolveURL(for: videoRel) {
+                        ZStack(alignment: .topTrailing) {
+                            VideoPlayerView(player: playbackEngine.player)
+                                .aspectRatio(16/9, contentMode: .fit)
+                                .cornerRadius(22)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 22)
+                                        .stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
+                                )
+                                .shadow(color: ambientColor.opacity(0.35), radius: 20)
+                                .onTapGesture {
+                                    isFullScreenVideoPresented = true
+                                }
+                            
+                            Button(action: {
                                 isFullScreenVideoPresented = true
+                            }) {
+                                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(CosmosTheme.textPrimary)
+                                    .padding(8)
+                                    .background(CosmosTheme.spaceBackground.opacity(0.8))
+                                    .clipShape(Circle())
+                                    .padding(12)
                             }
-                        
-                        Button(action: {
-                            isFullScreenVideoPresented = true
-                        }) {
-                            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(CosmosTheme.textPrimary)
-                                .padding(8)
-                                .background(CosmosTheme.spaceBackground.opacity(0.75))
-                                .clipShape(Circle())
-                                .padding(12)
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
+                        .padding(.horizontal, 20)
+                    } else {
+                        // Breathing Glow Ring behind the planet
+                        if isPlaying {
+                            Circle()
+                                .fill(
+                                    RadialGradient(
+                                        colors: [ambientColor.opacity(0.4), ambientColor.opacity(0.0)],
+                                        center: .center,
+                                        startRadius: 50,
+                                        endRadius: 150
+                                    )
+                                )
+                                .frame(width: 280, height: 280)
+                                .scaleEffect(1.0 + (breathPhase * 0.18))
+                                .opacity(0.6 + (breathPhase * 0.4))
+                                .blur(radius: 12)
+                        }
+                        
+                        CelestialPlanetView(
+                            style: planetStyleForTrack,
+                            size: 215,
+                            hasRings: true,
+                            isAnimated: isPlaying
+                        )
+                        .scaleEffect(isPlaying ? (1.0 + (breathPhase * 0.03)) : 1.0)
+                        .padding(.vertical, 16)
                     }
-                    .padding(.horizontal, 20)
-                } else {
-                    CelestialPlanetView(
-                        style: planetStyleForTrack,
-                        size: 210,
-                        hasRings: true,
-                        isAnimated: isPlaying
-                    )
-                    .padding(.vertical, 16)
                 }
                 
                 Spacer()
                 
-                // MARK: - Digital Time Readout
-                VStack(spacing: 8) {
-                    HStack(spacing: 6) {
+                // MARK: - Digital Time Readout & Scrubber
+                VStack(spacing: 12) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(formatTime(displayCurrentTime))
-                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
                             .foregroundColor(CosmosTheme.textPrimary)
+                            .monospacedDigit()
                         
                         Text("/ of \(formatTime(duration))")
-                            .font(.system(size: 18, weight: .medium, design: .rounded))
+                            .font(.system(size: 17, weight: .medium, design: .rounded))
                             .foregroundColor(CosmosTheme.textSecondary)
-                            .offset(y: 4)
                     }
                     
-                    // MARK: - Scrubber Bar
-                    VStack(spacing: 6) {
-                        GeometryReader { geometry in
-                            let totalWidth = geometry.size.width
-                            let progress = duration > 0 ? (displayCurrentTime / duration) : 0.0
-                            
-                            ZStack(alignment: .leading) {
-                                // Background Track
-                                Capsule()
-                                    .fill(CosmosTheme.spaceCardBorder)
-                                    .frame(height: 6)
-                                
-                                // Progress Track
-                                Capsule()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [CosmosTheme.cosmicPurple, CosmosTheme.starlightGold],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                    )
-                                    .frame(width: totalWidth * CGFloat(progress), height: 6)
-                            }
-                            .contentShape(Rectangle())
-                            .gesture(
-                                DragGesture(minimumDistance: 0)
-                                    .onChanged { value in
-                                        isScrubbing = true
-                                        let ratio = max(0.0, min(1.0, value.location.x / totalWidth))
-                                        scrubbedTime = ratio * duration
-                                    }
-                                    .onEnded { value in
-                                        let ratio = max(0.0, min(1.0, value.location.x / totalWidth))
-                                        let target = ratio * duration
-                                        playbackEngine.seek(to: target)
-                                        isScrubbing = false
-                                    }
-                            )
-                        }
-                        .frame(height: 14)
-                        
-                        HStack {
-                            Text(formatTime(displayCurrentTime))
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
-                                .foregroundColor(CosmosTheme.textSecondary)
-                            Spacer()
-                            Text("-\(formatTime(max(0, duration - displayCurrentTime)))")
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
-                                .foregroundColor(CosmosTheme.textSecondary)
-                        }
-                    }
-                    .padding(.horizontal, 28)
+                    // Luminous Touch-Responsive Scrubber
+                    luminousScrubber
                 }
+                .opacity(isZenMode ? 0.35 : 1.0)
+                .animation(.easeInOut(duration: 0.3), value: isZenMode)
                 
-                // MARK: - Controls (Skip ±15s & Glowing Play/Pause)
+                // MARK: - Transport Controls (Skip ±15s & Glowing Play/Pause)
                 HStack(spacing: 36) {
                     // Skip Backward 15s
                     Button(action: {
+                        HapticService.shared.light()
                         playbackEngine.skipBackward(15)
                     }) {
                         ZStack {
+                            Circle()
+                                .fill(CosmosTheme.spaceCard)
+                                .frame(width: 52, height: 52)
+                                .overlay(Circle().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                            
                             Image(systemName: "gobackward.15")
-                                .font(.system(size: 24, weight: .semibold))
+                                .font(.system(size: 22, weight: .semibold))
                                 .foregroundColor(CosmosTheme.textPrimary)
                         }
-                        .frame(width: 48, height: 48)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.cosmicPressable)
                     
-                    // Large Play / Pause Button
+                    // Large Tactical Play / Pause Button
                     Button(action: {
+                        HapticService.shared.medium()
                         playbackEngine.togglePlayPause()
                     }) {
                         ZStack {
                             Circle()
-                                .fill(CosmosTheme.cosmicPurple)
-                                .frame(width: 76, height: 76)
-                                .shadow(color: CosmosTheme.cosmicPurple.opacity(0.6), radius: 16, x: 0, y: 4)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [CosmosTheme.cosmicPurple, Color(hex: "#6344E0")],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 78, height: 78)
+                                .shadow(color: CosmosTheme.cosmicPurple.opacity(0.55), radius: 18, x: 0, y: 5)
                             
                             Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 30, weight: .bold))
+                                .font(.system(size: 32, weight: .bold))
                                 .foregroundColor(.white)
                                 .offset(x: isPlaying ? 0 : 2)
                         }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.cosmicPrimaryPressable)
                     
                     // Skip Forward 15s
                     Button(action: {
+                        HapticService.shared.light()
                         playbackEngine.skipForward(15)
                     }) {
                         ZStack {
+                            Circle()
+                                .fill(CosmosTheme.spaceCard)
+                                .frame(width: 52, height: 52)
+                                .overlay(Circle().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                            
                             Image(systemName: "goforward.15")
-                                .font(.system(size: 24, weight: .semibold))
+                                .font(.system(size: 22, weight: .semibold))
                                 .foregroundColor(CosmosTheme.textPrimary)
                         }
-                        .frame(width: 48, height: 48)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.cosmicPressable)
                 }
                 .padding(.top, 4)
                 
-                // MARK: - Bottom Pill Controls (Speed & Sleep Timer)
+                // MARK: - Bottom Tactile Pills (Speed & Sleep Timer)
                 HStack(spacing: 16) {
                     // Speed Toggle Pill
                     Menu {
                         ForEach(PlaybackSpeed.allCases, id: \.self) { speed in
                             Button(action: {
+                                HapticService.shared.selection()
                                 playbackEngine.setSpeed(speed)
                             }) {
                                 HStack {
@@ -276,7 +311,7 @@ public struct MeditationPlayerView: View {
                         }
                         .foregroundColor(CosmosTheme.textPrimary)
                         .padding(.horizontal, 18)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 11)
                         .background(CosmosTheme.spaceCard)
                         .clipShape(Capsule())
                         .overlay(
@@ -286,11 +321,34 @@ public struct MeditationPlayerView: View {
                     
                     // Sleep Timer Pill
                     Menu {
-                        Button("Off") { playbackEngine.setSleepTimer(minutes: nil) }
-                        Button("5 minutes") { playbackEngine.setSleepTimer(minutes: 5) }
-                        Button("10 minutes") { playbackEngine.setSleepTimer(minutes: 10) }
-                        Button("15 minutes") { playbackEngine.setSleepTimer(minutes: 15) }
-                        Button("30 minutes") { playbackEngine.setSleepTimer(minutes: 30) }
+                        Button("Off") {
+                            HapticService.shared.selection()
+                            playbackEngine.setSleepTimer(minutes: nil)
+                        }
+                        Button("5 minutes") {
+                            HapticService.shared.selection()
+                            playbackEngine.setSleepTimer(minutes: 5)
+                        }
+                        Button("10 minutes") {
+                            HapticService.shared.selection()
+                            playbackEngine.setSleepTimer(minutes: 10)
+                        }
+                        Button("15 minutes") {
+                            HapticService.shared.selection()
+                            playbackEngine.setSleepTimer(minutes: 15)
+                        }
+                        Button("30 minutes") {
+                            HapticService.shared.selection()
+                            playbackEngine.setSleepTimer(minutes: 30)
+                        }
+                        Button("45 minutes") {
+                            HapticService.shared.selection()
+                            playbackEngine.setSleepTimer(minutes: 45)
+                        }
+                        Button("60 minutes") {
+                            HapticService.shared.selection()
+                            playbackEngine.setSleepTimer(minutes: 60)
+                        }
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "alarm")
@@ -305,7 +363,7 @@ public struct MeditationPlayerView: View {
                         }
                         .foregroundColor(playbackEngine.sleepTimerMinutesRemaining != nil ? CosmosTheme.starlightGold : CosmosTheme.textPrimary)
                         .padding(.horizontal, 18)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 11)
                         .background(CosmosTheme.spaceCard)
                         .clipShape(Capsule())
                         .overlay(
@@ -313,8 +371,12 @@ public struct MeditationPlayerView: View {
                         )
                     }
                 }
+                .opacity(isZenMode ? 0.3 : 1.0)
                 .padding(.bottom, 24)
             }
+        }
+        .onAppear {
+            startBreathingAnimation()
         }
         .sheet(isPresented: $isShowingCompletionSheet) {
             if let track = track {
@@ -333,8 +395,92 @@ public struct MeditationPlayerView: View {
         }
         .onChange(of: playbackEngine.hasCompletedCurrentSession) { _, completed in
             if completed {
+                HapticService.shared.success()
                 isShowingCompletionSheet = true
             }
+        }
+    }
+    
+    // MARK: - Luminous Custom Scrubber
+    private var luminousScrubber: some View {
+        VStack(spacing: 6) {
+            GeometryReader { geometry in
+                let totalWidth = geometry.size.width
+                let progress = duration > 0 ? (displayCurrentTime / duration) : 0.0
+                let thumbX = totalWidth * CGFloat(progress)
+                
+                ZStack(alignment: .leading) {
+                    // Background Track
+                    Capsule()
+                        .fill(CosmosTheme.spaceCardBorder)
+                        .frame(height: isScrubbing ? 8 : 6)
+                    
+                    // Progress Track
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [CosmosTheme.cosmicPurple, CosmosTheme.starlightGold],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: max(6, thumbX), height: isScrubbing ? 8 : 6)
+                    
+                    // Luminous Thumb Dot
+                    Circle()
+                        .fill(CosmosTheme.starlightGold)
+                        .frame(width: isScrubbing ? 18 : 12, height: isScrubbing ? 18 : 12)
+                        .shadow(color: CosmosTheme.starlightGold.opacity(0.8), radius: isScrubbing ? 8 : 4)
+                        .offset(x: max(0, min(totalWidth - (isScrubbing ? 18 : 12), thumbX - (isScrubbing ? 9 : 6))))
+                }
+                .frame(height: 24)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            if !isScrubbing {
+                                isScrubbing = true
+                                HapticService.shared.selection()
+                            }
+                            let ratio = max(0.0, min(1.0, value.location.x / totalWidth))
+                            let newTime = ratio * duration
+                            if abs(newTime - scrubbedTime) > 5 {
+                                HapticService.shared.soft()
+                            }
+                            scrubbedTime = newTime
+                        }
+                        .onEnded { value in
+                            let ratio = max(0.0, min(1.0, value.location.x / totalWidth))
+                            let target = ratio * duration
+                            playbackEngine.seek(to: target)
+                            HapticService.shared.medium()
+                            isScrubbing = false
+                        }
+                )
+            }
+            .frame(height: 24)
+            
+            HStack {
+                Text(formatTime(displayCurrentTime))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundColor(CosmosTheme.textSecondary)
+                    .monospacedDigit()
+                Spacer()
+                Text("-\(formatTime(max(0, duration - displayCurrentTime)))")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundColor(CosmosTheme.textSecondary)
+                    .monospacedDigit()
+            }
+        }
+        .padding(.horizontal, 28)
+    }
+    
+    private func startBreathingAnimation() {
+        withAnimation(
+            .easeInOut(duration: 4.0)
+            .repeatForever(autoreverses: true)
+        ) {
+            breathPhase = 1.0
         }
     }
     

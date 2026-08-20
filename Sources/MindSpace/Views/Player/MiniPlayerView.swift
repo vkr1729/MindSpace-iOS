@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Floating mini-player strip docked above the bottom tab bar.
+/// Floating mini-player strip docked above the bottom tab bar with glassmorphic depth & tactile controls.
 public struct MiniPlayerView: View {
     @ObservedObject private var playbackEngine = PlaybackEngine.shared
     
@@ -19,17 +19,30 @@ public struct MiniPlayerView: View {
         return min(1.0, playbackEngine.currentTime / playbackEngine.duration)
     }
     
+    private var ambientColor: Color {
+        CosmosTheme.ambientColor(for: track?.courseName ?? "MindSpace")
+    }
+    
     public var body: some View {
         if playbackEngine.isMiniPlayerVisible, let track = track {
             Button(action: {
+                HapticService.shared.light()
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
                     playbackEngine.isFullPlayerPresented = true
                 }
             }) {
                 HStack(spacing: 12) {
-                    // Small Planet Art
-                    CelestialPlanetView(style: .purpleRinged, size: 36, hasRings: false)
-                        .frame(width: 38, height: 38)
+                    // Small Planet Art with Ambient Pulse
+                    ZStack {
+                        if isPlaying {
+                            Circle()
+                                .fill(ambientColor.opacity(0.35))
+                                .frame(width: 44, height: 44)
+                                .blur(radius: 6)
+                        }
+                        CelestialPlanetView(style: .purpleRinged, size: 36, hasRings: false)
+                            .frame(width: 38, height: 38)
+                    }
                     
                     // Track Title & Course
                     VStack(alignment: .leading, spacing: 2) {
@@ -38,7 +51,7 @@ public struct MiniPlayerView: View {
                             .foregroundColor(CosmosTheme.textPrimary)
                             .lineLimit(1)
                         
-                        Text(track.courseName ?? "MindSpace")
+                        Text(track.courseName ?? "MindSpace • 100% Offline")
                             .font(.system(size: 12, weight: .regular, design: .rounded))
                             .foregroundColor(CosmosTheme.textSecondary)
                             .lineLimit(1)
@@ -48,51 +61,76 @@ public struct MiniPlayerView: View {
                     
                     // Play / Pause Button
                     Button(action: {
+                        HapticService.shared.medium()
                         playbackEngine.togglePlayPause()
                     }) {
-                        Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(CosmosTheme.textPrimary)
-                            .frame(width: 36, height: 36)
+                        ZStack {
+                            Circle()
+                                .fill(CosmosTheme.cosmicPurple.opacity(0.2))
+                                .frame(width: 38, height: 38)
+                            
+                            Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(CosmosTheme.cosmicPurple)
+                                .offset(x: isPlaying ? 0 : 1)
+                        }
                     }
                     .buttonStyle(.plain)
                     
                     // Close Mini-Player Button
                     Button(action: {
+                        HapticService.shared.light()
                         playbackEngine.stop()
                         playbackEngine.isMiniPlayerVisible = false
                     }) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(CosmosTheme.textSecondary)
-                            .frame(width: 30, height: 30)
+                            .frame(width: 28, height: 28)
+                            .background(CosmosTheme.spacePill)
+                            .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(CosmosTheme.spaceCard)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(
+                    ZStack {
+                        CosmosTheme.spaceCard
+                        LinearGradient(
+                            colors: [ambientColor.opacity(0.12), Color.clear],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    }
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .overlay(
-                    // Bottom Progress Line
+                    // Bottom Progress Line with Starlight Gradient
                     VStack {
                         Spacer()
                         GeometryReader { proxy in
                             Rectangle()
-                                .fill(CosmosTheme.cosmicPurple)
-                                .frame(width: proxy.size.width * CGFloat(progress), height: 2)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [CosmosTheme.cosmicPurple, CosmosTheme.starlightGold],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .frame(width: proxy.size.width * CGFloat(progress), height: 2.5)
                         }
-                        .frame(height: 2)
+                        .frame(height: 2.5)
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
                 )
-                .shadow(color: Color.black.opacity(0.35), radius: 12, x: 0, y: 4)
+                .shadow(color: Color.black.opacity(0.4), radius: 14, x: 0, y: 5)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.cosmicPressable)
             .padding(.horizontal, 16)
             .padding(.bottom, 6)
         }

@@ -48,7 +48,7 @@ public struct ConstellationPathView: View {
                 Canvas { context, _ in
                     guard points.count > 1 else { return }
                     
-                    // 1. Draw solid completed paths
+                    // 1. Draw solid completed paths with starlight gold gradient
                     var completedPath = Path()
                     var completedCount = 0
                     for (i, node) in nodes.enumerated() {
@@ -68,7 +68,7 @@ public struct ConstellationPathView: View {
                         context.stroke(
                             completedPath,
                             with: .color(CosmosTheme.starlightGold),
-                            style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+                            style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round)
                         )
                     }
                     
@@ -85,7 +85,7 @@ public struct ConstellationPathView: View {
                         }
                         context.stroke(
                             upcomingPath,
-                            with: .color(CosmosTheme.spaceCardBorder.opacity(0.8)),
+                            with: .color(CosmosTheme.spaceCardBorder.opacity(0.85)),
                             style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [6, 6])
                         )
                     }
@@ -98,16 +98,17 @@ public struct ConstellationPathView: View {
                         nodeView(for: node)
                             .position(pt)
                             .onTapGesture {
+                                HapticService.shared.selection()
                                 onSelectNode(node)
                             }
                     }
                 }
             }
         }
-        .frame(height: max(180, CGFloat((nodes.count + 2) / 3) * 65))
+        .frame(height: max(190, CGFloat((nodes.count + 2) / 3) * 68))
         .onAppear {
             withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) {
-                pulseScale = 1.25
+                pulseScale = 1.3
             }
         }
     }
@@ -118,17 +119,23 @@ public struct ConstellationPathView: View {
             if node.isActive {
                 // Radiant Pulsing Halo
                 Circle()
-                    .fill(CosmosTheme.cosmicPurple.opacity(0.3))
-                    .frame(width: 44, height: 44)
+                    .fill(CosmosTheme.cosmicPurple.opacity(0.25))
+                    .frame(width: 46, height: 46)
                     .scaleEffect(pulseScale)
                 
                 Circle()
-                    .fill(CosmosTheme.cosmicPurple)
-                    .frame(width: 32, height: 32)
-                    .overlay(
-                        Circle().stroke(Color.white.opacity(0.8), lineWidth: 2)
+                    .fill(
+                        LinearGradient(
+                            colors: [CosmosTheme.cosmicPurple, Color(hex: "#6344E0")],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                    .shadow(color: CosmosTheme.cosmicPurple.opacity(0.8), radius: 8, x: 0, y: 0)
+                    .frame(width: 34, height: 34)
+                    .overlay(
+                        Circle().stroke(Color.white.opacity(0.85), lineWidth: 2)
+                    )
+                    .shadow(color: CosmosTheme.cosmicPurple.opacity(0.8), radius: 10, x: 0, y: 0)
                 
                 Text("\(node.dayNumber)")
                     .font(.system(size: 14, weight: .bold, design: .rounded))
@@ -136,8 +143,14 @@ public struct ConstellationPathView: View {
             } else if node.isCompleted {
                 // Completed Golden Node
                 Circle()
-                    .fill(CosmosTheme.starlightGold)
-                    .frame(width: 28, height: 28)
+                    .fill(
+                        LinearGradient(
+                            colors: [CosmosTheme.starlightGold, Color(hex: "#EAB308")],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 30, height: 30)
                     .shadow(color: CosmosTheme.starlightGold.opacity(0.5), radius: 6, x: 0, y: 0)
                 
                 Image(systemName: "checkmark")
@@ -145,17 +158,17 @@ public struct ConstellationPathView: View {
                     .foregroundColor(CosmosTheme.spaceBackground)
             } else if node.isBridgeOfReflection {
                 // Gentle Bridge of Reflection for gap waiver
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(CosmosTheme.moonLavender.opacity(0.6))
-                    .frame(width: 32, height: 20)
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(CosmosTheme.moonLavender.opacity(0.7))
+                    .frame(width: 34, height: 22)
                 Text("~")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundColor(CosmosTheme.textPrimary)
             } else {
                 // Upcoming Dim Node
                 Circle()
                     .fill(CosmosTheme.spaceCard)
-                    .frame(width: 24, height: 24)
+                    .frame(width: 26, height: 26)
                     .overlay(
                         Circle().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1.5)
                     )
@@ -174,7 +187,7 @@ public struct ConstellationPathView: View {
         let usableWidth = max(100, width - (paddingX * 2))
         
         let cols = 3
-        let rowHeight: CGFloat = 58
+        let rowHeight: CGFloat = 60
         
         for i in 0..<totalNodes {
             let row = i / cols
@@ -183,7 +196,7 @@ public struct ConstellationPathView: View {
             let col = isEvenRow ? colInRow : (cols - 1 - colInRow)
             
             let x = paddingX + (usableWidth * CGFloat(col) / CGFloat(cols - 1))
-            let y = 30 + (CGFloat(row) * rowHeight)
+            let y = 32 + (CGFloat(row) * rowHeight)
             result.append(CGPoint(x: x, y: y))
         }
         return result

@@ -56,76 +56,7 @@ public struct StarsBackgroundView: View {
     }
 }
 
-// MARK: - Reusable Cosmic UI Components
-
-/// Cosmic elevated card container with subtle border and optional glow
-public struct CosmicCard<Content: View>: View {
-    let padding: CGFloat
-    let cornerRadius: CGFloat
-    let content: Content
-    
-    public init(
-        padding: CGFloat = 16,
-        cornerRadius: CGFloat = 20,
-        @ViewBuilder content: () -> Content
-    ) {
-        self.padding = padding
-        self.cornerRadius = cornerRadius
-        self.content = content()
-    }
-    
-    public var body: some View {
-        content
-            .padding(padding)
-            .background(CosmosTheme.spaceCard)
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
-            )
-    }
-}
-
-/// Primary action button with cosmic purple background, glowing aura, and tactile feedback
-public struct CosmicPrimaryButton: View {
-    let title: String
-    let icon: String?
-    let action: () -> Void
-    
-    public init(_ title: String, icon: String? = nil, action: @escaping () -> Void) {
-        self.title = title
-        self.icon = icon
-        self.action = action
-    }
-    
-    public var body: some View {
-        Button(action: {
-            #if os(iOS)
-            let generator = UIImpactFeedbackGenerator(style: .medium)
-            generator.impactOccurred()
-            #endif
-            action()
-        }) {
-            HStack(spacing: 8) {
-                if let icon {
-                    Image(systemName: icon)
-                        .font(.system(size: 16, weight: .bold))
-                }
-                Text(title)
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
-            }
-            .foregroundColor(CosmosTheme.textPrimary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(CosmosTheme.cosmicPurple)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .shadow(color: CosmosTheme.cosmicPurple.opacity(0.4), radius: 12, x: 0, y: 4)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-/// Pill filter chip button
+/// Pill filter chip button with tactile feedback and glowing starlight state
 public struct FilterChip: View {
     let title: String
     let isSelected: Bool
@@ -138,19 +69,35 @@ public struct FilterChip: View {
     }
     
     public var body: some View {
-        Button(action: action) {
+        Button(action: {
+            HapticService.shared.light()
+            action()
+        }) {
             Text(title)
-                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .font(.system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded))
                 .foregroundColor(isSelected ? CosmosTheme.textPrimary : CosmosTheme.textSecondary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(isSelected ? CosmosTheme.cosmicPurple : CosmosTheme.spaceCard)
+                .background(
+                    isSelected ?
+                    LinearGradient(
+                        colors: [CosmosTheme.cosmicPurple, Color(hex: "#6344E0")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ) :
+                    LinearGradient(
+                        colors: [CosmosTheme.spaceCard, CosmosTheme.spaceCard],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .clipShape(Capsule())
                 .overlay(
                     Capsule()
-                        .stroke(isSelected ? Color.clear : CosmosTheme.spaceCardBorder, lineWidth: 1)
+                        .stroke(isSelected ? CosmosTheme.cosmicPurple.opacity(0.8) : CosmosTheme.spaceCardBorder, lineWidth: 1)
                 )
+                .shadow(color: isSelected ? CosmosTheme.cosmicPurple.opacity(0.35) : Color.clear, radius: 6, x: 0, y: 2)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.cosmicPressable)
     }
 }

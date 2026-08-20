@@ -10,8 +10,8 @@ public enum LibraryFilter: String, CaseIterable, Identifiable {
     public var id: String { rawValue }
 }
 
-/// Screen 2: Library & Category Explorer (Canonical Blueprint)
-/// Reference: Mock Screen Codex.png
+/// Screen 2: Elevated Library & Category Explorer
+/// Reference: Mock Screen Codex.png & UI/UX Pro Max Design Intelligence
 public struct LibraryView: View {
     @ObservedObject private var catalogService = CatalogService.shared
     @ObservedObject private var playbackEngine = PlaybackEngine.shared
@@ -34,14 +34,20 @@ public struct LibraryView: View {
             ZStack {
                 CosmosTheme.spaceBackground.ignoresSafeArea()
                 
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 20) {
                         // MARK: - Header
-                        Text("Library")
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
-                            .foregroundColor(CosmosTheme.textPrimary)
-                            .padding(.horizontal, 20)
-                            .padding(.top, 12)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Library")
+                                .font(.system(size: 32, weight: .bold, design: .rounded))
+                                .foregroundColor(CosmosTheme.textPrimary)
+                            
+                            Text("Explore 275+ hours of celestial meditations & courses")
+                                .font(.system(size: 14, weight: .regular, design: .rounded))
+                                .foregroundColor(CosmosTheme.textSecondary)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 12)
                         
                         // MARK: - Search Bar
                         HStack(spacing: 10) {
@@ -49,12 +55,20 @@ public struct LibraryView: View {
                                 .foregroundColor(CosmosTheme.textSecondary)
                             
                             TextField("Search courses, sessions, topics...", text: $searchText)
-                                .font(.system(size: 16, weight: .medium, design: .rounded))
+                                .font(.system(size: 15, weight: .medium, design: .rounded))
                                 .foregroundColor(CosmosTheme.textPrimary)
                                 .autocorrectionDisabled()
+                                .onChange(of: searchText) { _, newValue in
+                                    if !newValue.isEmpty {
+                                        HapticService.shared.soft()
+                                    }
+                                }
                             
                             if isSearching {
-                                Button(action: { searchText = "" }) {
+                                Button(action: {
+                                    HapticService.shared.light()
+                                    searchText = ""
+                                }) {
                                     Image(systemName: "xmark.circle.fill")
                                         .foregroundColor(CosmosTheme.textSecondary)
                                 }
@@ -67,7 +81,7 @@ public struct LibraryView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
+                                .stroke(isSearching ? CosmosTheme.cosmicPurple.opacity(0.6) : CosmosTheme.spaceCardBorder, lineWidth: 1)
                         )
                         .padding(.horizontal, 20)
                         
@@ -96,7 +110,7 @@ public struct LibraryView: View {
                             categoryContentView
                         }
                         
-                        Spacer(minLength: 80)
+                        Spacer(minLength: 90)
                     }
                 }
             }
@@ -142,6 +156,7 @@ public struct LibraryView: View {
                     VStack(spacing: 12) {
                         ForEach(filtered) { cat in
                             NavigationLink(destination: SinglesListView(category: cat, onSelectSession: { single in
+                                HapticService.shared.medium()
                                 let track = PlayableTrack(
                                     id: single.id,
                                     title: single.title,
@@ -175,119 +190,142 @@ public struct LibraryView: View {
         let totalMatches = results.courses.count + results.sessions.count + results.singles.count
         
         VStack(alignment: .leading, spacing: 14) {
-            Text("Found \(totalMatches) results")
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                .foregroundColor(CosmosTheme.textSecondary)
+            if totalMatches == 0 {
+                // Rich Zero Search State
+                CosmicCard(padding: 24) {
+                    VStack(spacing: 12) {
+                        CelestialPlanetView(style: .crescentMoon, size: 52, hasRings: false)
+                        
+                        Text("No meditations found")
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                            .foregroundColor(CosmosTheme.textPrimary)
+                        
+                        Text("Try searching for 'anxiety', 'sleep', 'basics', 'breathe', or 'reset'")
+                            .font(.system(size: 13, weight: .regular, design: .rounded))
+                            .foregroundColor(CosmosTheme.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
                 .padding(.horizontal, 20)
-            
-            if !results.courses.isEmpty {
-                Text("Courses")
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundColor(CosmosTheme.starlightGold)
+                .padding(.top, 10)
+            } else {
+                Text("Found \(totalMatches) results")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(CosmosTheme.textSecondary)
                     .padding(.horizontal, 20)
                 
-                ForEach(results.courses) { course in
-                    NavigationLink(destination: CourseDetailView(course: course)) {
-                        CategoryCardView(
-                            title: course.name,
-                            subtitle: course.description,
-                            sessionCountText: "\(course.totalSessions) sessions",
-                            planetStyle: planetStyle(for: course.name)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 20)
-                }
-            }
-            
-            if !results.sessions.isEmpty {
-                Text("Sessions")
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundColor(CosmosTheme.starlightGold)
-                    .padding(.horizontal, 20)
-                
-                ForEach(results.sessions) { session in
-                    Button(action: {
-                        let track = PlayableTrack(
-                            id: session.id,
-                            title: session.title,
-                            relativePath: session.relativePath,
-                            duration: session.duration,
-                            videoAttachmentPath: session.videoAttachments?.first?.relativePath,
-                            dayNumber: session.dayNumber
-                        )
-                        playbackEngine.loadAndPlay(track: track)
-                        playbackEngine.isFullPlayerPresented = true
-                    }) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(session.title)
-                                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textPrimary)
-                                Text("Day \(session.dayNumber) • \(session.formattedDuration)")
-                                    .font(.system(size: 13, weight: .regular, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textSecondary)
-                            }
-                            Spacer()
-                            Image(systemName: "play.circle.fill")
-                                .font(.system(size: 26))
-                                .foregroundColor(CosmosTheme.cosmicPurple)
+                if !results.courses.isEmpty {
+                    Text("Courses")
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .foregroundColor(CosmosTheme.starlightGold)
+                        .padding(.horizontal, 20)
+                    
+                    ForEach(results.courses) { course in
+                        NavigationLink(destination: CourseDetailView(course: course)) {
+                            CategoryCardView(
+                                title: course.name,
+                                subtitle: course.description,
+                                sessionCountText: "\(course.totalSessions) sessions",
+                                planetStyle: planetStyle(for: course.name)
+                            )
                         }
-                        .padding(16)
-                        .background(CosmosTheme.spaceCard)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
-                        )
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 20)
                     }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 20)
                 }
-            }
-            
-            if !results.singles.isEmpty {
-                Text("Singles")
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundColor(CosmosTheme.starlightGold)
-                    .padding(.horizontal, 20)
                 
-                ForEach(results.singles) { single in
-                    Button(action: {
-                        let track = PlayableTrack(
-                            id: single.id,
-                            title: single.title,
-                            courseName: single.category,
-                            relativePath: single.relativePath,
-                            duration: single.duration
-                        )
-                        playbackEngine.loadAndPlay(track: track)
-                        playbackEngine.isFullPlayerPresented = true
-                    }) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(single.title)
-                                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textPrimary)
-                                Text("\(single.category) • \(single.formattedDuration)")
-                                    .font(.system(size: 13, weight: .regular, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textSecondary)
+                if !results.sessions.isEmpty {
+                    Text("Sessions")
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .foregroundColor(CosmosTheme.starlightGold)
+                        .padding(.horizontal, 20)
+                    
+                    ForEach(results.sessions) { session in
+                        Button(action: {
+                            HapticService.shared.medium()
+                            let track = PlayableTrack(
+                                id: session.id,
+                                title: session.title,
+                                relativePath: session.relativePath,
+                                duration: session.duration,
+                                videoAttachmentPath: session.videoAttachments?.first?.relativePath,
+                                dayNumber: session.dayNumber
+                            )
+                            playbackEngine.loadAndPlay(track: track)
+                            playbackEngine.isFullPlayerPresented = true
+                        }) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(session.title)
+                                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                        .foregroundColor(CosmosTheme.textPrimary)
+                                    Text("Day \(session.dayNumber) • \(session.formattedDuration)")
+                                        .font(.system(size: 12, weight: .regular, design: .rounded))
+                                        .foregroundColor(CosmosTheme.textSecondary)
+                                }
+                                Spacer()
+                                Image(systemName: "play.circle.fill")
+                                    .font(.system(size: 28))
+                                    .foregroundColor(CosmosTheme.cosmicPurple)
                             }
-                            Spacer()
-                            Image(systemName: "play.circle.fill")
-                                .font(.system(size: 26))
-                                .foregroundColor(CosmosTheme.cosmicPurple)
+                            .padding(16)
+                            .background(CosmosTheme.spaceCard)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
+                            )
                         }
-                        .padding(16)
-                        .background(CosmosTheme.spaceCard)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
-                        )
+                        .buttonStyle(.cosmicPressable)
+                        .padding(.horizontal, 20)
                     }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 20)
+                }
+                
+                if !results.singles.isEmpty {
+                    Text("Singles")
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .foregroundColor(CosmosTheme.starlightGold)
+                        .padding(.horizontal, 20)
+                    
+                    ForEach(results.singles) { single in
+                        Button(action: {
+                            HapticService.shared.medium()
+                            let track = PlayableTrack(
+                                id: single.id,
+                                title: single.title,
+                                courseName: single.category,
+                                relativePath: single.relativePath,
+                                duration: single.duration
+                            )
+                            playbackEngine.loadAndPlay(track: track)
+                            playbackEngine.isFullPlayerPresented = true
+                        }) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(single.title)
+                                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                        .foregroundColor(CosmosTheme.textPrimary)
+                                    Text("\(single.category) • \(single.formattedDuration)")
+                                        .font(.system(size: 12, weight: .regular, design: .rounded))
+                                        .foregroundColor(CosmosTheme.textSecondary)
+                                }
+                                Spacer()
+                                Image(systemName: "play.circle.fill")
+                                    .font(.system(size: 28))
+                                    .foregroundColor(CosmosTheme.cosmicPurple)
+                            }
+                            .padding(16)
+                            .background(CosmosTheme.spaceCard)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.cosmicPressable)
+                        .padding(.horizontal, 20)
+                    }
                 }
             }
         }
