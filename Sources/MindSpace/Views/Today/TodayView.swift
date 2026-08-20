@@ -182,11 +182,11 @@ public struct TodayView: View {
                         .foregroundColor(CosmosTheme.moonLavender)
                         .tracking(1.0)
                     
-                    if orbitStats.availableCompassionPasses > 0 {
+                    if orbitStats.compassionPassesAvailable > 0 {
                         HStack(spacing: 3) {
                             Image(systemName: "shield.fill")
                                 .font(.system(size: 10))
-                            Text("\(orbitStats.availableCompassionPasses) pass")
+                            Text("\(orbitStats.compassionPassesAvailable) pass")
                                 .font(.system(size: 10, weight: .semibold, design: .rounded))
                         }
                         .foregroundColor(CosmosTheme.starlightGold)
