@@ -78,12 +78,9 @@ final class UIUXPolishTests: XCTestCase {
         let session10m = SingleSession(
             id: "s1",
             title: "Ocean Wave",
-            category: "Sleep Sounds",
-            duration: 640.0, // 10m 40s
+            dayNumber: 1,
             relativePath: "Packs/Sleep/Ocean.mp3",
-            sizeBytes: 1000,
-            sha256: "abc",
-            codec: "mp3"
+            duration: 640.0
         )
         XCTAssertEqual(session10m.formattedDuration, "10:40")
         XCTAssertEqual(session10m.condensedDuration, "11 min")
@@ -91,12 +88,9 @@ final class UIUXPolishTests: XCTestCase {
         let session600s = SingleSession(
             id: "s2",
             title: "Rainfall",
-            category: "Sleep Sounds",
-            duration: 600.0, // 10m 00s
+            dayNumber: 2,
             relativePath: "Packs/Sleep/Rain.mp3",
-            sizeBytes: 1000,
-            sha256: "abc",
-            codec: "mp3"
+            duration: 600.0
         )
         XCTAssertEqual(session600s.condensedDuration, "10 min")
     }
