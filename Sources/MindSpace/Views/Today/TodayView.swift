@@ -294,7 +294,7 @@ public struct TodayView: View {
         
         // 1. Check most recent resume or completion event
         if let latestResume = resumes.first,
-           let matched = allCourses.first(where: { $0.name == latestResume.courseName || $0.id == latestResume.courseId }) {
+           let matched = allCourses.first(where: { $0.name == latestResume.courseName || $0.folderName == latestResume.courseName || $0.sessions.contains(where: { $0.id == latestResume.sessionStableId }) }) {
             activeCourse = matched
             nextSessionToPlay = matched.sessions.first(where: { !completedSessionIDs.contains($0.id) }) ?? matched.sessions.first
         } else if let latestEvent = completionEvents.first(where: { $0.isQualifyingMeditation }),

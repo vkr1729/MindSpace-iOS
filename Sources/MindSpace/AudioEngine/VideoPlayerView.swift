@@ -87,11 +87,12 @@ public struct VideoPlayerView: UIViewRepresentable {
 }
 
 /// Full-screen native video player controller wrapper with controls, rotation, and dismiss handling.
+@MainActor
 public struct FullScreenVideoPlayerViewController: UIViewControllerRepresentable {
     public let player: AVPlayer?
-    public let onDismiss: (() -> Void)?
+    public let onDismiss: (@MainActor () -> Void)?
     
-    public init(player: AVPlayer?, onDismiss: (() -> Void)? = nil) {
+    public init(player: AVPlayer?, onDismiss: (@MainActor () -> Void)? = nil) {
         self.player = player
         self.onDismiss = onDismiss
     }
@@ -115,10 +116,11 @@ public struct FullScreenVideoPlayerViewController: UIViewControllerRepresentable
         Coordinator(onDismiss: onDismiss)
     }
     
+    @MainActor
     public final class Coordinator: NSObject, AVPlayerViewControllerDelegate {
-        let onDismiss: (() -> Void)?
+        let onDismiss: (@MainActor () -> Void)?
         
-        init(onDismiss: (() -> Void)?) {
+        init(onDismiss: (@MainActor () -> Void)?) {
             self.onDismiss = onDismiss
         }
         
