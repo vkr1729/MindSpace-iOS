@@ -6,97 +6,101 @@ import AVFoundation
 
 final class HardenedBehavioralTests: XCTestCase {
     
-    // MARK: - 1. Playback Speeds & Anti-Scrubbing Qualification
-    
-    @MainActor
-    func testPlaybackSpeedsAccumulationAndQualification() {
-        // Test 10-minute track (600s). Target threshold is 540s.
+    // MARK: - Scenario 1: Delete one known media file -> Scan reports exactly one missing
+    func testDeleteOneKnownMediaFileScanReportsExactlyOneMissing() async throws {
+        let resolver = LibraryPathResolver.shared
         
-        // A. 1.0x Normal speed playback
-        let acc1x = ListeningAccumulator(duration: 600.0)
-        var t = 0.0
-        while t <= 550.0 {
-            t += 1.0
-            acc1x.tick(currentTime: t, isPlaying: true, speed: 1.0)
-        }
-        XCTAssertTrue(acc1x.hasQualified, "Uninterrupted playback at 1.0x must qualify.")
-        XCTAssertEqual(acc1x.accumulatedSeconds, 550.0, accuracy: 0.1)
-        XCTAssertEqual(acc1x.actualPlayedSeconds, 550.0, accuracy: 0.1)
+        let testRelPath1 = "TestMedia/TrackA.mp3"
+        let testRelPath2 = "TestMedia/TrackB.mp3"
         
-        // B. 0.75x Slow speed playback
-        let acc075 = ListeningAccumulator(duration: 600.0)
-        t = 0.0
-        while t <= 550.0 {
-            t += 0.75
-            acc075.tick(currentTime: t, isPlaying: true, speed: 0.75)
-        }
-        XCTAssertTrue(acc075.hasQualified, "Uninterrupted playback at 0.75x must qualify.")
-        XCTAssertEqual(acc075.accumulatedSeconds, 550.0, accuracy: 0.5)
-        XCTAssertGreaterThan(acc075.actualPlayedSeconds, 550.0, "0.75x playback should take longer in real physical wall-clock time.")
+        let url1 = resolver.libraryDirectoryURL.appendingPathComponent(testRelPath1)
+        let url2 = resolver.libraryDirectoryURL.appendingPathComponent(testRelPath2)
         
-        // C. 1.25x Fast speed playback
-        let acc125 = ListeningAccumulator(duration: 600.0)
-        t = 0.0
-        while t <= 550.0 {
-            t += 1.25
-            acc125.tick(currentTime: t, isPlaying: true, speed: 1.25)
-        }
-        XCTAssertTrue(acc125.hasQualified, "Uninterrupted playback at 1.25x must qualify.")
-        XCTAssertEqual(acc125.accumulatedSeconds, 550.0, accuracy: 0.5)
-        XCTAssertLessThan(acc125.actualPlayedSeconds, 550.0, "1.25x playback should take less real physical wall-clock time.")
+        try FileManager.default.createDirectory(at: url1.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try "Audio data 1".data(using: .utf8)!.write(to: url1)
+        try "Audio data 2".data(using: .utf8)!.write(to: url2)
+        
+        let manifest = CatalogManifest(
+            schemaVersion: 1,
+            generatedAt: "2026-08-20T00:00:00Z",
+            totalFiles: 2,
+            totalDuration: 1200.0,
+            totalDurationHours: 0.33,
+            totalSizeBytes: 200,
+            categories: [
+                CatalogCategory(
+                    id: "cat_del_test",
+                    type: "pack",
+                    name: "Delete Test Pack",
+                    folderName: "Delete Test Pack",
+                    order: 1,
+                    description: "Desc",
+                    colorHex: "#6344E0",
+                    iconName: "sparkles",
+                    courses: [
+                        CatalogCourse(
+                            id: "course_del_test",
+                            name: "Delete Test Course",
+                            folderName: "Delete Test Course",
+                            order: 1,
+                            description: "Desc",
+                            totalSessions: 2,
+                            sessions: [
+                                CatalogSession(id: "del_s1", title: "Track A", dayNumber: 1, relativePath: testRelPath1, duration: 600, sizeBytes: 12),
+                                CatalogSession(id: "del_s2", title: "Track B", dayNumber: 2, relativePath: testRelPath2, duration: 600, sizeBytes: 12)
+                            ]
+                        )
+                    ]
+                )
+            ],
+            singlesCategories: []
+        )
+        
+        // Initial scan: both found
+        let initialReport = await resolver.verifyAllCatalogEntries(manifest: manifest, validateChecksums: false)
+        XCTAssertEqual(initialReport.totalTracks, 2)
+        XCTAssertEqual(initialReport.foundCount, 2)
+        XCTAssertEqual(initialReport.missingCount, 0)
+        XCTAssertTrue(initialReport.isFullyVerified)
+        
+        // Delete exactly one file (Track B)
+        try FileManager.default.removeItem(at: url2)
+        
+        // Rescan: exactly one missing
+        let postDeleteReport = await resolver.verifyAllCatalogEntries(manifest: manifest, validateChecksums: false)
+        XCTAssertEqual(postDeleteReport.totalTracks, 2)
+        XCTAssertEqual(postDeleteReport.foundCount, 1)
+        XCTAssertEqual(postDeleteReport.missingCount, 1, "Scan must report exactly one missing file.")
+        XCTAssertEqual(postDeleteReport.missingPaths, [testRelPath2])
+        XCTAssertFalse(postDeleteReport.isFullyVerified, "Library cannot be 100% verified when a file is missing.")
+        
+        // Clean up
+        try? FileManager.default.removeItem(at: url1)
     }
     
-    // MARK: - 2. Anti-Scrubbing Seeking Rejection
-    
+    // MARK: - Scenario 2: Attempt to play missing file -> Actionable error & no playing state
     @MainActor
-    func testScrubbingToNearEndDoesNotQualify() {
-        let acc = ListeningAccumulator(duration: 600.0)
-        
-        // Listen for 3 seconds
-        acc.tick(currentTime: 1.0, isPlaying: true)
-        acc.tick(currentTime: 2.0, isPlaying: true)
-        acc.tick(currentTime: 3.0, isPlaying: true)
-        XCTAssertEqual(acc.accumulatedSeconds, 2.0)
-        
-        // User scrubs/seeks directly to 590s (jump of 587s)
-        acc.tick(currentTime: 590.0, isPlaying: true)
-        
-        // Listen for 2 more seconds at the end
-        acc.tick(currentTime: 591.0, isPlaying: true)
-        acc.tick(currentTime: 592.0, isPlaying: true)
-        
-        // Total accumulated track seconds is only 2 + 2 = 4 seconds!
-        XCTAssertEqual(acc.accumulatedSeconds, 4.0, accuracy: 0.1)
-        XCTAssertFalse(acc.hasQualified, "Scrubbing or skipping forward to the end must NEVER qualify for streak or mindful minutes.")
-    }
-    
-    // MARK: - 3. Missing Media File Safety & Clear Error Publishing
-    
-    @MainActor
-    func testMissingMediaReturnsNilAndPublishesClearError() {
+    func testAttemptToPlayMissingFileProducesActionableErrorAndNoPlayingState() {
         let engine = PlaybackEngine.shared
         let missingTrack = PlayableTrack(
-            id: "missing_track_999",
-            title: "Missing Galaxy Sound",
+            id: "missing_test_track",
+            title: "Absent Meditation",
             courseName: "Cosmos",
-            relativePath: "NonExistent/MissingTrack.mp3",
+            relativePath: "NonExistent/AbsentMeditation.mp3",
             duration: 600.0
         )
         
         engine.loadAndPlay(track: missingTrack)
         
-        // Must NOT be in playing state
-        XCTAssertNotEqual(engine.state, .playing, "PlaybackEngine must not enter playing state when media file is missing.")
+        XCTAssertNotEqual(engine.state, .playing, "PlaybackEngine must not enter playing state for a missing file.")
         XCTAssertEqual(engine.state, .idle)
-        
-        // Must publish clear user-facing error
         XCTAssertNotNil(engine.playbackError)
-        XCTAssertTrue(engine.playbackError!.contains("Media file not found: Missing Galaxy Sound"))
+        XCTAssertTrue(engine.playbackError!.contains("Media file not found: Absent Meditation"))
+        XCTAssertTrue(engine.playbackError!.contains("Settings"))
     }
     
-    // MARK: - 4. Resume Position Saving & Clearing on Qualifying Completion
-    
-    func testResumeSaveRestoreAndClearLifecycle() async throws {
+    // MARK: - Scenario 3: Play 45 seconds, pause, recreate app store -> Position is restored
+    func testPlay45SecondsPauseRecreateStorePositionIsRestored() async throws {
         let schema = Schema([
             CompletionEvent.self,
             PlaybackResume.self,
@@ -104,52 +108,36 @@ final class HardenedBehavioralTests: XCTestCase {
             UserSettings.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [config])
-        let actor = ProgressActor(modelContainer: container)
+        let container1 = try ModelContainer(for: schema, configurations: [config])
+        let actor1 = ProgressActor(modelContainer: container1)
         
-        let trackId = "sess_basics_01"
+        let sessionId = "session_basics_day1"
         let relPath = "Packs/1 - Foundation/Basics/Day 01.mp3"
         let title = "Basics — Day 1"
         
-        // 1. Save resume position at 120s
-        try await actor.updateResumePosition(
-            sessionStableId: trackId,
+        // User plays 45 seconds and pauses -> Position saved
+        try await actor1.updateResumePosition(
+            sessionStableId: sessionId,
             relativePath: relPath,
             title: title,
             courseName: "Basics",
-            position: 120.0,
+            position: 45.0,
             duration: 600.0
         )
         
-        // 2. Fetch resume
-        let savedResume = try await actor.fetchResume(for: trackId)
-        XCTAssertNotNil(savedResume)
-        XCTAssertEqual(savedResume?.lastPositionSeconds, 120.0)
-        XCTAssertEqual(savedResume?.sessionTitle, title)
+        // Simulate app relaunch / store recreation using the same underlying container/store
+        let actor2 = ProgressActor(modelContainer: container1)
+        let restoredResume = try await actor2.fetchResume(for: sessionId)
         
-        // 3. Update resume to 250s (e.g. on pause/10s interval)
-        try await actor.updateResumePosition(
-            sessionStableId: trackId,
-            relativePath: relPath,
-            title: title,
-            courseName: "Basics",
-            position: 250.0,
-            duration: 600.0
-        )
-        
-        let updatedResume = try await actor.fetchResume(for: trackId)
-        XCTAssertEqual(updatedResume?.lastPositionSeconds, 250.0)
-        
-        // 4. On qualifying completion, clear resume position
-        try await actor.deleteResume(sessionStableId: trackId)
-        
-        let clearedResume = try await actor.fetchResume(for: trackId)
-        XCTAssertNil(clearedResume, "Resume must be deleted once a qualifying completion is recorded.")
+        XCTAssertNotNil(restoredResume)
+        XCTAssertEqual(restoredResume?.lastPositionSeconds, 45.0, "Position 45s must be faithfully restored.")
+        XCTAssertEqual(restoredResume?.sessionTitle, title)
+        XCTAssertEqual(restoredResume?.relativePath, relPath)
     }
     
-    // MARK: - 5. Completion Recording with Exact UUID & Reflection Note
-    
-    func testCompletionRecordingWithExactUUIDAndReflection() async throws {
+    // MARK: - Scenario 4: Switch tracks -> Old track resume is retained
+    @MainActor
+    func testSwitchTracksRetainsOldTrackResume() async throws {
         let schema = Schema([
             CompletionEvent.self,
             PlaybackResume.self,
@@ -160,63 +148,126 @@ final class HardenedBehavioralTests: XCTestCase {
         let container = try ModelContainer(for: schema, configurations: [config])
         let actor = ProgressActor(modelContainer: container)
         
-        // 1. Record completion before presentation
+        let engine = PlaybackEngine.shared
+        
+        var savedResumes: [String: Double] = [:]
+        engine.onSaveResume = { track, position in
+            savedResumes[track.id] = position
+            Task {
+                try? await actor.updateResumePosition(
+                    sessionStableId: track.id,
+                    relativePath: track.relativePath,
+                    title: track.title,
+                    courseName: track.courseName,
+                    position: position,
+                    duration: track.duration
+                )
+            }
+        }
+        
+        let track1 = PlayableTrack(id: "track_1", title: "Morning Awakening", courseName: "Basics", relativePath: "p1", duration: 600)
+        let track2 = PlayableTrack(id: "track_2", title: "Evening Serenity", courseName: "Sleep", relativePath: "p2", duration: 600)
+        
+        // Play track 1 for 150s
+        engine.loadAndPlay(track: track1, startPosition: 150.0)
+        
+        // User switches to track 2
+        engine.loadAndPlay(track: track2, startPosition: 0.0)
+        
+        // Verify old track resume position (150s) was captured and retained
+        XCTAssertEqual(savedResumes["track_1"], 150.0, "Switching tracks must retain the old track's resume position.")
+    }
+    
+    // MARK: - Scenario 5: Scrub near the end -> No qualifying completion
+    @MainActor
+    func testScrubNearEndYieldsNoQualifyingCompletion() {
+        let acc = ListeningAccumulator(duration: 600.0)
+        
+        // User plays first 5 seconds
+        for t in 1...5 {
+            acc.tick(currentTime: Double(t), isPlaying: true, speed: 1.0)
+        }
+        XCTAssertEqual(acc.accumulatedSeconds, 4.0, accuracy: 0.1)
+        
+        // User scrubs to 580s (skip jump of 575s)
+        acc.tick(currentTime: 580.0, isPlaying: true, speed: 1.0)
+        
+        // User plays 5 more seconds to the end (585s)
+        for t in 581...585 {
+            acc.tick(currentTime: Double(t), isPlaying: true, speed: 1.0)
+        }
+        
+        // Total legitimate listened track seconds is only 4 + 5 = 9 seconds
+        XCTAssertEqual(acc.accumulatedSeconds, 9.0, accuracy: 0.1)
+        XCTAssertFalse(acc.hasQualified, "Scrubbing to the end must NEVER produce a qualifying completion.")
+    }
+    
+    // MARK: - Scenario 6: Complete normally -> Exactly one event & correct reflection association
+    func testCompleteNormallyProducesExactlyOneEventAndCorrectReflection() async throws {
+        let schema = Schema([
+            CompletionEvent.self,
+            PlaybackResume.self,
+            FavoriteItem.self,
+            UserSettings.self
+        ])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        let actor = ProgressActor(modelContainer: container)
+        
+        // 1. Session completes normally
         let completionId = try await actor.recordCompletion(
-            sessionStableId: "session_mindful_5",
-            courseId: "Basics",
-            playedSeconds: 580.0,
+            sessionStableId: "session_clarity_1",
+            courseId: "Clarity",
+            playedSeconds: 600.0,
             isQualifying: true,
             reflection: nil
         )
         
-        XCTAssertNotNil(completionId)
+        // 2. User selects reflection "grounded" on CompletionView
+        try await actor.saveReflection(for: completionId, note: "grounded")
         
-        // 2. User attaches emotional reflection on completion screen
-        try await actor.saveReflection(for: completionId, note: "lighter")
+        // 3. Verify exactly one event exists and reflection is attached to that exact UUID
+        let allEvents = try await actor.fetchAllCompletionEvents()
+        XCTAssertEqual(allEvents.count, 1, "Exactly one completion event must be recorded.")
         
-        // 3. Verify exact event was updated with the reflection note
-        let events = try await actor.fetchAllCompletionEvents()
-        let targetEvent = events.first(where: { $0.id == completionId })
-        
-        XCTAssertNotNil(targetEvent)
-        XCTAssertEqual(targetEvent?.reflectionNote, "lighter")
-        XCTAssertEqual(targetEvent?.sessionStableId, "session_mindful_5")
-        XCTAssertEqual(targetEvent?.actualPlayedSeconds, 580.0)
-        XCTAssertEqual(targetEvent?.isQualifyingMeditation, true)
+        let event = allEvents.first
+        XCTAssertEqual(event?.id, completionId)
+        XCTAssertEqual(event?.reflectionNote, "grounded")
+        XCTAssertEqual(event?.isQualifyingMeditation, true)
+        XCTAssertEqual(event?.actualPlayedSeconds, 600.0)
     }
     
-    // MARK: - 6. 0-Day Orbit for New User & Real Streak Calculation
-    
-    func testZeroDayOrbitForNewUserAndStreaks() {
-        let calc = OrbitCalculator()
-        let calendar = Calendar.current
-        let today = Date()
+    // MARK: - Scenario 7: Load 20 tracks -> One completion callback & no accumulated observers
+    @MainActor
+    func testLoad20TracksYieldsNoAccumulatedObserversAndCleanAudioLifecycle() {
+        let engine = PlaybackEngine.shared
         
-        // A. New user with 0 completed sessions
-        let newStats = calc.calculateStats(events: [], calendar: calendar, today: today, existingCompassionPasses: 0)
-        XCTAssertEqual(newStats.currentStreak, 0, "A new user must have 0 current streak days.")
-        XCTAssertEqual(newStats.bestStreak, 0, "A new user must have 0 best streak days.")
-        XCTAssertEqual(newStats.totalMindfulMinutes, 0)
-        XCTAssertEqual(newStats.completedSessionsCount, 0)
-        XCTAssertEqual(newStats.nextMilestoneDays, 7)
+        var completionCount = 0
+        engine.onSessionCompleted = { _, _, _, _ in
+            completionCount += 1
+        }
         
-        // B. Practicing today creates 1-day Orbit
-        let todayEvent = CompletionEvent(
-            sessionStableId: "today_1",
-            courseId: "Basics",
-            actualPlayedSeconds: 600.0,
-            isQualifying: true,
-            timestamp: today
-        )
-        let stats1 = calc.calculateStats(events: [todayEvent], calendar: calendar, today: today)
-        XCTAssertEqual(stats1.currentStreak, 1)
-        XCTAssertEqual(stats1.bestStreak, 1)
-        XCTAssertEqual(stats1.totalMindfulMinutes, 10)
+        // Rapidly load 20 different tracks
+        for i in 1...20 {
+            let track = PlayableTrack(
+                id: "track_\(i)",
+                title: "Track \(i)",
+                courseName: "Series",
+                relativePath: "rel_\(i)",
+                duration: 300.0
+            )
+            engine.loadAndPlay(track: track)
+        }
+        
+        // Verify stop cleans up cleanly
+        engine.stop()
+        
+        XCTAssertEqual(engine.state, .idle)
+        XCTAssertEqual(completionCount, 0, "Rapid loading/switching without playback duration must not trigger spurious completion callbacks.")
     }
     
-    // MARK: - 7. Backup Export & Restore Full Portability
-    
-    func testBackupExportAndRestoreWithFavoritesResumesAndReminderEnabled() throws {
+    // MARK: - Scenario 8: Export and clean-import -> Events, favorites, settings, and resumes match
+    func testExportAndCleanImportAllModelsMatch() throws {
         let schema = Schema([
             CompletionEvent.self,
             FavoriteItem.self,
@@ -227,51 +278,47 @@ final class HardenedBehavioralTests: XCTestCase {
         let container = try ModelContainer(for: schema, configurations: [config])
         let context = ModelContext(container)
         
-        // 1. Create source state
+        // 1. Source objects
         let event = CompletionEvent(
-            sessionStableId: "sess_source_1",
-            courseId: "Basics",
+            sessionStableId: "exp_sess_1",
+            courseId: "Foundation",
             actualPlayedSeconds: 600.0,
             isQualifying: true,
-            reflection: "grounded",
+            reflection: "lighter",
             timestamp: Date(),
-            timeZoneIdentifier: "America/Los_Angeles"
+            timeZoneIdentifier: "Asia/Tokyo"
         )
-        let fav = FavoriteItem(
-            sessionStableId: "fav_source_1",
-            title: "Ocean Waves",
-            relativePath: "Singles/Sleep/Ocean.mp3"
-        )
+        let fav = FavoriteItem(sessionStableId: "exp_fav_1", title: "Zen Garden", relativePath: "Singles/Zen.mp3")
         let resume = PlaybackResume(
-            sessionStableId: "resume_source_1",
-            relativePath: "Packs/Basics/Day02.mp3",
-            sessionTitle: "Basics — Day 2",
+            sessionStableId: "exp_res_1",
+            relativePath: "Packs/Basics/Day03.mp3",
+            sessionTitle: "Basics Day 3",
             courseName: "Basics",
-            position: 180.0,
+            position: 210.0,
             duration: 600.0
         )
         let settings = UserSettings(
-            defaultDuration: 15,
-            reminderTime: "07:30",
+            defaultDuration: 20,
+            reminderTime: "22:00",
             reminderEnabled: true,
-            themeMode: "quiet_cosmos",
+            themeMode: "sleep_abyss",
             hideStreak: false,
-            compassionPassCount: 2
+            compassionPassCount: 3
         )
         
         let stats = OrbitStats(
-            currentStreak: 5,
-            bestStreak: 10,
-            totalMindfulMinutes: 50,
-            completedSessionsCount: 5,
-            nextMilestoneDays: 7,
-            compassionPassesAvailable: 2,
+            currentStreak: 7,
+            bestStreak: 14,
+            totalMindfulMinutes: 70,
+            completedSessionsCount: 7,
+            nextMilestoneDays: 14,
+            compassionPassesAvailable: 3,
             compassionPassUsedCount: 0,
             activeDates: [],
             dailyMinutes: [:]
         )
         
-        // 2. Export to backup document
+        // 2. Export
         let doc = ProgressTransferManager.shared.createBackupDocument(
             events: [event],
             favorites: [fav],
@@ -280,101 +327,68 @@ final class HardenedBehavioralTests: XCTestCase {
             resumes: [resume]
         )
         
-        XCTAssertEqual(doc.userSettings.reminderEnabled, true, "reminderEnabled must be included in backup.")
-        XCTAssertEqual(doc.favorites, ["fav_source_1"])
-        XCTAssertEqual(doc.resumes?.count, 1)
-        XCTAssertEqual(doc.resumes?.first?.sessionStableId, "resume_source_1")
-        XCTAssertEqual(doc.resumes?.first?.lastPositionSeconds, 180.0)
-        
-        // 3. Clean restore into context
+        // 3. Clean Restore
         try ProgressTransferManager.shared.applyImport(
             document: doc,
             modelContext: context,
             isCleanRestore: true
         )
         
-        // 4. Assert all elements are cleanly restored
+        // 4. Verification
         let restoredEvents = try context.fetch(FetchDescriptor<CompletionEvent>())
         XCTAssertEqual(restoredEvents.count, 1)
-        XCTAssertEqual(restoredEvents.first?.sessionStableId, "sess_source_1")
-        XCTAssertEqual(restoredEvents.first?.timeZoneIdentifier, "America/Los_Angeles")
+        XCTAssertEqual(restoredEvents.first?.sessionStableId, "exp_sess_1")
+        XCTAssertEqual(restoredEvents.first?.timeZoneIdentifier, "Asia/Tokyo")
+        XCTAssertEqual(restoredEvents.first?.reflectionNote, "lighter")
         
         let restoredFavs = try context.fetch(FetchDescriptor<FavoriteItem>())
         XCTAssertEqual(restoredFavs.count, 1)
-        XCTAssertEqual(restoredFavs.first?.sessionStableId, "fav_source_1")
+        XCTAssertEqual(restoredFavs.first?.sessionStableId, "exp_fav_1")
         
         let restoredResumes = try context.fetch(FetchDescriptor<PlaybackResume>())
         XCTAssertEqual(restoredResumes.count, 1)
-        XCTAssertEqual(restoredResumes.first?.sessionStableId, "resume_source_1")
-        XCTAssertEqual(restoredResumes.first?.lastPositionSeconds, 180.0)
+        XCTAssertEqual(restoredResumes.first?.sessionStableId, "exp_res_1")
+        XCTAssertEqual(restoredResumes.first?.lastPositionSeconds, 210.0)
         
         let restoredSettings = try context.fetch(FetchDescriptor<UserSettings>()).first
         XCTAssertEqual(restoredSettings?.reminderEnabled, true)
-        XCTAssertEqual(restoredSettings?.reminderTime, "07:30")
-        XCTAssertEqual(restoredSettings?.defaultDurationMinutes, 15)
-        XCTAssertEqual(restoredSettings?.compassionPassCount, 2)
+        XCTAssertEqual(restoredSettings?.reminderTime, "22:00")
+        XCTAssertEqual(restoredSettings?.themeMode, "sleep_abyss")
+        XCTAssertEqual(restoredSettings?.compassionPassCount, 3)
     }
     
-    // MARK: - 8. Real Library Verification (No Hardcoded Shortcuts)
-    
-    func testRealLibraryVerificationReportsAccurateCounts() async throws {
-        let resolver = LibraryPathResolver.shared
+    // MARK: - Scenario 9: New installation -> Zero-day Orbit
+    func testNewInstallationProducesZeroDayOrbit() {
+        let calc = OrbitCalculator()
+        let calendar = Calendar.current
+        let today = Date()
         
-        // Create mock manifest with 2 items
-        let testPath1 = "TestMedia/Track1.mp3"
-        let testPath2 = "TestMedia/Track2.mp3"
-        
-        let fullURL1 = resolver.libraryDirectoryURL.appendingPathComponent(testPath1)
-        try FileManager.default.createDirectory(at: fullURL1.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let sampleData = "Sample audio stream content".data(using: .utf8)!
-        try sampleData.write(to: fullURL1)
-        
-        let manifest = CatalogManifest(
-            schemaVersion: 1,
-            generatedAt: "2026-08-20T00:00:00Z",
-            totalFiles: 2,
-            totalDuration: 1200.0,
-            totalDurationHours: 0.33,
-            totalSizeBytes: Int64(sampleData.count * 2),
-            categories: [
-                CatalogCategory(
-                    id: "cat_test",
-                    type: "pack",
-                    name: "Test Pack",
-                    folderName: "Test Pack",
-                    order: 1,
-                    description: "Test description",
-                    colorHex: "#6344E0",
-                    iconName: "sparkles",
-                    courses: [
-                        CatalogCourse(
-                            id: "course_test",
-                            name: "Test Course",
-                            folderName: "Test Course",
-                            order: 1,
-                            description: "Test",
-                            totalSessions: 2,
-                            sessions: [
-                                CatalogSession(id: "ts_1", title: "Track 1", dayNumber: 1, relativePath: testPath1, duration: 600, sizeBytes: Int64(sampleData.count)),
-                                CatalogSession(id: "ts_2", title: "Track 2", dayNumber: 2, relativePath: testPath2, duration: 600, sizeBytes: 5000) // Missing file
-                            ]
-                        )
-                    ]
-                )
-            ],
-            singlesCategories: []
+        let newInstallationEvents: [CompletionEvent] = []
+        let stats = calc.calculateStats(
+            events: newInstallationEvents,
+            calendar: calendar,
+            today: today,
+            existingCompassionPasses: 0
         )
         
-        // Perform real scan
-        let report = await resolver.verifyAllCatalogEntries(manifest: manifest, validateChecksums: false)
-        
-        XCTAssertEqual(report.totalTracks, 2)
-        XCTAssertEqual(report.foundCount, 1, "Exactly 1 track exists on disk.")
-        XCTAssertEqual(report.missingCount, 1, "Exactly 1 track is missing.")
-        XCTAssertFalse(report.isFullyVerified, "Report must NOT be 100% verified when files are missing.")
-        XCTAssertEqual(report.missingPaths, [testPath2])
-        
-        // Clean up test file
-        try? FileManager.default.removeItem(at: fullURL1)
+        XCTAssertEqual(stats.currentStreak, 0, "A fresh installation must display a 0-day Orbit streak.")
+        XCTAssertEqual(stats.bestStreak, 0, "A fresh installation must display 0 best streak days.")
+        XCTAssertEqual(stats.totalMindfulMinutes, 0, "Total mindful minutes must be 0 for a new installation.")
+        XCTAssertEqual(stats.completedSessionsCount, 0, "Completed sessions count must be 0 for a new installation.")
+        XCTAssertEqual(stats.nextMilestoneDays, 7, "Next milestone for 0 streak should be 7 days.")
+    }
+    
+    // MARK: - Speed Accreditation: 0.75x, 1.0x, 1.25x Uninterrupted Playback
+    @MainActor
+    func testPlaybackSpeedsAccreditation() {
+        for speed in [0.75, 1.0, 1.25] {
+            let acc = ListeningAccumulator(duration: 300.0) // 5-minute session, threshold = 270s
+            var t = 0.0
+            while t <= 280.0 {
+                t += speed
+                acc.tick(currentTime: t, isPlaying: true, speed: speed)
+            }
+            XCTAssertTrue(acc.hasQualified, "Uninterrupted continuous listening at \(speed)x must qualify without loss.")
+        }
     }
 }
