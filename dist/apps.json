@@ -15,7 +15,7 @@
       "localizedDescription": "MindSpace is a zero-network, 100% private offline celestial meditation experience with 275+ hours of mindfulness audio and video courses.",
       "iconURL": "https://mindspace-ios.vercel.app/AppIcon-1024.png",
       "tintColor": "7C3AED",
-      "size": 8415000,
+      "size": 8412490,
       "screenshotURLs": [
         "https://mindspace-ios.vercel.app/Mock%20Screen%20Codex.png"
       ],
@@ -25,7 +25,7 @@
           "date": "2026-08-20",
           "localizedDescription": "Curated 10m/30m/60m sleep sounds, zero-battery-drain animation isolation (CelestialBreathingAuraView & ActiveNodeView), GPU starfield rendering, AudioSessionManager hardware deactivation, DateFormatterCache allocations fix, retained haptic generators, and instant pre-indexed catalog search.",
           "downloadURL": "https://mindspace-ios.vercel.app/MindSpace.ipa",
-          "size": 8415000
+          "size": 8412490
         },
         {
           "version": "1.0.5",
