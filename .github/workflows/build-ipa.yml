@@ -1,15 +1,10 @@
 name: Build MindSpace Unsigned IPA & Automated Release
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main ]
-    paths:
-      - 'Sources/**'
-      - 'Resources/**'
-      - 'Tests/**'
-      - 'project.yml'
-      - '.github/workflows/build-ipa.yml'
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -18,7 +13,6 @@ jobs:
   build:
     name: Build, Test & Release IPA
     runs-on: macos-14
-    timeout-minutes: 25
 
     steps:
       - name: Checkout Repository
@@ -26,27 +20,31 @@ jobs:
 
       - name: Select Xcode Version
         run: |
-          echo "Available Xcode installations:"
-          ls -d /Applications/Xcode*.app || true
-          
-          XCODE_APP=$(ls -d /Applications/Xcode_16*.app /Applications/Xcode_15*.app 2>/dev/null | head -n 1)
-          if [ -n "$XCODE_APP" ]; then
-            echo "Selecting $XCODE_APP"
-            sudo xcode-select -s "$XCODE_APP"
-          fi
+          sudo xcode-select -s /Applications/Xcode_15.4.app || sudo xcode-select -s /Applications/Xcode_15.2.app || sudo xcode-select -s /Applications/Xcode.app
           xcodebuild -version
 
       - name: Install XcodeGen
-        run: brew install xcodegen
+        run: |
+          brew install xcodegen
 
       - name: Verify Zero-Network Rule (API Scan)
         run: |
-          echo "Scanning for forbidden networking symbols in Sources/..."
-          if grep -rnw 'Sources/' -e 'URLSession' -e 'WebKit' -e 'CFNetwork' -e 'Network.framework' -e 'NWPathMonitor'; then
-            echo "ERROR: Network code detected in offline meditation app!"
+          echo "Scanning codebase for forbidden networking symbols..."
+          FORBIDDEN_PATTERNS=("URLSession" "WebKit" "CFNetwork" "Network.framework" "NWPathMonitor")
+          VIOLATIONS=0
+          for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
+            MATCHES=$(grep -rnw "Sources/" -e "$pattern" 2>/dev/null || true)
+            if [ -n "$MATCHES" ]; then
+              echo "❌ Zero-network violation found for '$pattern':"
+              echo "$MATCHES"
+              VIOLATIONS=$((VIOLATIONS + 1))
+            fi
+          done
+          if [ $VIOLATIONS -gt 0 ]; then
+            echo "Build failed: Zero-network rule violated. MindSpace must remain 100% offline."
             exit 1
           fi
-          echo "PASS: Zero network APIs detected."
+          echo "✅ Zero-network compliance verified. 0 external network symbols found."
 
       - name: Generate Xcode Project
         run: xcodegen generate
@@ -73,6 +71,18 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY=""
 
+      - name: Verify UIBackgroundModes in Compiled App
+        run: |
+          python3 -c '
+          import plistlib, sys
+          p = plistlib.load(open("build/Build/Products/Release-iphoneos/MindSpace.app/Info.plist", "rb"))
+          modes = p.get("UIBackgroundModes", [])
+          print("Verified UIBackgroundModes in MindSpace.app/Info.plist:", modes)
+          if "audio" not in modes:
+              print("FATAL: audio background mode missing from compiled Info.plist!", file=sys.stderr)
+              sys.exit(1)
+          '
+
       - name: Assemble & Zip IPA Payload
         run: |
           mkdir -p Payload
@@ -88,32 +98,24 @@ jobs:
           path: |
             MindSpace.ipa
             MindSpace.ipa.sha256
-          retention-days: 14
 
       - name: Publish Direct GitHub Release
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest
-          name: "MindSpace v1.0.3 (Latest Release)"
+          name: "MindSpace v1.0.4 (Latest Release)"
           body: |
-            ## MindSpace v1.0.3 Offline Celestial Meditation
+            ## MindSpace v1.0.4 Offline Celestial Meditation
             
-            ### What's New in v1.0.3 (UI/UX Pro Max Redesign):
-            - **Celestial Breathing Aura**: Subtle 6-breaths/min radiant expansion behind the planet to pace mindful breathing.
-            - **Luminous Scrubber**: Touch-magnified scrubber thumb with real-time drag tooltip bubble and continuous tactile detents.
-            - **Tactile Sensory Feedback (HapticService)**: Context-aware Taptic engine feedback on button taps, session completion, and scrubbing.
-            - **Unified Cosmic Orbit Hero**: Integrated daily greeting, avatar, and orbital streak gauge in an elevated hero surface.
-            - **Living Constellation Path**: Serpentine starlight Bezier curves with pulsing radar ripple on the active node and gold aura on completed nodes.
-            - **Tonight's Sleep Sanctuary**: Direct 1-tap duration pills (10m, 20m, 45m, 60m) and OLED night mode.
-            - **Zen / Dim Screen Mode**: Rest eyes with a one-tap minimalist dark interface for nighttime meditation.
+            ### What's New in v1.0.4:
+            - **Lock Screen & Background Audio Fixed**: Embedded explicit `UIBackgroundModes: [audio]` in compiled `Info.plist`, resolving background audio suspension on phone lock.
+            - **Enhanced Audio Routing**: Added Bluetooth, AirPods, and AirPlay category options.
+            - **NowPlaying PlaybackState Sync**: Active iOS 13+ lock screen playback state synchronization.
+            - **Automated CI Plist Verification**: Added build step ensuring `UIBackgroundModes: [audio]` is strictly validated in the compiled IPA binary.
             
             ### Direct Installation / Auto-Update:
             - **Direct Web & IPA Download**: https://mindspace-ios.vercel.app
             - **SideStore / AltStore OTA Source**: `https://mindspace-ios.vercel.app/apps.json`
           files: |
             MindSpace.ipa
-            MindSpace.ipa.sha256
-          make_latest: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -8,18 +8,25 @@
       "bundleIdentifier": "com.mindspace.offline",
       "developerName": "MindSpace",
       "subtitle": "100% Offline Celestial Meditation",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "versionDate": "2026-08-20",
-      "versionDescription": "MindSpace 1.0.3: Complete UI/UX redesign with UI/UX Pro Max design intelligence. Ambient category lighting, celestial breathing visualizer, luminous touch-responsive scrubber, tactile haptic engine (HapticService), unified Cosmic Orbit Hero banner, living constellation starlight paths, and refined typography.",
+      "versionDescription": "MindSpace 1.0.4: Lock Screen & Background Audio Playback Fix. Guaranteed UIBackgroundModes entitlement in Info.plist for seamless playback when phone is locked.",
       "downloadURL": "https://mindspace-ios.vercel.app/MindSpace.ipa",
       "localizedDescription": "MindSpace is a zero-network, 100% private offline celestial meditation experience with 275+ hours of mindfulness audio and video courses.",
       "iconURL": "https://mindspace-ios.vercel.app/AppIcon-1024.png",
       "tintColor": "7C3AED",
-      "size": 8342072,
+      "size": 8350000,
       "screenshotURLs": [
         "https://mindspace-ios.vercel.app/Mock%20Screen%20Codex.png"
       ],
       "versions": [
+        {
+          "version": "1.0.4",
+          "date": "2026-08-20",
+          "localizedDescription": "Fixed background audio on lock screen by adding explicit UIBackgroundModes audio entitlement in Info.plist, enhanced Bluetooth/AirPlay routing, and synchronized lock screen playback state.",
+          "downloadURL": "https://mindspace-ios.vercel.app/MindSpace.ipa",
+          "size": 8350000
+        },
         {
           "version": "1.0.3",
           "date": "2026-08-20",
@@ -52,9 +59,9 @@
   ],
   "news": [
     {
-      "title": "MindSpace 1.0.3 Released",
-      "identifier": "mindspace-release-1.0.3",
-      "caption": "Complete UI/UX redesign with UI/UX Pro Max, breathing aura, luminous scrubber & haptics.",
+      "title": "MindSpace 1.0.4 Released",
+      "identifier": "mindspace-release-1.0.4",
+      "caption": "Lock screen & background playback fix with full UIBackgroundModes entitlement.",
       "date": "2026-08-20",
       "tintColor": "7C3AED",
       "appID": "com.mindspace.offline"

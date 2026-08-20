@@ -140,12 +140,18 @@ public final class NowPlayingCoordinator: Sendable {
         }
         
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+        if #available(iOS 13.0, *) {
+            MPNowPlayingInfoCenter.default().playbackState = (playbackRate > 0 ? .playing : .paused)
+        }
         #endif
     }
     
     public func clearNowPlaying() {
         #if os(iOS)
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        if #available(iOS 13.0, *) {
+            MPNowPlayingInfoCenter.default().playbackState = .stopped
+        }
         #endif
     }
 }

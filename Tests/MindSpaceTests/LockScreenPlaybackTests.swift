@@ -127,4 +127,16 @@ final class LockScreenPlaybackTests: XCTestCase {
         // Reset to normal
         engine.setSpeed(.normal)
     }
+    
+    @MainActor
+    func testAudioSessionConfigurationExecution() {
+        let manager = AudioSessionManager.shared
+        manager.configureAudioSession()
+        manager.activateSession()
+        
+        #if os(iOS)
+        let session = AVAudioSession.sharedInstance()
+        XCTAssertEqual(session.category, .playback)
+        #endif
+    }
 }

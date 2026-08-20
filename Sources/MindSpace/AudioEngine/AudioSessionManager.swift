@@ -25,7 +25,11 @@ public final class AudioSessionManager: ObservableObject {
         do {
             let session = AVAudioSession.sharedInstance()
             if !isConfigured {
-                try session.setCategory(.playback, mode: .spokenAudio, options: [])
+                try session.setCategory(
+                    .playback,
+                    mode: .default,
+                    options: [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay]
+                )
                 isConfigured = true
             }
             try session.setActive(true)
