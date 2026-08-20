@@ -78,7 +78,7 @@ final class UIUXPolishTests: XCTestCase {
         let session10m = SingleSession(
             id: "s1",
             title: "Ocean Wave",
-            dayNumber: 1,
+            category: "Sleep Sounds",
             relativePath: "Packs/Sleep/Ocean.mp3",
             duration: 640.0
         )
@@ -88,7 +88,7 @@ final class UIUXPolishTests: XCTestCase {
         let session600s = SingleSession(
             id: "s2",
             title: "Rainfall",
-            dayNumber: 2,
+            category: "Sleep Sounds",
             relativePath: "Packs/Sleep/Rain.mp3",
             duration: 600.0
         )
