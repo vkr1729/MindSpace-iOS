@@ -40,7 +40,7 @@ public struct TodayView: View {
         )
     }
     
-    /// Featured daily sleep sound based on day of the year
+    /// Featured daily sleep sound based on day of the year (curated strictly to 10m, 30m, 60m)
     private var dailySleepSound: (soundName: String, sessions: [SingleSession])? {
         guard let sleepCat = catalogService.manifest?.singlesCategories.first(where: { $0.name == "Sleep Sounds" }) else {
             return nil
@@ -58,7 +58,14 @@ public struct TodayView: View {
         
         let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
         let selectedKey = keys[dayOfYear % keys.count]
-        let sessions = (soundGroups[selectedKey] ?? []).sorted(by: { $0.duration < $1.duration })
+        
+        let allowedMinutes: Set<Int> = [10, 30, 60]
+        let sessions = (soundGroups[selectedKey] ?? [])
+            .filter { session in
+                let mins = Int(round(session.duration / 60.0))
+                return allowedMinutes.contains(mins)
+            }
+            .sorted(by: { $0.duration < $1.duration })
         return (selectedKey, sessions)
     }
     

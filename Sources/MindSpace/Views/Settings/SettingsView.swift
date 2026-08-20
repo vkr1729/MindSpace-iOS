@@ -312,9 +312,7 @@ public struct SettingsView: View {
                                             get: { reminderDate },
                                             set: { newDate in
                                                 reminderDate = newDate
-                                                let formatter = DateFormatter()
-                                                formatter.dateFormat = "HH:mm"
-                                                let timeStr = formatter.string(from: newDate)
+                                                let timeStr = DateFormatterCache.timeString(from: newDate)
                                                 let s = getOrCreateSettings()
                                                 s.reminderTime = timeStr
                                                 try? modelContext.save()

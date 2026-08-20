@@ -49,16 +49,11 @@ public struct OrbitCalculator: Sendable {
         let totalCount = qualifyingEvents.count
         
         // Map events to unique local calendar day strings "YYYY-MM-DD"
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        
         var dailyMinutes: [String: Int] = [:]
         var daySessions: [String: [CompletionEvent]] = [:]
         
         for event in qualifyingEvents {
-            let dayKey = formatter.string(from: event.timestamp)
+            let dayKey = DateFormatterCache.dayKey(from: event.timestamp)
             let mins = Int(event.actualPlayedSeconds / 60.0)
             dailyMinutes[dayKey, default: 0] += max(1, mins)
             daySessions[dayKey, default: []].append(event)
@@ -73,8 +68,7 @@ public struct OrbitCalculator: Sendable {
         var passesUsed = 0
         
         // Start checking backwards from today
-        var checkDate = calendar.startOfDay(for: today)
-        let todayKey = formatter.string(from: checkDate)
+        let checkDate = calendar.startOfDay(for: today)
         
         // If today is practiced, start streak = 1; if not, check if yesterday was practiced
         var consecutiveDays = 0
@@ -85,7 +79,7 @@ public struct OrbitCalculator: Sendable {
         var checkedCount = 0
         
         while checkedCount < 365 {
-            let key = formatter.string(from: cursor)
+            let key = DateFormatterCache.dayKey(from: cursor)
             if uniqueDays.contains(key) {
                 consecutiveDays += 1
                 // Earning a compassion pass for every 7 days reached
@@ -113,7 +107,7 @@ public struct OrbitCalculator: Sendable {
         }
         
         currentStreak = consecutiveDays
-        bestStreak = max(currentStreak, computeHistoricalBestStreak(uniqueDays: uniqueDays, calendar: calendar, formatter: formatter))
+        bestStreak = max(currentStreak, computeHistoricalBestStreak(uniqueDays: uniqueDays, calendar: calendar))
         
         // Next milestone: 7 -> 14 -> 30 -> 60 -> 100 -> 365
         let milestones = [7, 14, 30, 60, 100, 365]
@@ -134,8 +128,7 @@ public struct OrbitCalculator: Sendable {
     
     private func computeHistoricalBestStreak(
         uniqueDays: Set<String>,
-        calendar: Calendar,
-        formatter: DateFormatter
+        calendar: Calendar
     ) -> Int {
         guard !uniqueDays.isEmpty else { return 0 }
         let sortedDays = uniqueDays.sorted()
@@ -144,7 +137,7 @@ public struct OrbitCalculator: Sendable {
         var previousDate: Date?
         
         for dayStr in sortedDays {
-            guard let date = formatter.date(from: dayStr) else { continue }
+            guard let date = DateFormatterCache.dateFromDayKey(dayStr) else { continue }
             if let prev = previousDate {
                 if let nextDay = calendar.date(byAdding: .day, value: 1, to: prev),
                    calendar.isDate(nextDay, inSameDayAs: date) {

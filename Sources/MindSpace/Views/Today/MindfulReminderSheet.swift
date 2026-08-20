@@ -229,9 +229,7 @@ public struct MindfulReminderSheet: View {
     }
     
     private func saveSettings(enabled: Bool, date: Date) {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        let timeStr = formatter.string(from: date)
+        let timeStr = DateFormatterCache.timeString(from: date)
         
         let settings = getOrCreateSettings()
         settings.reminderEnabled = enabled

@@ -16,9 +16,7 @@ public struct MonthlyHeatmapView: View {
     private var calendar: Calendar { .current }
     
     private var monthYearTitle: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
-        return formatter.string(from: currentMonthDate)
+        DateFormatterCache.monthYearString(from: currentMonthDate)
     }
     
     private var daysInMonth: [Date?] {
@@ -166,9 +164,7 @@ public struct MonthlyHeatmapView: View {
     }
     
     private func dateKey(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
+        DateFormatterCache.dayKey(from: date)
     }
     
     private func changeMonth(by delta: Int) {

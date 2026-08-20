@@ -19,7 +19,7 @@ public struct ProgressTransferManager: Sendable {
                 id: e.id.uuidString,
                 sessionId: e.sessionStableId,
                 courseId: e.courseId,
-                timestamp: ISO8601DateFormatter().string(from: e.timestamp),
+                timestamp: DateFormatterCache.iso8601String(from: e.timestamp),
                 timeZone: e.timeZoneIdentifier,
                 playedSeconds: e.actualPlayedSeconds,
                 isQualifying: e.isQualifyingMeditation,
@@ -48,7 +48,7 @@ public struct ProgressTransferManager: Sendable {
             currentStreak: orbitStats.currentStreak,
             totalSessions: orbitStats.completedSessionsCount
         ).filter { $0.isUnlocked }.map {
-            BackupAchievement(id: $0.id, unlockedAt: ISO8601DateFormatter().string(from: Date()))
+            BackupAchievement(id: $0.id, unlockedAt: DateFormatterCache.iso8601String(from: Date()))
         }
         
         return MindSpaceBackupDocument(
@@ -66,9 +66,7 @@ public struct ProgressTransferManager: Sendable {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(document)
         
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd-HHmmss"
-        let timestamp = formatter.string(from: Date())
+        let timestamp = DateFormatterCache.backupTimestampString()
         let fileName = "MindSpace-Backup-\(timestamp).mindspace"
         
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
@@ -89,8 +87,6 @@ public struct ProgressTransferManager: Sendable {
         modelContext: ModelContext,
         isCleanRestore: Bool
     ) throws {
-        let isoFormatter = ISO8601DateFormatter()
-        
         if isCleanRestore {
             // Delete all existing events and favorites
             try modelContext.delete(model: CompletionEvent.self)
@@ -105,7 +101,7 @@ public struct ProgressTransferManager: Sendable {
         
         for bEvent in document.completionEvents {
             if !existingIDs.contains(bEvent.id) {
-                let eventDate = isoFormatter.date(from: bEvent.timestamp) ?? Date()
+                let eventDate = DateFormatterCache.dateFromISO8601(bEvent.timestamp) ?? Date()
                 let event = CompletionEvent(
                     sessionStableId: bEvent.sessionId,
                     courseId: bEvent.courseId,

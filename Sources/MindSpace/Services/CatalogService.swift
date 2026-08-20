@@ -14,6 +14,11 @@ public final class CatalogService: ObservableObject {
     private var courseIndex: [String: CatalogCourse] = [:]
     private var singleIndex: [String: SingleSession] = [:]
     
+    // Pre-sorted and tokenized search records for 0-overhead query filtering
+    private var sortedCourses: [(course: CatalogCourse, searchToken: String)] = []
+    private var sortedSessions: [(session: CatalogSession, searchToken: String)] = []
+    private var sortedSingles: [(single: SingleSession, searchToken: String)] = []
+    
     public init() {
         loadCatalog()
     }
@@ -56,15 +61,24 @@ public final class CatalogService: ObservableObject {
     }
     
     private func buildIndices(_ manifest: CatalogManifest) {
-        sessionIndex.removeAll()
-        courseIndex.removeAll()
-        singleIndex.removeAll()
+        sessionIndex.removeAll(keepingCapacity: true)
+        courseIndex.removeAll(keepingCapacity: true)
+        singleIndex.removeAll(keepingCapacity: true)
+        
+        var coursesList: [(CatalogCourse, String)] = []
+        var sessionsList: [(CatalogSession, String)] = []
+        var singlesList: [(SingleSession, String)] = []
         
         for category in manifest.categories {
             for course in category.courses {
                 courseIndex[course.id] = course
+                let courseToken = "\(course.name) \(course.description) \(category.name)".lowercased()
+                coursesList.append((course, courseToken))
+                
                 for session in course.sessions {
                     sessionIndex[session.id] = session
+                    let sessionToken = "\(session.title) \(course.name)".lowercased()
+                    sessionsList.append((session, sessionToken))
                 }
             }
         }
@@ -72,8 +86,14 @@ public final class CatalogService: ObservableObject {
         for singleCat in manifest.singlesCategories {
             for session in singleCat.sessions {
                 singleIndex[session.id] = session
+                let singleToken = "\(session.title) \(session.category) \(session.subCategory ?? "")".lowercased()
+                singlesList.append((session, singleToken))
             }
         }
+        
+        self.sortedCourses = coursesList.sorted { $0.0.order < $1.0.order }
+        self.sortedSessions = sessionsList.sorted { $0.0.title < $1.0.title }
+        self.sortedSingles = singlesList.sorted { $0.0.title < $1.0.title }
     }
     
     // MARK: - Query APIs
@@ -91,22 +111,23 @@ public final class CatalogService: ObservableObject {
     }
     
     public func search(query: String) -> (courses: [CatalogCourse], sessions: [CatalogSession], singles: [SingleSession]) {
-        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
             return ([], [], [])
         }
-        let lower = query.lowercased()
+        let lower = trimmed.lowercased()
         
-        let matchedCourses = courseIndex.values.filter {
-            $0.name.lowercased().contains(lower) || $0.description.lowercased().contains(lower)
-        }.sorted { $0.order < $1.order }
+        let matchedCourses = sortedCourses
+            .filter { $0.searchToken.contains(lower) }
+            .map { $0.course }
         
-        let matchedSessions = sessionIndex.values.filter {
-            $0.title.lowercased().contains(lower)
-        }.sorted { $0.title < $1.title }
+        let matchedSessions = sortedSessions
+            .filter { $0.searchToken.contains(lower) }
+            .map { $0.session }
         
-        let matchedSingles = singleIndex.values.filter {
-            $0.title.lowercased().contains(lower) || $0.category.lowercased().contains(lower)
-        }.sorted { $0.title < $1.title }
+        let matchedSingles = sortedSingles
+            .filter { $0.searchToken.contains(lower) }
+            .map { $0.single }
         
         return (matchedCourses, matchedSessions, matchedSingles)
     }

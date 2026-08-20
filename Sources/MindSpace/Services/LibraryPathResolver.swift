@@ -7,12 +7,16 @@ public struct LibraryPathResolver: Sendable {
     
     public let libraryFolderName = "MindSpaceLibrary"
     
+    private static let _cachedLibraryURL: URL = {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        return docs.appendingPathComponent("MindSpaceLibrary", isDirectory: true)
+    }()
+    
     public init() {}
     
     /// Root directory URL for user-supplied media library in Documents/
     public var libraryDirectoryURL: URL {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        return docs.appendingPathComponent(libraryFolderName, isDirectory: true)
+        Self._cachedLibraryURL
     }
     
     /// Resolves a relative path (e.g. "Packs/1 - Foundation/Basics/Day 01.mp3") to a local URL.

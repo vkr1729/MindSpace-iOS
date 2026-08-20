@@ -1,58 +1,56 @@
 import SwiftUI
 
 /// Ambient celestial starfield background with subtle twinkle effects.
+/// Uses pre-computed star coordinates and GPU-accelerated drawingGroup layer opacity
+/// to eliminate continuous main-thread Canvas CPU execution and save battery.
 public struct StarsBackgroundView: View {
-    private struct Star: Identifiable {
-        let id = UUID()
+    private struct Star: Identifiable, Sendable {
+        let id: Int
         let x: CGFloat
         let y: CGFloat
         let size: CGFloat
         let opacity: Double
     }
     
-    @State private var stars: [Star] = []
-    @State private var isTwinkling = false
-    
-    public init() {}
-    
-    public var body: some View {
-        GeometryReader { proxy in
-            Canvas { context, size in
-                for star in stars {
-                    let rect = CGRect(
-                        x: star.x * size.width,
-                        y: star.y * size.height,
-                        width: star.size,
-                        height: star.size
-                    )
-                    context.opacity = star.opacity * (isTwinkling ? 0.8 : 1.0)
-                    context.fill(Circle().path(in: rect), with: .color(Color.white))
-                }
-            }
-            .onAppear {
-                if stars.isEmpty {
-                    generateStars()
-                }
-                withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
-                    isTwinkling.toggle()
-                }
-            }
-        }
-        .background(CosmosTheme.spaceBackground)
-        .ignoresSafeArea()
-    }
-    
-    private func generateStars() {
-        var newStars: [Star] = []
-        // Deterministic pseudo-random star distribution
+    // Pre-computed deterministic pseudo-random star distribution (0 heap allocations on view init)
+    private static let precomputedStars: [Star] = {
+        var stars: [Star] = []
         for i in 0..<75 {
             let x = CGFloat(((i * 73 + 19) % 100)) / 100.0
             let y = CGFloat(((i * 97 + 31) % 100)) / 100.0
             let size: CGFloat = (i % 7 == 0) ? 2.5 : ((i % 3 == 0) ? 1.8 : 1.0)
             let opacity = (i % 5 == 0) ? 0.75 : 0.35
-            newStars.append(Star(x: x, y: y, size: size, opacity: opacity))
+            stars.append(Star(id: i, x: x, y: y, size: size, opacity: opacity))
         }
-        self.stars = newStars
+        return stars
+    }()
+    
+    @State private var isTwinkling = false
+    
+    public init() {}
+    
+    public var body: some View {
+        Canvas { context, size in
+            for star in Self.precomputedStars {
+                let rect = CGRect(
+                    x: star.x * size.width,
+                    y: star.y * size.height,
+                    width: star.size,
+                    height: star.size
+                )
+                context.opacity = star.opacity
+                context.fill(Circle().path(in: rect), with: .color(Color.white))
+            }
+        }
+        .drawingGroup()
+        .opacity(isTwinkling ? 0.72 : 1.0)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 2.8).repeatForever(autoreverses: true)) {
+                isTwinkling = true
+            }
+        }
+        .background(CosmosTheme.spaceBackground)
+        .ignoresSafeArea()
     }
 }
 

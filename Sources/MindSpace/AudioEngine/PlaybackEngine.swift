@@ -180,6 +180,7 @@ public final class PlaybackEngine: ObservableObject {
         state = .idle
         currentTime = 0.0
         NowPlayingCoordinator.shared.clearNowPlaying()
+        AudioSessionManager.shared.deactivateSession()
     }
     
     public func seek(to targetSeconds: Double) {
@@ -233,7 +234,12 @@ public final class PlaybackEngine: ObservableObject {
     
     private func setupTimeObserver() {
         guard let player = player else { return }
-        let interval = CMTime(seconds: 0.1, preferredTimescale: 600) // 10Hz observer for UI
+        if let token = timeObserverToken {
+            player.removeTimeObserver(token)
+            timeObserverToken = nil
+        }
+        // Battery-optimized 4Hz observer (every 250ms), reducing main-thread redraws by 60%
+        let interval = CMTime(seconds: 0.25, preferredTimescale: 600)
         
         timeObserverToken = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             guard let self = self else { return }
@@ -242,13 +248,14 @@ public final class PlaybackEngine: ObservableObject {
                 self.currentTime = secs
                 let isPlaying = (self.state == .playing)
                 self.accumulator?.tick(currentTime: secs, isPlaying: isPlaying)
-                // Note: We do NOT call updateNowPlayingCenter() on every 100ms tick to avoid XPC rate-limiting.
+                // Note: We do NOT call updateNowPlayingCenter() on every tick to avoid XPC rate-limiting.
                 // MPNowPlayingInfo elapsed time is automatically updated in real-time by iOS using playbackRate.
             }
         }
     }
     
     private func setupEndObserver(for item: AVPlayerItem) {
+        NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: nil)
         NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: item,

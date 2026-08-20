@@ -15,7 +15,6 @@ public struct MeditationPlayerView: View {
     @State private var isScrubbing = false
     @State private var scrubbedTime: Double = 0.0
     @State private var isZenMode = false
-    @State private var breathPhase: CGFloat = 0.0
     
     public init() {}
     
@@ -171,31 +170,11 @@ public struct MeditationPlayerView: View {
                         }
                         .padding(.horizontal, 20)
                     } else {
-                        // Breathing Glow Ring behind the planet
-                        if isPlaying {
-                            Circle()
-                                .fill(
-                                    RadialGradient(
-                                        colors: [ambientColor.opacity(0.4), ambientColor.opacity(0.0)],
-                                        center: .center,
-                                        startRadius: 50,
-                                        endRadius: 150
-                                    )
-                                )
-                                .frame(width: 280, height: 280)
-                                .scaleEffect(1.0 + (breathPhase * 0.18))
-                                .opacity(0.6 + (breathPhase * 0.4))
-                                .blur(radius: 12)
-                        }
-                        
-                        CelestialPlanetView(
+                        CelestialBreathingAuraView(
                             style: planetStyleForTrack,
-                            size: 215,
-                            hasRings: true,
-                            isAnimated: isPlaying
+                            ambientColor: ambientColor,
+                            isPlaying: isPlaying
                         )
-                        .scaleEffect(isPlaying ? (1.0 + (breathPhase * 0.03)) : 1.0)
-                        .padding(.vertical, 16)
                     }
                 }
                 
@@ -375,9 +354,6 @@ public struct MeditationPlayerView: View {
                 .padding(.bottom, 24)
             }
         }
-        .onAppear {
-            startBreathingAnimation()
-        }
         .sheet(isPresented: $isShowingCompletionSheet) {
             if let track = track {
                 CompletionView(
@@ -475,15 +451,6 @@ public struct MeditationPlayerView: View {
         .padding(.horizontal, 28)
     }
     
-    private func startBreathingAnimation() {
-        withAnimation(
-            .easeInOut(duration: 4.0)
-            .repeatForever(autoreverses: true)
-        ) {
-            breathPhase = 1.0
-        }
-    }
-    
     private var planetStyleForTrack: PlanetStyle {
         guard let name = track?.courseName?.lowercased() else { return .purpleRinged }
         if name.contains("health") || name.contains("anxiety") || name.contains("stress") { return .auroraTeal }
@@ -517,5 +484,49 @@ public struct MeditationPlayerView: View {
         let mins = s / 60
         let secs = s % 60
         return String(format: "%02d:%02d", mins, secs)
+    }
+}
+
+/// Isolated breathing visualizer subview that contains its own animation state,
+/// preventing the parent MeditationPlayerView from continually invalidating its entire body.
+private struct CelestialBreathingAuraView: View {
+    let style: PlanetStyle
+    let ambientColor: Color
+    let isPlaying: Bool
+    
+    @State private var isBreathing = false
+    
+    var body: some View {
+        ZStack {
+            if isPlaying {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [ambientColor.opacity(0.40), ambientColor.opacity(0.0)],
+                            center: .center,
+                            startRadius: 50,
+                            endRadius: 150
+                        )
+                    )
+                    .frame(width: 280, height: 280)
+                    .scaleEffect(isBreathing ? 1.18 : 1.0)
+                    .opacity(isBreathing ? 1.0 : 0.6)
+                    .blur(radius: 12)
+            }
+            
+            CelestialPlanetView(
+                style: style,
+                size: 215,
+                hasRings: true,
+                isAnimated: isPlaying
+            )
+            .scaleEffect(isPlaying && isBreathing ? 1.03 : 1.0)
+            .padding(.vertical, 16)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
+                isBreathing = true
+            }
+        }
     }
 }

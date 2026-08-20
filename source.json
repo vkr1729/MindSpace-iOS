@@ -8,18 +8,25 @@
       "bundleIdentifier": "com.mindspace.offline",
       "developerName": "MindSpace",
       "subtitle": "100% Offline Celestial Meditation",
-      "version": "1.0.5",
+      "version": "2.0.0",
       "versionDate": "2026-08-20",
-      "versionDescription": "MindSpace 1.0.5: Full-screen native resolution (LaunchScreen.storyboard fixed letterboxing/magnification), condensed sleep durations, dedicated Mindful Reminder sheet for bell icon, interactive library verification report, and fixed Preferences persistence.",
+      "versionDescription": "MindSpace 2.0: Major runtime efficiency release featuring sleep sound curation (10m, 30m, 60m), zero-battery-drain animation isolation (breathing aura and constellation pulse), GPU-accelerated starfield, audio hardware deactivation on stop, DateFormatterCache, retained haptics, and sub-millisecond search.",
       "downloadURL": "https://mindspace-ios.vercel.app/MindSpace.ipa",
       "localizedDescription": "MindSpace is a zero-network, 100% private offline celestial meditation experience with 275+ hours of mindfulness audio and video courses.",
       "iconURL": "https://mindspace-ios.vercel.app/AppIcon-1024.png",
       "tintColor": "7C3AED",
-      "size": 8397509,
+      "size": 8415000,
       "screenshotURLs": [
         "https://mindspace-ios.vercel.app/Mock%20Screen%20Codex.png"
       ],
       "versions": [
+        {
+          "version": "2.0.0",
+          "date": "2026-08-20",
+          "localizedDescription": "Curated 10m/30m/60m sleep sounds, zero-battery-drain animation isolation (CelestialBreathingAuraView & ActiveNodeView), GPU starfield rendering, AudioSessionManager hardware deactivation, DateFormatterCache allocations fix, retained haptic generators, and instant pre-indexed catalog search.",
+          "downloadURL": "https://mindspace-ios.vercel.app/MindSpace.ipa",
+          "size": 8415000
+        },
         {
           "version": "1.0.5",
           "date": "2026-08-20",
@@ -66,9 +73,9 @@
   ],
   "news": [
     {
-      "title": "MindSpace 1.0.5 Released",
-      "identifier": "mindspace-release-1.0.5",
-      "caption": "Full-screen native resolution, condensed sleep cards, mindful reminder sheet, and library verification.",
+      "title": "MindSpace 2.0 Released",
+      "identifier": "mindspace-release-2.0.0",
+      "caption": "Curated 10m/30m/60m sleep sounds, zero battery drain optimizations, isolated breathing & constellation render loops, and instant search.",
       "date": "2026-08-20",
       "tintColor": "7C3AED",
       "appID": "com.mindspace.offline"

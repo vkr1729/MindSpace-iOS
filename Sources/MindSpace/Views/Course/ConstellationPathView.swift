@@ -31,8 +31,6 @@ public struct ConstellationPathView: View {
     public let nodes: [ConstellationNode]
     public let onSelectNode: (ConstellationNode) -> Void
     
-    @State private var pulseScale: CGFloat = 1.0
-    
     public init(nodes: [ConstellationNode], onSelectNode: @escaping (ConstellationNode) -> Void) {
         self.nodes = nodes
         self.onSelectNode = onSelectNode
@@ -106,40 +104,13 @@ public struct ConstellationPathView: View {
             }
         }
         .frame(height: max(190, CGFloat((nodes.count + 2) / 3) * 68))
-        .onAppear {
-            withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) {
-                pulseScale = 1.3
-            }
-        }
     }
     
     @ViewBuilder
     private func nodeView(for node: ConstellationNode) -> some View {
         ZStack {
             if node.isActive {
-                // Radiant Pulsing Halo
-                Circle()
-                    .fill(CosmosTheme.cosmicPurple.opacity(0.25))
-                    .frame(width: 46, height: 46)
-                    .scaleEffect(pulseScale)
-                
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [CosmosTheme.cosmicPurple, Color(hex: "#6344E0")],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 34, height: 34)
-                    .overlay(
-                        Circle().stroke(Color.white.opacity(0.85), lineWidth: 2)
-                    )
-                    .shadow(color: CosmosTheme.cosmicPurple.opacity(0.8), radius: 10, x: 0, y: 0)
-                
-                Text("\(node.dayNumber)")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
+                ActiveNodeView(dayNumber: node.dayNumber)
             } else if node.isCompleted {
                 // Completed Golden Node
                 Circle()
@@ -200,5 +171,45 @@ public struct ConstellationPathView: View {
             result.append(CGPoint(x: x, y: y))
         }
         return result
+    }
+}
+
+/// Isolated active node view containing its own pulsing animation,
+/// preventing the parent ConstellationPathView from re-calculating Bezier splines and GeometryReader on every frame.
+private struct ActiveNodeView: View {
+    let dayNumber: Int
+    @State private var pulseScale: CGFloat = 1.0
+    
+    var body: some View {
+        ZStack {
+            // Radiant Pulsing Halo
+            Circle()
+                .fill(CosmosTheme.cosmicPurple.opacity(0.25))
+                .frame(width: 46, height: 46)
+                .scaleEffect(pulseScale)
+            
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [CosmosTheme.cosmicPurple, Color(hex: "#6344E0")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 34, height: 34)
+                .overlay(
+                    Circle().stroke(Color.white.opacity(0.85), lineWidth: 2)
+                )
+                .shadow(color: CosmosTheme.cosmicPurple.opacity(0.8), radius: 10, x: 0, y: 0)
+            
+            Text("\(dayNumber)")
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) {
+                pulseScale = 1.3
+            }
+        }
     }
 }

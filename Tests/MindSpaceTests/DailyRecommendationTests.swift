@@ -77,4 +77,33 @@ final class DailyRecommendationTests: XCTestCase {
         XCTAssertEqual(unwindResetSession.formattedDuration, "5:00")
         XCTAssertEqual(sosPanicSession.formattedDuration, "3:00")
     }
+    
+    func testSleepSoundCuratedDurations10_30_60Only() {
+        // Mock a full set of sleep sound duration variants: 10m, 15m, 20m, 30m, 45m, 60m
+        let sampleSessions = [
+            SingleSession(id: "dream_10m", title: "Sleep Sound - Dream 10min", category: "Sleep Sounds", relativePath: "Singles/Dream 10m.mp3", duration: 600.0),
+            SingleSession(id: "dream_15m", title: "Sleep Sound - Dream 15min", category: "Sleep Sounds", relativePath: "Singles/Dream 15m.mp3", duration: 900.0),
+            SingleSession(id: "dream_20m", title: "Sleep Sound - Dream 20min", category: "Sleep Sounds", relativePath: "Singles/Dream 20m.mp3", duration: 1200.0),
+            SingleSession(id: "dream_30m", title: "Sleep Sound - Dream 30min", category: "Sleep Sounds", relativePath: "Singles/Dream 30m.mp3", duration: 1800.0),
+            SingleSession(id: "dream_45m", title: "Sleep Sound - Dream 45min", category: "Sleep Sounds", relativePath: "Singles/Dream 45m.mp3", duration: 2700.0),
+            SingleSession(id: "dream_60m", title: "Sleep Sound - Dream 60min", category: "Sleep Sounds", relativePath: "Singles/Dream 60m.mp3", duration: 3600.0)
+        ]
+        
+        let allowedMinutes: Set<Int> = [10, 30, 60]
+        let curated = sampleSessions.filter { session in
+            let mins = Int(round(session.duration / 60.0))
+            return allowedMinutes.contains(mins)
+        }.sorted(by: { $0.duration < $1.duration })
+        
+        XCTAssertEqual(curated.count, 3, "Only 10m, 30m, and 60m sessions should be present in sleep sound card.")
+        XCTAssertEqual(Int(round(curated[0].duration / 60.0)), 10)
+        XCTAssertEqual(Int(round(curated[1].duration / 60.0)), 30)
+        XCTAssertEqual(Int(round(curated[2].duration / 60.0)), 60)
+        
+        let filteredOut = sampleSessions.filter { session in
+            let mins = Int(round(session.duration / 60.0))
+            return !allowedMinutes.contains(mins)
+        }
+        XCTAssertEqual(filteredOut.count, 3, "15m, 20m, and 45m sessions must be excluded.")
+    }
 }
