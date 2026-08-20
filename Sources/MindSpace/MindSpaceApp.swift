@@ -12,20 +12,46 @@ struct MindSpaceApp: App {
         // Configure Initial Audio Session
         AudioSessionManager.shared.configureAudioSession()
         
+        let schema = Schema([
+            CompletionEvent.self,
+            PlaybackResume.self,
+            FavoriteItem.self,
+            UserSettings.self
+        ])
+        
+        var resolvedContainer: ModelContainer?
+        
+        // 1. Try standard persistent store
         do {
-            let schema = Schema([
-                CompletionEvent.self,
-                PlaybackResume.self,
-                FavoriteItem.self,
-                UserSettings.self
-            ])
-            let config = ModelConfiguration(
-                schema: schema,
-                isStoredInMemoryOnly: false
-            )
-            container = try ModelContainer(for: schema, configurations: [config])
+            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+            resolvedContainer = try ModelContainer(for: schema, configurations: [config])
         } catch {
-            fatalError("Failed to initialize SwiftData ModelContainer: \(error.localizedDescription)")
+            print("Warning: Persistent ModelContainer failed: \(error.localizedDescription). Attempting store recovery...")
+            
+            // 2. Attempt store recovery for schema migration from prior builds
+            if let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+                let storeURL = appSupport.appendingPathComponent("default.store")
+                let shmURL = appSupport.appendingPathComponent("default.store-shm")
+                let walURL = appSupport.appendingPathComponent("default.store-wal")
+                try? FileManager.default.removeItem(at: storeURL)
+                try? FileManager.default.removeItem(at: shmURL)
+                try? FileManager.default.removeItem(at: walURL)
+                
+                let retryConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+                resolvedContainer = try? ModelContainer(for: schema, configurations: [retryConfig])
+            }
+        }
+        
+        // 3. Fallback to in-memory container to guarantee app launches under all conditions
+        if let ready = resolvedContainer {
+            self.container = ready
+        } else {
+            let memoryConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            do {
+                self.container = try ModelContainer(for: schema, configurations: [memoryConfig])
+            } catch {
+                fatalError("Critical: Failed to create ModelContainer: \(error.localizedDescription)")
+            }
         }
     }
     

@@ -31,7 +31,7 @@
           "version": "2.0.0",
           "date": "2026-08-20",
           "localizedDescription": "Curated 10m/30m/60m sleep sounds, zero-battery-drain animation isolation (CelestialBreathingAuraView & ActiveNodeView), GPU starfield rendering, AudioSessionManager hardware deactivation, DateFormatterCache allocations fix, retained haptic generators, and instant pre-indexed catalog search.",
-          "downloadURL": "https://mindspace-ios.vercel.app/MindSpace.ipa",
+          "downloadURL": "https://mindspace-ios.vercel.app/MindSpace-v2.0.0.ipa",
           "size": 8412490
         },
         {

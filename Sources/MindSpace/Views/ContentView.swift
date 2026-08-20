@@ -68,13 +68,13 @@ public struct ContentView: View {
             VStack(spacing: 0) {
                 // Mini-Player Strip
                 MiniPlayerView()
+                    .fullScreenCover(isPresented: $playbackEngine.isFullPlayerPresented) {
+                        MeditationPlayerView()
+                    }
                 
                 // Custom Cosmic Tab Bar
                 customTabBar
             }
-        }
-        .fullScreenCover(isPresented: $playbackEngine.isFullPlayerPresented) {
-            MeditationPlayerView()
         }
         .fullScreenCover(isPresented: $showOnboarding) {
             OnboardingView()

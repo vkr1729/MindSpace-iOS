@@ -4,16 +4,16 @@ import SwiftData
 /// Append-only log of completed mindful meditations and listening events.
 @Model
 public final class CompletionEvent {
-    @Attribute(.unique) public var id: UUID
-    public var sessionStableId: String
-    public var courseId: String?
-    public var timestamp: Date
-    public var timeZoneIdentifier: String
-    public var gmtOffsetSeconds: Int
-    public var actualPlayedSeconds: Double
-    public var isQualifyingMeditation: Bool
-    public var contentType: String // "meditation", "sleep", "video", "sos", "sensitive"
-    public var reflectionNote: String? // "lighter", "same", "heavier"
+    @Attribute(.unique) public var id: UUID = UUID()
+    public var sessionStableId: String = ""
+    public var courseId: String? = nil
+    public var timestamp: Date = Date()
+    public var timeZoneIdentifier: String = "UTC"
+    public var gmtOffsetSeconds: Int = 0
+    public var actualPlayedSeconds: Double = 0.0
+    public var isQualifyingMeditation: Bool = false
+    public var contentType: String = "meditation" // "meditation", "sleep", "video", "sos", "sensitive"
+    public var reflectionNote: String? = nil // "lighter", "same", "heavier"
     
     public init(
         id: UUID = UUID(),
@@ -43,14 +43,14 @@ public final class CompletionEvent {
 /// Resume point storing relative media path, playback progress, and verified listened time.
 @Model
 public final class PlaybackResume {
-    @Attribute(.unique) public var sessionStableId: String
-    public var relativePath: String
-    public var sessionTitle: String
-    public var courseName: String?
-    public var lastPositionSeconds: Double
-    public var durationSeconds: Double
-    public var accumulatedListenedSeconds: Double
-    public var updatedAt: Date
+    @Attribute(.unique) public var sessionStableId: String = ""
+    public var relativePath: String = ""
+    public var sessionTitle: String = ""
+    public var courseName: String? = nil
+    public var lastPositionSeconds: Double = 0.0
+    public var durationSeconds: Double = 0.0
+    public var accumulatedListenedSeconds: Double = 0.0
+    public var updatedAt: Date = Date()
     
     public init(
         sessionStableId: String,
@@ -75,10 +75,10 @@ public final class PlaybackResume {
 /// User favorite session pointer.
 @Model
 public final class FavoriteItem {
-    @Attribute(.unique) public var sessionStableId: String
-    public var title: String
-    public var relativePath: String
-    public var addedAt: Date
+    @Attribute(.unique) public var sessionStableId: String = ""
+    public var title: String = ""
+    public var relativePath: String = ""
+    public var addedAt: Date = Date()
     
     public init(sessionStableId: String, title: String, relativePath: String) {
         self.sessionStableId = sessionStableId
@@ -91,17 +91,17 @@ public final class FavoriteItem {
 /// User preferences and persistent local settings.
 @Model
 public final class UserSettings {
-    @Attribute(.unique) public var id: String
-    public var defaultDurationMinutes: Int
-    public var reminderTime: String // e.g. "08:00"
-    public var reminderEnabled: Bool
-    public var themeMode: String // "quiet_cosmos" or "sleep_abyss"
-    public var hideStreak: Bool
-    public var compassionPassCount: Int
-    public var lastUsedCompassionPassDate: Date?
-    public var hasCompletedOnboarding: Bool
-    public var selectedGoalsCSV: String // Comma-separated list of goal IDs
-    public var hasAcknowledgedDisclaimer: Bool
+    @Attribute(.unique) public var id: String = "primary_settings"
+    public var defaultDurationMinutes: Int = 10
+    public var reminderTime: String = "08:00" // e.g. "08:00"
+    public var reminderEnabled: Bool = false
+    public var themeMode: String = "quiet_cosmos" // "quiet_cosmos" or "sleep_abyss"
+    public var hideStreak: Bool = false
+    public var compassionPassCount: Int = 0
+    public var lastUsedCompassionPassDate: Date? = nil
+    public var hasCompletedOnboarding: Bool = false
+    public var selectedGoalsCSV: String = "" // Comma-separated list of goal IDs
+    public var hasAcknowledgedDisclaimer: Bool = false
     
     public init(
         id: String = "primary_settings",
