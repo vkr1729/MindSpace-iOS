@@ -140,6 +140,7 @@ public struct CompletionView: View {
                 // MARK: - Action Buttons
                 VStack(spacing: 12) {
                     CosmicPrimaryButton("Done") {
+                        saveReflection()
                         dismiss()
                     }
                 }
@@ -149,11 +150,19 @@ public struct CompletionView: View {
         }
     }
     
+    private func saveReflection() {
+        if let reflection = selectedReflection, let latest = completionEvents.first {
+            latest.reflection = reflection
+            try? modelContext.save()
+        }
+    }
+    
     @ViewBuilder
     private func reflectionPill(title: String, tag: String) -> some View {
         let isSel = (selectedReflection == tag)
         Button(action: {
             selectedReflection = tag
+            saveReflection()
         }) {
             Text(title)
                 .font(.system(size: 14, weight: .medium, design: .rounded))

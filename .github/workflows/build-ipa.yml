@@ -95,23 +95,22 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest
-          name: "MindSpace v1.0.0 (Latest Release)"
+          name: "MindSpace v1.0.2 (Latest Release)"
           body: |
-            ## MindSpace v1.0.0 Offline Celestial Meditation
+            ## MindSpace v1.0.2 Offline Celestial Meditation
             
-            ### What's New:
-            - **Full-Screen Video Mode**: Tap or expand any course/intro video into an edge-to-edge native player.
-            - **Photorealistic Planet Visuals**: High-resolution, cinematic celestial assets for all 9 course categories.
-            - **Lock Screen Audio Playback**: Uninterrupted offline meditation and lock screen media controls.
-            - **Dynamic Daily Journey**: Next session dynamically picks from your active course.
-            - **Daily Sleep Sounds**: Dedicated sleep sound card with daily rotating sounds and duration choices.
-            - **5-Min Reset & SOS**: Fixed reset session routing and emergency calm relief.
-            - **Active Course Progress**: Clean, privacy-first progress tracking with offline .mindspace backup/export.
-            - **1024x1024 Photorealistic App Icon**.
+            ### What's New in v1.0.2:
+            - **Lock Screen Remote Controls Fixed**: Resolved lock screen & Control Center play/pause/skip commands with active session registration and XPC anti-flooding.
+            - **AVAudioSession Dynamic Reactivation**: Robust reactivation whenever audio begins or resumes, with auto-pause on headphone disconnect.
+            - **Favorite Meditations**: Instant star/favorite toggle directly from the player and library.
+            - **Session Reflection Persistence**: Post-meditation reflections saved directly into SwiftData and .mindspace backups.
+            - **Full-Screen Native Video**: Clean aspect-fit video playback with background detachment protection.
+            - **Dynamic Daily Journey**: Next session recommendations based on your current course progress.
+            - **100% Comprehensive UAT Verification**: All 7 functional modules verified with full test coverage.
             
             ### Direct Installation / Auto-Update:
-            - **Direct IPA Download**: Download `MindSpace.ipa` directly to your iPhone.
-            - **SideStore / AltStore OTA Source**: Add `https://raw.githubusercontent.com/vkr1729/MindSpace-iOS/main/dist/apps.json` to SideStore / AltStore for one-tap auto-updates on your device.
+            - **Direct Web & IPA Download**: https://mindspace-ios.vercel.app
+            - **SideStore / AltStore OTA Source**: `https://mindspace-ios.vercel.app/apps.json`
           files: |
             MindSpace.ipa
             MindSpace.ipa.sha256

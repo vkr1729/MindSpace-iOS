@@ -17,8 +17,95 @@ public final class NowPlayingCoordinator: Sendable {
     public var onSkipBackwardCommand: ((Double) -> Void)?
     public var onSeekCommand: ((Double) -> Void)?
     
+    private var isRegistered = false
+    
     public init() {
         setupRemoteCommands()
+    }
+    
+    public func setupRemoteCommands() {
+        #if os(iOS)
+        guard !isRegistered else { return }
+        isRegistered = true
+        
+        UIApplication.shared.beginReceivingRemoteControlEvents()
+        
+        let commandCenter = MPRemoteCommandCenter.shared()
+        
+        // Remove existing targets
+        commandCenter.playCommand.removeTarget(nil)
+        commandCenter.pauseCommand.removeTarget(nil)
+        commandCenter.togglePlayPauseCommand.removeTarget(nil)
+        commandCenter.skipForwardCommand.removeTarget(nil)
+        commandCenter.skipBackwardCommand.removeTarget(nil)
+        commandCenter.changePlaybackPositionCommand.removeTarget(nil)
+        commandCenter.nextTrackCommand.removeTarget(nil)
+        commandCenter.previousTrackCommand.removeTarget(nil)
+        
+        // Play
+        commandCenter.playCommand.isEnabled = true
+        commandCenter.playCommand.addTarget { [weak self] _ in
+            self?.onPlayCommand?()
+            return .success
+        }
+        
+        // Pause
+        commandCenter.pauseCommand.isEnabled = true
+        commandCenter.pauseCommand.addTarget { [weak self] _ in
+            self?.onPauseCommand?()
+            return .success
+        }
+        
+        // Toggle Play/Pause (Headphones / Control Center)
+        commandCenter.togglePlayPauseCommand.isEnabled = true
+        commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
+            self?.onTogglePlayPauseCommand?()
+            return .success
+        }
+        
+        // Skip Forward 15s
+        commandCenter.skipForwardCommand.isEnabled = true
+        commandCenter.skipForwardCommand.preferredIntervals = [15]
+        commandCenter.skipForwardCommand.addTarget { [weak self] event in
+            if let skipEvent = event as? MPSkipIntervalCommandEvent {
+                self?.onSkipForwardCommand?(skipEvent.interval)
+            } else {
+                self?.onSkipForwardCommand?(15.0)
+            }
+            return .success
+        }
+        
+        // Skip Backward 15s
+        commandCenter.skipBackwardCommand.isEnabled = true
+        commandCenter.skipBackwardCommand.preferredIntervals = [15]
+        commandCenter.skipBackwardCommand.addTarget { [weak self] event in
+            if let skipEvent = event as? MPSkipIntervalCommandEvent {
+                self?.onSkipBackwardCommand?(skipEvent.interval)
+            } else {
+                self?.onSkipBackwardCommand?(15.0)
+            }
+            return .success
+        }
+        
+        // Scrubber / Change Playback Position
+        commandCenter.changePlaybackPositionCommand.isEnabled = true
+        commandCenter.changePlaybackPositionCommand.addTarget { [weak self] event in
+            if let posEvent = event as? MPChangePlaybackPositionCommandEvent {
+                self?.onSeekCommand?(posEvent.positionTime)
+                return .success
+            }
+            return .commandFailed
+        }
+        
+        // Explicitly disable track and playlist skip commands to prioritize 15s skip buttons on lock screen
+        commandCenter.nextTrackCommand.isEnabled = false
+        commandCenter.previousTrackCommand.isEnabled = false
+        commandCenter.likeCommand.isEnabled = false
+        commandCenter.dislikeCommand.isEnabled = false
+        commandCenter.bookmarkCommand.isEnabled = false
+        commandCenter.changeRepeatModeCommand.isEnabled = false
+        commandCenter.changeShuffleModeCommand.isEnabled = false
+        #endif
     }
     
     public func updateNowPlaying(
@@ -33,13 +120,23 @@ public final class NowPlayingCoordinator: Sendable {
         var info: [String: Any] = [
             MPMediaItemPropertyTitle: title,
             MPMediaItemPropertyArtist: artist,
-            MPMediaItemPropertyPlaybackDuration: duration,
-            MPNowPlayingInfoPropertyElapsedPlaybackTime: currentTime,
-            MPNowPlayingInfoPropertyPlaybackRate: playbackRate
+            MPMediaItemPropertyPlaybackDuration: max(1.0, duration),
+            MPNowPlayingInfoPropertyElapsedPlaybackTime: max(0.0, currentTime),
+            MPNowPlayingInfoPropertyPlaybackRate: playbackRate,
+            MPNowPlayingInfoPropertyDefaultPlaybackRate: 1.0,
+            MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue
         ]
         
-        if let albumTitle {
+        if let albumTitle = albumTitle, !albumTitle.isEmpty {
             info[MPMediaItemPropertyAlbumTitle] = albumTitle
+        }
+        
+        // Attach artwork if available
+        if let appIcon = UIImage(named: "AppIcon") ?? UIImage(systemName: "sparkles") {
+            let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 300, height: 300)) { _ in
+                appIcon
+            }
+            info[MPMediaItemPropertyArtwork] = artwork
         }
         
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
@@ -49,61 +146,6 @@ public final class NowPlayingCoordinator: Sendable {
     public func clearNowPlaying() {
         #if os(iOS)
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
-        #endif
-    }
-    
-    private func setupRemoteCommands() {
-        #if os(iOS)
-        let commandCenter = MPRemoteCommandCenter.shared()
-        
-        commandCenter.playCommand.isEnabled = true
-        commandCenter.playCommand.addTarget { [weak self] _ in
-            self?.onPlayCommand?()
-            return .success
-        }
-        
-        commandCenter.pauseCommand.isEnabled = true
-        commandCenter.pauseCommand.addTarget { [weak self] _ in
-            self?.onPauseCommand?()
-            return .success
-        }
-        
-        commandCenter.togglePlayPauseCommand.isEnabled = true
-        commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
-            self?.onTogglePlayPauseCommand?()
-            return .success
-        }
-        
-        commandCenter.skipForwardCommand.isEnabled = true
-        commandCenter.skipForwardCommand.preferredIntervals = [15]
-        commandCenter.skipForwardCommand.addTarget { [weak self] event in
-            if let skipEvent = event as? MPSkipIntervalCommandEvent {
-                self?.onSkipForwardCommand?(skipEvent.interval)
-            } else {
-                self?.onSkipForwardCommand?(15.0)
-            }
-            return .success
-        }
-        
-        commandCenter.skipBackwardCommand.isEnabled = true
-        commandCenter.skipBackwardCommand.preferredIntervals = [15]
-        commandCenter.skipBackwardCommand.addTarget { [weak self] event in
-            if let skipEvent = event as? MPSkipIntervalCommandEvent {
-                self?.onSkipBackwardCommand?(skipEvent.interval)
-            } else {
-                self?.onSkipBackwardCommand?(15.0)
-            }
-            return .success
-        }
-        
-        commandCenter.changePlaybackPositionCommand.isEnabled = true
-        commandCenter.changePlaybackPositionCommand.addTarget { [weak self] event in
-            if let posEvent = event as? MPChangePlaybackPositionCommandEvent {
-                self?.onSeekCommand?(posEvent.positionTime)
-                return .success
-            }
-            return .commandFailed
-        }
         #endif
     }
 }

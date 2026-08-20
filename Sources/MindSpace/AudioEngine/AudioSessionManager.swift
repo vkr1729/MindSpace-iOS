@@ -22,14 +22,29 @@ public final class AudioSessionManager: ObservableObject {
     
     public func configureAudioSession() {
         #if os(iOS)
-        guard !isConfigured else { return }
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .spokenAudio, policy: .longFormAudio)
+            if !isConfigured {
+                try session.setCategory(.playback, mode: .spokenAudio, options: [])
+                isConfigured = true
+            }
             try session.setActive(true)
-            isConfigured = true
         } catch {
-            print("Failed to configure AVAudioSession: \(error.localizedDescription)")
+            print("Failed to configure/activate AVAudioSession: \(error.localizedDescription)")
+        }
+        #endif
+    }
+    
+    public func activateSession() {
+        configureAudioSession()
+    }
+    
+    public func deactivateSession() {
+        #if os(iOS)
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("Failed to deactivate AVAudioSession: \(error.localizedDescription)")
         }
         #endif
     }

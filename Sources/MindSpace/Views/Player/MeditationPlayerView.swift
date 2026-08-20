@@ -1,10 +1,14 @@
 import SwiftUI
+import SwiftData
 
 /// Screen 4: Minimalist Meditation Player (Canonical Blueprint)
 /// Reference: Mock Screen Codex.png
 public struct MeditationPlayerView: View {
-    @ObservedObject private var playbackEngine = PlaybackEngine.shared
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var playbackEngine = PlaybackEngine.shared
+    
+    @Query private var favorites: [FavoriteItem]
     
     @State private var isShowingCompletionSheet = false
     @State private var isFullScreenVideoPresented = false
@@ -15,6 +19,11 @@ public struct MeditationPlayerView: View {
     
     private var track: PlayableTrack? {
         playbackEngine.currentTrack
+    }
+    
+    private var isFavorite: Bool {
+        guard let track = track else { return false }
+        return favorites.contains(where: { $0.sessionStableId == track.id })
     }
     
     private var isPlaying: Bool {
@@ -68,20 +77,17 @@ public struct MeditationPlayerView: View {
                     
                     Spacer()
                     
-                    Menu {
-                        Button(action: {
-                            // Toggle favorite
-                        }) {
-                            Label("Favorite", systemImage: "star")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
+                    Button(action: {
+                        toggleFavorite()
+                    }) {
+                        Image(systemName: isFavorite ? "star.fill" : "star")
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(CosmosTheme.textPrimary)
+                            .foregroundColor(isFavorite ? CosmosTheme.starlightGold : CosmosTheme.textPrimary)
                             .frame(width: 40, height: 40)
                             .background(CosmosTheme.spaceCard)
                             .clipShape(Circle())
                     }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
@@ -343,6 +349,21 @@ public struct MeditationPlayerView: View {
         if name.contains("pro") { return .pro }
         if name.contains("sport") { return .sport }
         return .purpleRinged
+    }
+    
+    private func toggleFavorite() {
+        guard let track = track else { return }
+        if let existing = favorites.first(where: { $0.sessionStableId == track.id }) {
+            modelContext.delete(existing)
+        } else {
+            let fav = FavoriteItem(
+                sessionStableId: track.id,
+                title: track.title,
+                relativePath: track.relativePath
+            )
+            modelContext.insert(fav)
+        }
+        try? modelContext.save()
     }
     
     private func formatTime(_ seconds: Double) -> String {

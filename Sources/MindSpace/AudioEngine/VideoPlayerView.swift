@@ -39,7 +39,9 @@ public struct VideoPlayerView: UIViewRepresentable {
             get { storedPlayer }
             set {
                 storedPlayer = newValue
-                playerLayer.player = newValue
+                if UIApplication.shared.applicationState != .background {
+                    playerLayer.player = newValue
+                }
                 playerLayer.videoGravity = .resizeAspect
             }
         }

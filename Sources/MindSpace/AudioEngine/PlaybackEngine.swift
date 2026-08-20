@@ -102,7 +102,8 @@ public final class PlaybackEngine: ObservableObject {
     // MARK: - Playback Commands
     
     public func loadAndPlay(track: PlayableTrack, startPosition: Double = 0.0) {
-        AudioSessionManager.shared.configureAudioSession()
+        AudioSessionManager.shared.activateSession()
+        NowPlayingCoordinator.shared.setupRemoteCommands()
         
         stop()
         
@@ -123,6 +124,7 @@ public final class PlaybackEngine: ObservableObject {
         
         let playerItem = AVPlayerItem(url: url)
         let avPlayer = AVPlayer(playerItem: playerItem)
+        avPlayer.automaticallyWaitsToMinimizeStalling = false
         self.player = avPlayer
         
         setupTimeObserver()
@@ -130,11 +132,10 @@ public final class PlaybackEngine: ObservableObject {
         
         if startPosition > 0.0 {
             let cmTime = CMTime(seconds: startPosition, preferredTimescale: 600)
-            avPlayer.seek(to: cmTime)
+            avPlayer.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
         }
         
-        avPlayer.play()
-        avPlayer.rate = speed.rawValue
+        avPlayer.playImmediately(atRate: speed.rawValue)
         self.state = .playing
         
         updateNowPlayingCenter()
@@ -143,16 +144,20 @@ public final class PlaybackEngine: ObservableObject {
     public func togglePlayPause() {
         if state == .playing {
             pause()
-        } else if state == .paused || state == .readyToPlay {
+        } else {
             play()
         }
     }
     
     public func play() {
         guard let player = player else { return }
-        AudioSessionManager.shared.configureAudioSession()
-        player.play()
-        player.rate = speed.rawValue
+        AudioSessionManager.shared.activateSession()
+        
+        if state == .completed {
+            seek(to: 0.0)
+        }
+        
+        player.playImmediately(atRate: speed.rawValue)
         state = .playing
         updateNowPlayingCenter()
     }
@@ -178,10 +183,14 @@ public final class PlaybackEngine: ObservableObject {
     }
     
     public func seek(to targetSeconds: Double) {
-        let clamped = max(0.0, min(duration, targetSeconds))
+        let effectiveDuration = duration > 0 ? duration : (currentTrack?.duration ?? 0.0)
+        let clamped = max(0.0, min(effectiveDuration, targetSeconds))
         self.currentTime = clamped
         let cmTime = CMTime(seconds: clamped, preferredTimescale: 600)
         player?.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
+        if state == .completed && clamped < max(0, effectiveDuration - 1.0) {
+            state = .paused
+        }
         updateNowPlayingCenter()
     }
     
@@ -195,6 +204,10 @@ public final class PlaybackEngine: ObservableObject {
     
     public func setSpeed(_ newSpeed: PlaybackSpeed) {
         self.speed = newSpeed
+        if state == .playing {
+            player?.rate = newSpeed.rawValue
+        }
+        updateNowPlayingCenter()
     }
     
     public func setSleepTimer(minutes: Int?) {
@@ -220,7 +233,7 @@ public final class PlaybackEngine: ObservableObject {
     
     private func setupTimeObserver() {
         guard let player = player else { return }
-        let interval = CMTime(seconds: 0.1, preferredTimescale: 600) // 10Hz observer
+        let interval = CMTime(seconds: 0.1, preferredTimescale: 600) // 10Hz observer for UI
         
         timeObserverToken = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             guard let self = self else { return }
@@ -229,7 +242,8 @@ public final class PlaybackEngine: ObservableObject {
                 self.currentTime = secs
                 let isPlaying = (self.state == .playing)
                 self.accumulator?.tick(currentTime: secs, isPlaying: isPlaying)
-                self.updateNowPlayingCenter()
+                // Note: We do NOT call updateNowPlayingCenter() on every 100ms tick to avoid XPC rate-limiting.
+                // MPNowPlayingInfo elapsed time is automatically updated in real-time by iOS using playbackRate.
             }
         }
     }
