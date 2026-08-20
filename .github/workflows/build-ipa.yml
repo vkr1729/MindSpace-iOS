@@ -86,8 +86,8 @@ jobs:
           p["UIFileSharingEnabled"] = True
           p["LSSupportsOpeningDocumentsInPlace"] = True
           p["UILaunchStoryboardName"] = "LaunchScreen"
-          p["CFBundleShortVersionString"] = "2.0.0"
-          p["CFBundleVersion"] = "7"
+          p["CFBundleShortVersionString"] = "2.1.0"
+          p["CFBundleVersion"] = "8"
           
           plistlib.dump(p, open(plist_path, "wb"))
           
@@ -101,8 +101,8 @@ jobs:
           if "audio" not in verified.get("UIBackgroundModes", []):
               print("FATAL: audio background mode missing!", file=sys.stderr)
               sys.exit(1)
-          if verified.get("CFBundleShortVersionString") != "2.0.0":
-              print("FATAL: CFBundleShortVersionString is not 2.0.0!", file=sys.stderr)
+          if verified.get("CFBundleShortVersionString") != "2.1.0":
+              print("FATAL: CFBundleShortVersionString is not 2.1.0!", file=sys.stderr)
               sys.exit(1)
           if verified.get("UILaunchStoryboardName") != "LaunchScreen":
               print("FATAL: UILaunchStoryboardName is not LaunchScreen!", file=sys.stderr)

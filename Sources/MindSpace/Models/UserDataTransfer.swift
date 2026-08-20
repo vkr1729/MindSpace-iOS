@@ -16,7 +16,7 @@ public struct MindSpaceBackupDocument: Codable, Sendable {
     public init(
         backupVersion: Int = 1,
         exportedAt: String = DateFormatterCache.iso8601String(from: Date()),
-        appVersion: String = "2.0.0",
+        appVersion: String = "2.1.0",
         catalogSchemaVersion: Int = 1,
         stats: BackupStats,
         userSettings: BackupUserSettings,

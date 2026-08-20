@@ -238,10 +238,10 @@ def test_optimizations_and_date_cache():
     return True
 
 def test_version_release_consistency():
-    print("[5/6] Testing Version 2.0 Release Consistency across all project configs...")
+    print("[5/6] Testing Version 2.1 Release Consistency across all project configs...")
     
-    expected_version = "2.0.0"
-    expected_build = "7"
+    expected_version = "2.1.0"
+    expected_build = "8"
     
     # 1. project.yml
     proj_file = ROOT_DIR / "project.yml"
