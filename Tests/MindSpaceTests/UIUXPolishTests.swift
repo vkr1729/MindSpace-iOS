@@ -72,4 +72,41 @@ final class UIUXPolishTests: XCTestCase {
         XCTAssertFalse(node.isActive)
         XCTAssertFalse(node.isBridgeOfReflection)
     }
+    
+    // MARK: - Condensed Duration Tests
+    func testSingleSessionCondensedDuration() {
+        let session10m = SingleSession(
+            id: "s1",
+            title: "Ocean Wave",
+            category: "Sleep Sounds",
+            duration: 640.0, // 10m 40s
+            relativePath: "Packs/Sleep/Ocean.mp3",
+            sizeBytes: 1000,
+            sha256: "abc",
+            codec: "mp3"
+        )
+        XCTAssertEqual(session10m.formattedDuration, "10:40")
+        XCTAssertEqual(session10m.condensedDuration, "11 min")
+        
+        let session600s = SingleSession(
+            id: "s2",
+            title: "Rainfall",
+            category: "Sleep Sounds",
+            duration: 600.0, // 10m 00s
+            relativePath: "Packs/Sleep/Rain.mp3",
+            sizeBytes: 1000,
+            sha256: "abc",
+            codec: "mp3"
+        )
+        XCTAssertEqual(session600s.condensedDuration, "10 min")
+    }
+    
+    // MARK: - User Settings Model Tests
+    func testUserSettingsDefaultInitialization() {
+        let settings = UserSettings()
+        XCTAssertFalse(settings.reminderEnabled)
+        XCTAssertEqual(settings.reminderTime, "08:00")
+        XCTAssertFalse(settings.hideStreak)
+        XCTAssertEqual(settings.compassionPassCount, 0)
+    }
 }

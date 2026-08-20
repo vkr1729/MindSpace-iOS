@@ -34,6 +34,21 @@ struct MindSpaceApp: App {
             ContentView()
                 .modelContainer(container)
                 .preferredColorScheme(.dark)
+                .onAppear {
+                    ensureInitialSettings()
+                }
+        }
+    }
+    
+    @MainActor
+    private func ensureInitialSettings() {
+        let context = container.mainContext
+        var fetchDescriptor = FetchDescriptor<UserSettings>()
+        fetchDescriptor.fetchLimit = 1
+        if let existing = try? context.fetch(fetchDescriptor), existing.isEmpty {
+            let initial = UserSettings()
+            context.insert(initial)
+            try? context.save()
         }
     }
 }

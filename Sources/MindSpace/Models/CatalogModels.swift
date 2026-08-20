@@ -141,6 +141,11 @@ public struct CatalogSession: Codable, Identifiable, Sendable, Hashable {
         let secs = Int(duration) % 60
         return String(format: "%d:%02d", mins, secs)
     }
+    
+    public var condensedDuration: String {
+        let mins = Int(round(duration / 60.0))
+        return "\(max(1, mins)) min"
+    }
 }
 
 // MARK: - Video Attachment
@@ -251,5 +256,10 @@ public struct SingleSession: Codable, Identifiable, Sendable, Hashable {
         let mins = Int(duration) / 60
         let secs = Int(duration) % 60
         return String(format: "%d:%02d", mins, secs)
+    }
+    
+    public var condensedDuration: String {
+        let mins = Int(round(duration / 60.0))
+        return "\(max(1, mins)) min"
     }
 }

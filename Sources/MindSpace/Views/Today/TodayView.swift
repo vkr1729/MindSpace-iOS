@@ -13,6 +13,7 @@ public struct TodayView: View {
     @Query private var settingsList: [UserSettings]
     
     @State private var dailyJourneyItems: [DailyJourneyItem] = []
+    @State private var isShowingReminderSheet = false
     
     public init() {}
     
@@ -99,25 +100,43 @@ public struct TodayView: View {
                             
                             Spacer()
                             
-                            NavigationLink(destination: SettingsView()) {
-                                ZStack(alignment: .topTrailing) {
-                                    Image(systemName: "bell.fill")
-                                        .font(.system(size: 18))
+                            HStack(spacing: 10) {
+                                // Mindful Daily Reminder Button (Bell)
+                                Button(action: {
+                                    HapticService.shared.medium()
+                                    isShowingReminderSheet = true
+                                }) {
+                                    ZStack(alignment: .topTrailing) {
+                                        Image(systemName: "bell.fill")
+                                            .font(.system(size: 17))
+                                            .foregroundColor(settingsList.first?.reminderEnabled == true ? CosmosTheme.starlightGold : CosmosTheme.textSecondary)
+                                            .frame(width: 40, height: 40)
+                                            .background(CosmosTheme.spaceCard)
+                                            .clipShape(Circle())
+                                            .overlay(Circle().stroke(settingsList.first?.reminderEnabled == true ? CosmosTheme.starlightGold.opacity(0.4) : CosmosTheme.spaceCardBorder, lineWidth: 1))
+                                        
+                                        if settingsList.first?.reminderEnabled == true {
+                                            Circle()
+                                                .fill(CosmosTheme.starlightGold)
+                                                .frame(width: 8, height: 8)
+                                                .offset(x: 2, y: -2)
+                                        }
+                                    }
+                                }
+                                .buttonStyle(.cosmicPressable)
+                                
+                                // Settings Link (Gear)
+                                NavigationLink(destination: SettingsView()) {
+                                    Image(systemName: "gearshape.fill")
+                                        .font(.system(size: 17))
                                         .foregroundColor(CosmosTheme.textSecondary)
-                                        .frame(width: 42, height: 42)
+                                        .frame(width: 40, height: 40)
                                         .background(CosmosTheme.spaceCard)
                                         .clipShape(Circle())
                                         .overlay(Circle().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
-                                    
-                                    if settingsList.first?.reminderEnabled == true {
-                                        Circle()
-                                            .fill(CosmosTheme.starlightGold)
-                                            .frame(width: 9, height: 9)
-                                            .offset(x: 2, y: -2)
-                                    }
                                 }
+                                .buttonStyle(.cosmicPressable)
                             }
-                            .buttonStyle(.cosmicPressable)
                         }
                         .padding(.horizontal, 20)
                         .padding(.top, 12)
@@ -163,6 +182,9 @@ public struct TodayView: View {
                 }
             }
             .navigationBarHidden(true)
+            .sheet(isPresented: $isShowingReminderSheet) {
+                MindfulReminderSheet()
+            }
             .onAppear {
                 setupDynamicDailyJourney()
             }
@@ -321,7 +343,7 @@ public struct TodayView: View {
                         HapticService.shared.medium()
                         playSleepSession(session, soundName: sleepSound.soundName)
                     }) {
-                        Text(session.formattedDuration)
+                        Text(session.condensedDuration)
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
                             .foregroundColor(CosmosTheme.textPrimary)
                             .padding(.horizontal, 14)

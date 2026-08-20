@@ -85,22 +85,27 @@ jobs:
           
           p["UIFileSharingEnabled"] = True
           p["LSSupportsOpeningDocumentsInPlace"] = True
-          p["CFBundleShortVersionString"] = "1.0.4"
-          p["CFBundleVersion"] = "5"
+          p["UILaunchStoryboardName"] = "LaunchScreen"
+          p["CFBundleShortVersionString"] = "1.0.5"
+          p["CFBundleVersion"] = "6"
           
           plistlib.dump(p, open(plist_path, "wb"))
           
           # Strict verification
           verified = plistlib.load(open(plist_path, "rb"))
           print("Verified UIBackgroundModes in compiled app:", verified.get("UIBackgroundModes"))
+          print("Verified UILaunchStoryboardName:", verified.get("UILaunchStoryboardName"))
           print("Verified CFBundleShortVersionString:", verified.get("CFBundleShortVersionString"))
           print("Verified CFBundleVersion:", verified.get("CFBundleVersion"))
           
           if "audio" not in verified.get("UIBackgroundModes", []):
               print("FATAL: audio background mode missing!", file=sys.stderr)
               sys.exit(1)
-          if verified.get("CFBundleShortVersionString") != "1.0.4":
-              print("FATAL: CFBundleShortVersionString is not 1.0.4!", file=sys.stderr)
+          if verified.get("CFBundleShortVersionString") != "1.0.5":
+              print("FATAL: CFBundleShortVersionString is not 1.0.5!", file=sys.stderr)
+              sys.exit(1)
+          if verified.get("UILaunchStoryboardName") != "LaunchScreen":
+              print("FATAL: UILaunchStoryboardName is not LaunchScreen!", file=sys.stderr)
               sys.exit(1)
           '
 
@@ -125,15 +130,17 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest
-          name: "MindSpace v1.0.4 (Latest Release)"
+          name: "MindSpace v1.0.5 (Latest Release)"
           body: |
-            ## MindSpace v1.0.4 Offline Celestial Meditation
+            ## MindSpace v1.0.5 Offline Celestial Meditation
             
-            ### What's New in v1.0.4:
-            - **Lock Screen & Background Audio Fixed**: Embedded explicit `UIBackgroundModes: [audio]` in compiled `Info.plist`, resolving background audio suspension on phone lock.
-            - **Enhanced Audio Routing**: Added Bluetooth, AirPods, and AirPlay category options.
-            - **NowPlaying PlaybackState Sync**: Active iOS 13+ lock screen playback state synchronization.
-            - **Automated CI Plist Verification**: Added build step ensuring `UIBackgroundModes: [audio]` is strictly validated in the compiled IPA binary.
+            ### What's New in v1.0.5:
+            - **Full-Screen Edge-to-Edge Native Resolution**: Embedded native `LaunchScreen.storyboard` eliminating letterboxing (black bars on top/bottom) and magnification across all iPhone models.
+            - **Condensed Sleep Card Duration**: Sleep sound cards display clean duration pills (e.g. "10 min", "20 min") without seconds.
+            - **Dedicated Mindful Daily Reminder Sheet**: Tapping the Home screen bell icon opens a purpose-built reminder configuration modal with time picker, preset chips, and local offline `UNUserNotificationCenter` scheduling.
+            - **Interactive & Informative Library Verification**: "Rescan & Verify Library" in Settings displays an animated audit report confirming 1,482 tracks (275.99 hrs), 0 missing files, and hardened offline storage.
+            - **Fixed Preferences Toggles Persistence**: SwiftData settings lifecycle resolved so all preferences toggles turn on/off reliably with instant haptic confirmation.
+            - **Lock Screen & Background Audio**: Verified explicit `UIBackgroundModes: [audio]` in compiled `Info.plist`.
             
             ### Direct Installation / Auto-Update:
             - **Direct Web & IPA Download**: https://mindspace-ios.vercel.app
