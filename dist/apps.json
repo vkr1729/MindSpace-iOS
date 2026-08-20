@@ -10,14 +10,14 @@
       "name": "MindSpace",
       "bundleIdentifier": "com.mindspace.offline",
       "developerName": "MindSpace",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "versionDate": "2026-08-20T08:00:00Z",
-      "versionDescription": "MindSpace 1.0.0 with full offline celestial meditation, 905 media catalog tracks, photorealistic planet visuals, background audio support, dynamic daily journey, and 100% private offline progress.",
-      "downloadURL": "https://github.com/vkr1729/MindSpace-iOS/releases/latest/download/MindSpace.ipa",
+      "versionDescription": "MindSpace 1.0.1: Full-screen video mode, photorealistic planet visuals, background/lock screen audio playback, dynamic daily journey recommendations, daily sleep sounds, 5-min reset fixes, and active course progress filtering.",
+      "downloadURL": "https://raw.githubusercontent.com/vkr1729/MindSpace-iOS/main/dist/MindSpace.ipa",
       "localizedDescription": "MindSpace is a zero-network, 100% private offline celestial meditation experience with 275+ hours of mindfulness audio and video courses.",
       "iconURL": "https://raw.githubusercontent.com/vkr1729/MindSpace-iOS/main/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png",
       "tintColor": "#7C3AED",
-      "size": 950000,
+      "size": 941108,
       "screenshotURLs": [
         "https://raw.githubusercontent.com/vkr1729/MindSpace-iOS/main/Mock%20Screen%20Codex.png"
       ]
@@ -25,9 +25,9 @@
   ],
   "news": [
     {
-      "title": "MindSpace 1.0 Released",
-      "identifier": "mindspace-release-1.0",
-      "caption": "Experience peaceful celestial mindfulness completely offline.",
+      "title": "MindSpace 1.0.1 Released",
+      "identifier": "mindspace-release-1.0.1",
+      "caption": "Full screen videos, photorealistic planets, background audio, and daily sleep sounds.",
       "date": "2026-08-20",
       "tintColor": "#7C3AED",
       "appID": "com.mindspace.offline"
