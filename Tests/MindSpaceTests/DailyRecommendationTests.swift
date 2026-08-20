@@ -74,7 +74,7 @@ final class DailyRecommendationTests: XCTestCase {
         
         XCTAssertNotEqual(unwindResetSession.category, sosPanicSession.category)
         XCTAssertNotEqual(unwindResetSession.id, sosPanicSession.id)
-        XCTAssertEqual(unwindResetSession.formattedDuration, "05:00")
-        XCTAssertEqual(sosPanicSession.formattedDuration, "03:00")
+        XCTAssertEqual(unwindResetSession.formattedDuration, "5:00")
+        XCTAssertEqual(sosPanicSession.formattedDuration, "3:00")
     }
 }
