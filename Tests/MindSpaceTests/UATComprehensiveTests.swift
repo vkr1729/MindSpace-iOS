@@ -145,14 +145,26 @@ final class UATComprehensiveTests: XCTestCase {
     }
     
     // MARK: - UAT Area 5: Library Path Resolver & Sandboxing
-    func testLibraryPathResolverDestination() {
+    func testLibraryPathResolverDestination() throws {
         let resolver = LibraryPathResolver.shared
         XCTAssertTrue(resolver.libraryDirectoryURL.path.contains("Documents/MindSpaceLibrary"))
         
-        let relPath = "Packs/1 - Foundation/Basics/Day 01.mp3"
-        let resolvedURL = resolver.resolveURL(for: relPath)
+        // 1. Nonexistent file returns nil
+        let missingPath = "NonExistent/Track.mp3"
+        XCTAssertNil(resolver.resolveURL(for: missingPath))
+        
+        // 2. Existing file resolves to proper local URL
+        let testRelPath = "TestCategory/TestTrack.mp3"
+        let testURL = resolver.libraryDirectoryURL.appendingPathComponent(testRelPath)
+        try FileManager.default.createDirectory(at: testURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try "test audio content".data(using: .utf8)?.write(to: testURL)
+        
+        let resolvedURL = resolver.resolveURL(for: testRelPath)
         XCTAssertNotNil(resolvedURL)
-        XCTAssertTrue(resolvedURL!.path.contains("Packs/1 - Foundation/Basics/Day 01.mp3"))
+        XCTAssertTrue(resolvedURL!.path.contains("TestCategory/TestTrack.mp3"))
+        
+        // Clean up test file
+        try? FileManager.default.removeItem(at: testURL)
     }
     
     // MARK: - UAT Area 6: Notification Scheduler Daily Trigger

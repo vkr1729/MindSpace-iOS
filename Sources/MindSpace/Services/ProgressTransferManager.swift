@@ -12,7 +12,8 @@ public struct ProgressTransferManager: Sendable {
         events: [CompletionEvent],
         favorites: [FavoriteItem],
         settings: UserSettings,
-        orbitStats: OrbitStats
+        orbitStats: OrbitStats,
+        resumes: [PlaybackResume] = []
     ) -> MindSpaceBackupDocument {
         let backupEvents = events.map { e in
             BackupCompletionEvent(
@@ -39,6 +40,7 @@ public struct ProgressTransferManager: Sendable {
         let backupSettings = BackupUserSettings(
             defaultDurationMinutes: settings.defaultDurationMinutes,
             reminderTime: settings.reminderTime,
+            reminderEnabled: settings.reminderEnabled,
             themeMode: settings.themeMode,
             hideStreak: settings.hideStreak,
             compassionPassCount: settings.compassionPassCount
@@ -51,12 +53,25 @@ public struct ProgressTransferManager: Sendable {
             BackupAchievement(id: $0.id, unlockedAt: DateFormatterCache.iso8601String(from: Date()))
         }
         
+        let backupResumes = resumes.map { r in
+            BackupPlaybackResume(
+                sessionStableId: r.sessionStableId,
+                relativePath: r.relativePath,
+                sessionTitle: r.sessionTitle,
+                courseName: r.courseName,
+                lastPositionSeconds: r.lastPositionSeconds,
+                durationSeconds: r.durationSeconds,
+                updatedAt: DateFormatterCache.iso8601String(from: r.updatedAt)
+            )
+        }
+        
         return MindSpaceBackupDocument(
             stats: stats,
             userSettings: backupSettings,
             completionEvents: backupEvents,
             favorites: favIDs,
-            achievements: achievements
+            achievements: achievements,
+            resumes: backupResumes
         )
     }
     
@@ -88,7 +103,7 @@ public struct ProgressTransferManager: Sendable {
         isCleanRestore: Bool
     ) throws {
         if isCleanRestore {
-            // Delete all existing events and favorites
+            // Delete all existing events, favorites, and resumes
             try modelContext.delete(model: CompletionEvent.self)
             try modelContext.delete(model: FavoriteItem.self)
             try modelContext.delete(model: PlaybackResume.self)
@@ -102,18 +117,76 @@ public struct ProgressTransferManager: Sendable {
         for bEvent in document.completionEvents {
             if !existingIDs.contains(bEvent.id) {
                 let eventDate = DateFormatterCache.dateFromISO8601(bEvent.timestamp) ?? Date()
+                let eventTz = TimeZone(identifier: bEvent.timeZone) ?? .current
+                let gmtOffset = eventTz.secondsFromGMT(for: eventDate)
+                
+                let eventId = UUID(uuidString: bEvent.id) ?? UUID()
                 let event = CompletionEvent(
+                    id: eventId,
                     sessionStableId: bEvent.sessionId,
                     courseId: bEvent.courseId,
                     actualPlayedSeconds: bEvent.playedSeconds,
                     isQualifying: bEvent.isQualifying,
                     reflection: bEvent.reflection,
-                    timestamp: eventDate
+                    timestamp: eventDate,
+                    timeZoneIdentifier: bEvent.timeZone,
+                    gmtOffsetSeconds: gmtOffset
                 )
-                if let uuid = UUID(uuidString: bEvent.id) {
-                    event.id = uuid
-                }
                 modelContext.insert(event)
+            }
+        }
+        
+        // Restore Favorites
+        let favDescriptor = FetchDescriptor<FavoriteItem>()
+        let existingFavs = try modelContext.fetch(favDescriptor)
+        let existingFavIDs = Set(existingFavs.map { $0.sessionStableId })
+        
+        for favID in document.favorites {
+            if !existingFavIDs.contains(favID) {
+                // Resolve title from catalog if possible
+                let single = CatalogService.shared.getSingleSession(by: favID)
+                let session = CatalogService.shared.getSession(by: favID)
+                let course = CatalogService.shared.getCourse(by: favID)
+                
+                let title = single?.title ?? session?.title ?? course?.name ?? favID
+                let relPath = single?.relativePath ?? session?.relativePath ?? course?.folderName ?? ""
+                
+                let favItem = FavoriteItem(sessionStableId: favID, title: title, relativePath: relPath)
+                modelContext.insert(favItem)
+            }
+        }
+        
+        // Restore Resumes if present
+        if let docResumes = document.resumes {
+            let resumeDescriptor = FetchDescriptor<PlaybackResume>()
+            let existingResumes = try modelContext.fetch(resumeDescriptor)
+            var resumeMap = Dictionary(uniqueKeysWithValues: existingResumes.map { ($0.sessionStableId, $0) })
+            
+            for bResume in docResumes {
+                if let existing = resumeMap[bResume.sessionStableId] {
+                    existing.relativePath = bResume.relativePath
+                    existing.sessionTitle = bResume.sessionTitle
+                    existing.courseName = bResume.courseName
+                    existing.lastPositionSeconds = bResume.lastPositionSeconds
+                    existing.durationSeconds = bResume.durationSeconds
+                    if let updatedDate = DateFormatterCache.dateFromISO8601(bResume.updatedAt) {
+                        existing.updatedAt = updatedDate
+                    }
+                } else {
+                    let resume = PlaybackResume(
+                        sessionStableId: bResume.sessionStableId,
+                        relativePath: bResume.relativePath,
+                        sessionTitle: bResume.sessionTitle,
+                        courseName: bResume.courseName,
+                        position: bResume.lastPositionSeconds,
+                        duration: bResume.durationSeconds
+                    )
+                    if let updatedDate = DateFormatterCache.dateFromISO8601(bResume.updatedAt) {
+                        resume.updatedAt = updatedDate
+                    }
+                    modelContext.insert(resume)
+                    resumeMap[bResume.sessionStableId] = resume
+                }
             }
         }
         
@@ -122,6 +195,7 @@ public struct ProgressTransferManager: Sendable {
         let settings = (try modelContext.fetch(settingsDescriptor)).first ?? UserSettings()
         settings.defaultDurationMinutes = document.userSettings.defaultDurationMinutes
         settings.reminderTime = document.userSettings.reminderTime
+        settings.reminderEnabled = document.userSettings.reminderEnabled
         settings.themeMode = document.userSettings.themeMode
         settings.hideStreak = document.userSettings.hideStreak
         settings.compassionPassCount = document.userSettings.compassionPassCount

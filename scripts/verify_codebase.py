@@ -238,7 +238,7 @@ def test_optimizations_and_date_cache():
     return True
 
 def test_version_release_consistency():
-    print("[5/5] Testing Version 2.0 Release Consistency across all project configs...")
+    print("[5/6] Testing Version 2.0 Release Consistency across all project configs...")
     
     expected_version = "2.0.0"
     expected_build = "7"
@@ -264,6 +264,35 @@ def test_version_release_consistency():
     print("  ✅ PASS: Configuration checks ready for Step 4 release updates.")
     return True
 
+def test_behavioral_hardening():
+    print("[6/6] Testing Behavioral Hardening Rules & Zero Fake Telemetry...")
+    
+    settings_file = SOURCES_DIR / "MindSpace" / "Views" / "Settings" / "SettingsView.swift"
+    settings_src = settings_file.read_text(encoding="utf-8")
+    
+    if "missingCount: 0" in settings_src:
+        print("  ❌ SettingsView still contains hardcoded missingCount: 0!")
+        return False
+        
+    if "deadline: .now() + 0.8" in settings_src:
+        print("  ❌ SettingsView still contains simulated artificial delay!")
+        return False
+        
+    resolver_file = SOURCES_DIR / "MindSpace" / "Services" / "LibraryPathResolver.swift"
+    resolver_src = resolver_file.read_text(encoding="utf-8")
+    if "verifyAllCatalogEntries" not in resolver_src:
+        print("  ❌ LibraryPathResolver is missing real verifyAllCatalogEntries scanner!")
+        return False
+        
+    engine_file = SOURCES_DIR / "MindSpace" / "AudioEngine" / "PlaybackEngine.swift"
+    engine_src = engine_file.read_text(encoding="utf-8")
+    if "playbackError" not in engine_src:
+        print("  ❌ PlaybackEngine is missing playbackError publishing!")
+        return False
+        
+    print("  ✅ PASS: All behavioral hardening rules verified. No fake scans or simulated delays.")
+    return True
+
 if __name__ == "__main__":
     print("=== MindSpace Verification Suite ===")
     results = [
@@ -271,7 +300,8 @@ if __name__ == "__main__":
         test_swift_bracket_balance_and_syntax(),
         test_sleep_sound_curation(),
         test_optimizations_and_date_cache(),
-        test_version_release_consistency()
+        test_version_release_consistency(),
+        test_behavioral_hardening()
     ]
     
     if all(results):

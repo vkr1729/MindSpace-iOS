@@ -355,13 +355,32 @@ public struct MeditationPlayerView: View {
             }
         }
         .sheet(isPresented: $isShowingCompletionSheet) {
-            if let track = track {
+            if let info = playbackEngine.lastCompletionInfo {
+                CompletionView(
+                    completionId: info.completionId,
+                    sessionTitle: info.track.title,
+                    courseName: info.track.courseName,
+                    durationMinutes: info.actualMinutes,
+                    isQualifying: info.isQualifying
+                )
+            } else if let track = track {
                 CompletionView(
                     sessionTitle: track.title,
                     courseName: track.courseName,
-                    durationMinutes: Int(duration / 60)
+                    durationMinutes: max(1, Int(duration / 60)),
+                    isQualifying: playbackEngine.accumulator?.hasQualified ?? false
                 )
             }
+        }
+        .alert("Playback Issue", isPresented: Binding(
+            get: { playbackEngine.playbackError != nil },
+            set: { if !$0 { playbackEngine.playbackError = nil } }
+        )) {
+            Button("OK", role: .cancel) {
+                playbackEngine.playbackError = nil
+            }
+        } message: {
+            Text(playbackEngine.playbackError ?? "Unknown playback issue occurred.")
         }
         .fullScreenCover(isPresented: $isFullScreenVideoPresented) {
             FullScreenVideoPlayerViewController(player: playbackEngine.player) {

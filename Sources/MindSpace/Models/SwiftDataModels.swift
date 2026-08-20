@@ -15,19 +15,22 @@ public final class CompletionEvent {
     public var reflectionNote: String? // "lighter", "same", "heavier"
     
     public init(
+        id: UUID = UUID(),
         sessionStableId: String,
         courseId: String? = nil,
         actualPlayedSeconds: Double,
         isQualifying: Bool,
         reflection: String? = nil,
-        timestamp: Date = Date()
+        timestamp: Date = Date(),
+        timeZoneIdentifier: String = TimeZone.current.identifier,
+        gmtOffsetSeconds: Int = TimeZone.current.secondsFromGMT()
     ) {
-        self.id = UUID()
+        self.id = id
         self.sessionStableId = sessionStableId
         self.courseId = courseId
         self.timestamp = timestamp
-        self.timeZoneIdentifier = TimeZone.current.identifier
-        self.gmtOffsetSeconds = TimeZone.current.secondsFromGMT()
+        self.timeZoneIdentifier = timeZoneIdentifier
+        self.gmtOffsetSeconds = gmtOffsetSeconds
         self.actualPlayedSeconds = actualPlayedSeconds
         self.isQualifyingMeditation = isQualifying
         self.reflectionNote = reflection

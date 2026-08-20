@@ -53,7 +53,7 @@ public struct OrbitCalculator: Sendable {
         var daySessions: [String: [CompletionEvent]] = [:]
         
         for event in qualifyingEvents {
-            let dayKey = DateFormatterCache.dayKey(from: event.timestamp)
+            let dayKey = DateFormatterCache.dayKey(from: event.timestamp, timeZoneIdentifier: event.timeZoneIdentifier)
             let mins = Int(event.actualPlayedSeconds / 60.0)
             dailyMinutes[dayKey, default: 0] += max(1, mins)
             daySessions[dayKey, default: []].append(event)

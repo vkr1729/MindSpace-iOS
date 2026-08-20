@@ -226,7 +226,7 @@ public struct TodayView: View {
                     }
                 }
                 
-                Text("\(max(1, orbitStats.currentStreak)) Days Mindful")
+                Text("\(orbitStats.currentStreak) \(orbitStats.currentStreak == 1 ? "Day" : "Days") Mindful")
                     .font(.system(size: 22, weight: .bold, design: .rounded))
                     .foregroundColor(CosmosTheme.textPrimary)
                 
@@ -244,7 +244,7 @@ public struct TodayView: View {
                     .stroke(CosmosTheme.spaceCardBorder, lineWidth: 10)
                     .frame(width: 78, height: 78)
                 
-                let progress = min(1.0, Double(max(1, orbitStats.currentStreak)) / Double(max(1, orbitStats.nextMilestoneDays)))
+                let progress = orbitStats.nextMilestoneDays > 0 ? min(1.0, Double(orbitStats.currentStreak) / Double(orbitStats.nextMilestoneDays)) : 0.0
                 Circle()
                     .trim(from: 0, to: CGFloat(progress))
                     .stroke(
@@ -255,7 +255,7 @@ public struct TodayView: View {
                     .rotationEffect(.degrees(-90))
                 
                 VStack(spacing: 0) {
-                    Text("\(max(1, orbitStats.currentStreak))")
+                    Text("\(orbitStats.currentStreak)")
                         .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundColor(CosmosTheme.textPrimary)
                     Text("of \(orbitStats.nextMilestoneDays)d")
@@ -517,12 +517,13 @@ public struct TodayView: View {
                 relativePath: reset5Min.relativePath,
                 duration: reset5Min.duration
             )
+            let isDone2 = completedSessionIDs.contains(reset5Min.id)
             items.append(DailyJourneyItem(
                 id: "journey_2",
-                title: "5 min reset",
+                title: "\(isDone2 ? "Completed" : "") 5 min reset",
                 durationLabel: "5 min",
                 isPrimaryAction: false,
-                isCompleted: false,
+                isCompleted: isDone2,
                 playableTrack: track
             ))
         } else {
@@ -543,12 +544,13 @@ public struct TodayView: View {
                 relativePath: nightSession.relativePath,
                 duration: nightSession.duration
             )
+            let isDone3 = completedSessionIDs.contains(nightSession.id)
             items.append(DailyJourneyItem(
                 id: "journey_3",
-                title: "Evening wind-down",
+                title: "\(isDone3 ? "Completed" : "") Evening wind-down",
                 durationLabel: "\(max(1, Int(nightSession.duration / 60))) min",
                 isPrimaryAction: false,
-                isCompleted: false,
+                isCompleted: isDone3,
                 playableTrack: track
             ))
         } else {

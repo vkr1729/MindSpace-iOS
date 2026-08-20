@@ -31,6 +31,7 @@ public enum AppTab: Int, CaseIterable, Identifiable {
 /// Root application view hosting the 4 cosmic tabs and persistent floating mini-player dock.
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var playbackEngine = PlaybackEngine.shared
     
     @State private var selectedTab: AppTab = .today
@@ -70,6 +71,11 @@ public struct ContentView: View {
         }
         .onAppear {
             setupPlaybackCallbacks()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background || newPhase == .inactive {
+                playbackEngine.saveCurrentResumePosition()
+            }
         }
     }
     
@@ -113,17 +119,40 @@ public struct ContentView: View {
     }
     
     private func setupPlaybackCallbacks() {
-        playbackEngine.onSessionCompleted = { track, playedSeconds in
-            let isQualifying = playbackEngine.accumulator?.hasQualified ?? true
-            let container = modelContext.container
+        let container = modelContext.container
+        
+        playbackEngine.onSessionCompleted = { track, playedSeconds, isQualifying, completionId in
             Task {
                 let actor = ProgressActor(modelContainer: container)
                 try? await actor.recordCompletion(
                     sessionStableId: track.id,
                     courseId: track.courseName,
                     playedSeconds: playedSeconds,
-                    isQualifying: isQualifying
+                    isQualifying: isQualifying,
+                    reflection: nil,
+                    timestamp: Date()
                 )
+            }
+        }
+        
+        playbackEngine.onSaveResume = { track, position in
+            Task {
+                let actor = ProgressActor(modelContainer: container)
+                try? await actor.updateResumePosition(
+                    sessionStableId: track.id,
+                    relativePath: track.relativePath,
+                    title: track.title,
+                    courseName: track.courseName,
+                    position: position,
+                    duration: track.duration
+                )
+            }
+        }
+        
+        playbackEngine.onClearResume = { sessionId in
+            Task {
+                let actor = ProgressActor(modelContainer: container)
+                try? await actor.deleteResume(sessionStableId: sessionId)
             }
         }
     }

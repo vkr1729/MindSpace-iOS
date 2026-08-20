@@ -53,9 +53,16 @@ public final class DateFormatterCache: @unchecked Sendable {
     
     private init() {}
     
-    public static func dayKey(from date: Date) -> String {
+    public static func dayKey(from date: Date, timeZoneIdentifier: String? = nil) -> String {
         shared.lock.lock()
         defer { shared.lock.unlock() }
+        if let tzId = timeZoneIdentifier, let tz = TimeZone(identifier: tzId) {
+            let previousTz = shared._dayFormatter.timeZone
+            shared._dayFormatter.timeZone = tz
+            let result = shared._dayFormatter.string(from: date)
+            shared._dayFormatter.timeZone = previousTz
+            return result
+        }
         return shared._dayFormatter.string(from: date)
     }
     

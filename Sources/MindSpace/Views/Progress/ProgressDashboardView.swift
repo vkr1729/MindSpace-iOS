@@ -75,8 +75,8 @@ public struct ProgressDashboardView: View {
                         HStack(spacing: 12) {
                             if settingsList.first?.hideStreak != true {
                                 metricBadge(
-                                    title: "\(max(1, orbitStats.currentStreak)) day Orbit",
-                                    subtitle: "\(max(1, orbitStats.currentStreak))/\(orbitStats.nextMilestoneDays) days",
+                                    title: "\(orbitStats.currentStreak) day Orbit",
+                                    subtitle: "\(orbitStats.currentStreak)/\(orbitStats.nextMilestoneDays) days",
                                     icon: "sparkle",
                                     iconColor: CosmosTheme.starlightGold
                                 )

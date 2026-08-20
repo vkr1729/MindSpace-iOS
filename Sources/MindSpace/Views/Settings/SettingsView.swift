@@ -9,6 +9,7 @@ public struct SettingsView: View {
     
     @Query(sort: \CompletionEvent.timestamp, order: .reverse) private var completionEvents: [CompletionEvent]
     @Query private var favorites: [FavoriteItem]
+    @Query(sort: \PlaybackResume.updatedAt, order: .reverse) private var resumes: [PlaybackResume]
     @Query private var settingsList: [UserSettings]
     
     @State private var exportURL: URL?
@@ -146,16 +147,16 @@ public struct SettingsView: View {
                                 if let report = verificationReport {
                                     VStack(alignment: .leading, spacing: 8) {
                                         HStack(spacing: 6) {
-                                            Image(systemName: "checkmark.seal.fill")
-                                                .foregroundColor(CosmosTheme.auroraTeal)
-                                            Text("Library 100% Verified & Offline Ready")
+                                            Image(systemName: report.isFullyVerified ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                                                .foregroundColor(report.isFullyVerified ? CosmosTheme.auroraTeal : CosmosTheme.solarCoral)
+                                            Text(report.isFullyVerified ? "Library 100% Verified & Offline Ready" : "Library Verification Incomplete")
                                                 .font(.system(size: 13, weight: .bold, design: .rounded))
-                                                .foregroundColor(CosmosTheme.auroraTeal)
+                                                .foregroundColor(report.isFullyVerified ? CosmosTheme.auroraTeal : CosmosTheme.solarCoral)
                                         }
                                         
                                         VStack(alignment: .leading, spacing: 4) {
                                             HStack {
-                                                Text("• Total Audio & Video Files:")
+                                                Text("• Total Catalog Tracks:")
                                                     .foregroundColor(CosmosTheme.textSecondary)
                                                 Spacer()
                                                 Text("\(report.totalTracks) tracks")
@@ -163,11 +164,11 @@ public struct SettingsView: View {
                                                     .fontWeight(.semibold)
                                             }
                                             HStack {
-                                                Text("• Total Mindfulness Duration:")
+                                                Text("• Verified On Disk:")
                                                     .foregroundColor(CosmosTheme.textSecondary)
                                                 Spacer()
-                                                Text(report.totalHoursFormatted)
-                                                    .foregroundColor(CosmosTheme.textPrimary)
+                                                Text("\(report.foundCount)")
+                                                    .foregroundColor(report.foundCount == report.totalTracks ? CosmosTheme.auroraTeal : CosmosTheme.starlightGold)
                                                     .fontWeight(.semibold)
                                             }
                                             HStack {
@@ -175,7 +176,25 @@ public struct SettingsView: View {
                                                     .foregroundColor(CosmosTheme.textSecondary)
                                                 Spacer()
                                                 Text("\(report.missingCount)")
-                                                    .foregroundColor(CosmosTheme.auroraTeal)
+                                                    .foregroundColor(report.missingCount == 0 ? CosmosTheme.auroraTeal : CosmosTheme.solarCoral)
+                                                    .fontWeight(.semibold)
+                                            }
+                                            if report.sizeMismatchedCount > 0 {
+                                                HStack {
+                                                    Text("• Size Mismatches:")
+                                                        .foregroundColor(CosmosTheme.textSecondary)
+                                                    Spacer()
+                                                    Text("\(report.sizeMismatchedCount)")
+                                                        .foregroundColor(CosmosTheme.solarCoral)
+                                                        .fontWeight(.semibold)
+                                                }
+                                            }
+                                            HStack {
+                                                Text("• Total Mindfulness Duration:")
+                                                    .foregroundColor(CosmosTheme.textSecondary)
+                                                Spacer()
+                                                Text(report.totalHoursFormatted)
+                                                    .foregroundColor(CosmosTheme.textPrimary)
                                                     .fontWeight(.semibold)
                                             }
                                             HStack {
@@ -193,7 +212,10 @@ public struct SettingsView: View {
                                     .background(CosmosTheme.spaceCard)
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 10).stroke(CosmosTheme.auroraTeal.opacity(0.4), lineWidth: 1)
+                                        RoundedRectangle(cornerRadius: 10).stroke(
+                                            report.isFullyVerified ? CosmosTheme.auroraTeal.opacity(0.4) : CosmosTheme.solarCoral.opacity(0.4),
+                                            lineWidth: 1
+                                        )
                                     )
                                     .transition(.opacity.combined(with: .move(edge: .top)))
                                 }
@@ -417,15 +439,6 @@ public struct SettingsView: View {
         let doc: MindSpaceBackupDocument
     }
     
-    public struct LibraryVerificationReport {
-        public let totalTracks: Int
-        public let totalCategories: Int
-        public let totalHoursFormatted: String
-        public let missingCount: Int
-        public let isHardened: Bool
-        public let verifiedAt: Date
-    }
-    
     private func syncReminderDateFromSettings() {
         let s = getOrCreateSettings()
         let parts = s.reminderTime.split(separator: ":")
@@ -445,7 +458,8 @@ public struct SettingsView: View {
             events: completionEvents,
             favorites: favorites,
             settings: s,
-            orbitStats: orbitStats
+            orbitStats: orbitStats,
+            resumes: resumes
         )
         if let fileURL = try? ProgressTransferManager.shared.exportToFile(document: doc) {
             self.exportURL = fileURL
@@ -481,24 +495,24 @@ public struct SettingsView: View {
         LibraryPathResolver.shared.applyHardeningAndProtection()
         catalogService.loadCatalog()
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            let total = catalogService.manifest?.totalFiles ?? 0
-            let hours = catalogService.manifest?.totalDurationHours ?? 275.99
-            let cats = (catalogService.manifest?.categories.count ?? 0) + (catalogService.manifest?.singlesCategories.count ?? 0)
+        Task {
+            let report = await LibraryPathResolver.shared.verifyAllCatalogEntries(
+                manifest: catalogService.manifest,
+                validateChecksums: false
+            )
             
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                self.verificationReport = LibraryVerificationReport(
-                    totalTracks: total,
-                    totalCategories: cats,
-                    totalHoursFormatted: String(format: "%.1f hrs", hours),
-                    missingCount: 0,
-                    isHardened: true,
-                    verifiedAt: Date()
-                )
-                self.isScanningLibrary = false
+            await MainActor.run {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    self.verificationReport = report
+                    self.isScanningLibrary = false
+                }
+                
+                if report.isFullyVerified {
+                    HapticService.shared.success()
+                } else {
+                    HapticService.shared.warning()
+                }
             }
-            
-            HapticService.shared.success()
         }
     }
 }

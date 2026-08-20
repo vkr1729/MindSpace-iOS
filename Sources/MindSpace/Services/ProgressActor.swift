@@ -7,22 +7,41 @@ public actor ProgressActor {
     
     // MARK: - Completion Events
     
+    @discardableResult
     public func recordCompletion(
         sessionStableId: String,
         courseId: String? = nil,
         playedSeconds: Double,
         isQualifying: Bool,
-        reflection: String? = nil
-    ) throws {
+        reflection: String? = nil,
+        timestamp: Date = Date(),
+        timeZoneIdentifier: String = TimeZone.current.identifier,
+        gmtOffsetSeconds: Int = TimeZone.current.secondsFromGMT()
+    ) throws -> UUID {
         let event = CompletionEvent(
             sessionStableId: sessionStableId,
             courseId: courseId,
             actualPlayedSeconds: playedSeconds,
             isQualifying: isQualifying,
-            reflection: reflection
+            reflection: reflection,
+            timestamp: timestamp,
+            timeZoneIdentifier: timeZoneIdentifier,
+            gmtOffsetSeconds: gmtOffsetSeconds
         )
         modelContext.insert(event)
         try modelContext.save()
+        return event.id
+    }
+    
+    public func saveReflection(for completionId: UUID, note: String) throws {
+        let descriptor = FetchDescriptor<CompletionEvent>(
+            predicate: #Predicate { $0.id == completionId }
+        )
+        let matches = try modelContext.fetch(descriptor)
+        if let event = matches.first {
+            event.reflectionNote = note
+            try modelContext.save()
+        }
     }
     
     public func fetchAllCompletionEvents() throws -> [CompletionEvent] {
@@ -70,6 +89,26 @@ public actor ProgressActor {
             modelContext.insert(newResume)
         }
         try modelContext.save()
+    }
+    
+    public func deleteResume(sessionStableId: String) throws {
+        let descriptor = FetchDescriptor<PlaybackResume>(
+            predicate: #Predicate { $0.sessionStableId == sessionStableId }
+        )
+        let matches = try modelContext.fetch(descriptor)
+        for match in matches {
+            modelContext.delete(match)
+        }
+        if !matches.isEmpty {
+            try modelContext.save()
+        }
+    }
+    
+    public func fetchResume(for sessionStableId: String) throws -> PlaybackResume? {
+        let descriptor = FetchDescriptor<PlaybackResume>(
+            predicate: #Predicate { $0.sessionStableId == sessionStableId }
+        )
+        return try modelContext.fetch(descriptor).first
     }
     
     public func fetchLatestResume() throws -> PlaybackResume? {

@@ -70,31 +70,23 @@ public struct DailyJourneyView: View {
     private func journeyRow(for item: Binding<DailyJourneyItem>) -> some View {
         let currentItem = item.wrappedValue
         HStack(spacing: 14) {
-            // Interactive Checkbox Icon with Haptic Feedback
-            Button(action: {
-                HapticService.shared.light()
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
-                    item.wrappedValue.isCompleted.toggle()
-                }
-            }) {
-                ZStack {
-                    Circle()
-                        .stroke(currentItem.isCompleted ? CosmosTheme.starlightGold : CosmosTheme.spaceCardBorder, lineWidth: 1.5)
-                        .frame(width: 28, height: 28)
-                        .background(
-                            Circle()
-                                .fill(currentItem.isCompleted ? CosmosTheme.starlightGold : Color.clear)
-                        )
-                        .shadow(color: currentItem.isCompleted ? CosmosTheme.starlightGold.opacity(0.4) : Color.clear, radius: 4)
-                    
-                    if currentItem.isCompleted {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(CosmosTheme.spaceBackground)
-                    }
+            // Real Completion Checkmark Indicator
+            ZStack {
+                Circle()
+                    .stroke(currentItem.isCompleted ? CosmosTheme.starlightGold : CosmosTheme.spaceCardBorder, lineWidth: 1.5)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        Circle()
+                            .fill(currentItem.isCompleted ? CosmosTheme.starlightGold : Color.clear)
+                    )
+                    .shadow(color: currentItem.isCompleted ? CosmosTheme.starlightGold.opacity(0.4) : Color.clear, radius: 4)
+                
+                if currentItem.isCompleted {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(CosmosTheme.spaceBackground)
                 }
             }
-            .buttonStyle(.plain)
             
             // Text Details
             VStack(alignment: .leading, spacing: 3) {

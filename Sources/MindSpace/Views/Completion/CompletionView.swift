@@ -8,9 +8,11 @@ public struct CompletionView: View {
     @Environment(\.modelContext) private var modelContext
     @ObservedObject private var playbackEngine = PlaybackEngine.shared
     
+    public let completionId: UUID?
     public let sessionTitle: String
     public let courseName: String?
     public let durationMinutes: Int
+    public let isQualifying: Bool
     
     @Query(sort: \CompletionEvent.timestamp, order: .reverse) private var completionEvents: [CompletionEvent]
     @Query private var settingsList: [UserSettings]
@@ -20,13 +22,17 @@ public struct CompletionView: View {
     @State private var starOpacity: Double = 0.5
     
     public init(
+        completionId: UUID? = nil,
         sessionTitle: String = "Basics — Day 4",
         courseName: String? = "Basics",
-        durationMinutes: Int = 12
+        durationMinutes: Int = 12,
+        isQualifying: Bool = true
     ) {
+        self.completionId = completionId
         self.sessionTitle = sessionTitle
         self.courseName = courseName
         self.durationMinutes = max(1, durationMinutes)
+        self.isQualifying = isQualifying
     }
     
     private var orbitStats: OrbitStats {
@@ -44,7 +50,10 @@ public struct CompletionView: View {
             
             // Atmospheric Celebration Glow
             RadialGradient(
-                colors: [CosmosTheme.starlightGold.opacity(0.18), Color.clear],
+                colors: [
+                    isQualifying ? CosmosTheme.starlightGold.opacity(0.18) : CosmosTheme.cosmicPurple.opacity(0.15),
+                    Color.clear
+                ],
                 center: .center,
                 startRadius: 20,
                 endRadius: 280
@@ -76,13 +85,13 @@ public struct CompletionView: View {
                 
                 // MARK: - Celebration Title with Starlight Aura
                 VStack(spacing: 6) {
-                    Text("Orbit Continued")
+                    Text(isQualifying ? "Orbit Continued" : "Session Recorded")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundColor(CosmosTheme.textPrimary)
                     
-                    Text("\(durationMinutes) Mindful Minutes Recorded")
+                    Text("\(durationMinutes) Mindful \(durationMinutes == 1 ? "Minute" : "Minutes") Recorded")
                         .font(.system(size: 17, weight: .semibold, design: .rounded))
-                        .foregroundColor(CosmosTheme.starlightGold)
+                        .foregroundColor(isQualifying ? CosmosTheme.starlightGold : CosmosTheme.moonLavender)
                 }
                 
                 // MARK: - Constellation Arc Celebration Visual
@@ -90,7 +99,7 @@ public struct CompletionView: View {
                     ZStack {
                         // Pulsing outer halo
                         Circle()
-                            .fill(CosmosTheme.starlightGold.opacity(0.15))
+                            .fill((isQualifying ? CosmosTheme.starlightGold : CosmosTheme.cosmicPurple).opacity(0.15))
                             .frame(width: 140, height: 140)
                             .scaleEffect(starScale)
                             .opacity(starOpacity)
@@ -110,14 +119,14 @@ public struct CompletionView: View {
                             .rotationEffect(.degrees(180))
                         
                         // Center Sparkling Star
-                        Image(systemName: "sparkle")
+                        Image(systemName: isQualifying ? "sparkle" : "leaf.fill")
                             .font(.system(size: 42, weight: .bold))
-                            .foregroundColor(CosmosTheme.starlightGold)
-                            .shadow(color: CosmosTheme.starlightGold.opacity(0.85), radius: 18)
+                            .foregroundColor(isQualifying ? CosmosTheme.starlightGold : CosmosTheme.moonLavender)
+                            .shadow(color: (isQualifying ? CosmosTheme.starlightGold : CosmosTheme.cosmicPurple).opacity(0.85), radius: 18)
                     }
                     .frame(height: 125)
                     
-                    Text("You're building something beautiful.")
+                    Text(isQualifying ? "You're building something beautiful." : "Every moment of awareness counts.")
                         .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundColor(CosmosTheme.textSecondary)
                 }
@@ -126,16 +135,26 @@ public struct CompletionView: View {
                 // MARK: - Milestone Progress Card
                 CosmicCard(padding: 16) {
                     HStack(spacing: 14) {
-                        CelestialPlanetView(style: .goldenSun, size: 48, hasRings: false)
+                        CelestialPlanetView(style: isQualifying ? .goldenSun : .purpleRinged, size: 48, hasRings: !isQualifying)
                         
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("\(max(1, orbitStats.currentStreak)) of \(orbitStats.nextMilestoneDays) Days Orbit")
-                                .font(.system(size: 16, weight: .bold, design: .rounded))
-                                .foregroundColor(CosmosTheme.textPrimary)
-                            
-                            Text("Next milestone: \(orbitStats.nextMilestoneDays) days")
-                                .font(.system(size: 13, weight: .regular, design: .rounded))
-                                .foregroundColor(CosmosTheme.textSecondary)
+                            if isQualifying {
+                                Text("\(orbitStats.currentStreak) of \(orbitStats.nextMilestoneDays) Days Orbit")
+                                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                                    .foregroundColor(CosmosTheme.textPrimary)
+                                
+                                Text("Next milestone: \(orbitStats.nextMilestoneDays) days")
+                                    .font(.system(size: 13, weight: .regular, design: .rounded))
+                                    .foregroundColor(CosmosTheme.textSecondary)
+                            } else {
+                                Text("\(orbitStats.currentStreak) Days Mindful")
+                                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                                    .foregroundColor(CosmosTheme.textPrimary)
+                                
+                                Text("Complete full sessions to expand your Orbit")
+                                    .font(.system(size: 13, weight: .regular, design: .rounded))
+                                    .foregroundColor(CosmosTheme.textSecondary)
+                            }
                         }
                         
                         Spacer()
@@ -181,7 +200,13 @@ public struct CompletionView: View {
     }
     
     private func saveReflection() {
-        if let reflection = selectedReflection, let latest = completionEvents.first {
+        guard let reflection = selectedReflection else { return }
+        if let completionId = completionId {
+            if let targetEvent = completionEvents.first(where: { $0.id == completionId }) {
+                targetEvent.reflectionNote = reflection
+                try? modelContext.save()
+            }
+        } else if let latest = completionEvents.first {
             latest.reflectionNote = reflection
             try? modelContext.save()
         }
@@ -232,3 +257,4 @@ public struct CompletionView: View {
         .buttonStyle(.cosmicPressable)
     }
 }
+
