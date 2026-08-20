@@ -1,6 +1,7 @@
 name: MindSpace
 options:
   bundleIdPrefix: com.mindspace
+  xcodeVersion: "15.4"
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
