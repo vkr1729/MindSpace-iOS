@@ -486,7 +486,7 @@ public struct SettingsView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
             let total = catalogService.manifest?.totalFiles ?? 0
             let hours = catalogService.manifest?.totalDurationHours ?? 275.99
-            let cats = (catalogService.manifest?.courses.count ?? 0) + (catalogService.manifest?.singlesCategories.count ?? 0)
+            let cats = (catalogService.manifest?.categories.count ?? 0) + (catalogService.manifest?.singlesCategories.count ?? 0)
             
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 self.verificationReport = LibraryVerificationReport(
