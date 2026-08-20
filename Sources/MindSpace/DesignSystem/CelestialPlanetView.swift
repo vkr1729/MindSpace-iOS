@@ -7,7 +7,25 @@ public enum PlanetStyle: String, CaseIterable, Sendable {
     case electricBlue   // Work & Focus
     case crescentMoon   // Sleep & Rest
     case goldenSun      // Orbit Milestone & Completion
-    case deepLavender   // Students & Pro
+    case deepLavender   // Students
+    case brave          // Brave & Resilience
+    case sport          // Sport & Performance
+    case pro            // MindSpace Pro
+    
+    public var assetImageName: String {
+        switch self {
+        case .purpleRinged: return "planet_foundation"
+        case .auroraTeal: return "planet_health"
+        case .solarCoral: return "planet_happiness"
+        case .electricBlue: return "planet_work"
+        case .crescentMoon: return "planet_sleep"
+        case .goldenSun: return "planet_pro"
+        case .deepLavender: return "planet_students"
+        case .brave: return "planet_brave"
+        case .sport: return "planet_sport"
+        case .pro: return "planet_pro"
+        }
+    }
     
     public var primaryColor: Color {
         switch self {
@@ -18,6 +36,9 @@ public enum PlanetStyle: String, CaseIterable, Sendable {
         case .crescentMoon: return CosmosTheme.moonLavender
         case .goldenSun: return CosmosTheme.starlightGold
         case .deepLavender: return CosmosTheme.moonLavender
+        case .brave: return CosmosTheme.solarCoral
+        case .sport: return CosmosTheme.auroraTeal
+        case .pro: return CosmosTheme.starlightGold
         }
     }
     
@@ -30,6 +51,9 @@ public enum PlanetStyle: String, CaseIterable, Sendable {
         case .crescentMoon: return Color(hex: "#312E81")
         case .goldenSun: return Color(hex: "#D97706")
         case .deepLavender: return Color(hex: "#5B21B6")
+        case .brave: return Color(hex: "#881337")
+        case .sport: return Color(hex: "#0E7490")
+        case .pro: return Color(hex: "#78350F")
         }
     }
 }
@@ -63,8 +87,8 @@ public struct CelestialPlanetView: View {
                 .fill(
                     RadialGradient(
                         colors: [
-                            style.primaryColor.opacity(0.35),
-                            style.primaryColor.opacity(0.08),
+                            style.primaryColor.opacity(0.45),
+                            style.primaryColor.opacity(0.12),
                             Color.clear
                         ],
                         center: .center,
@@ -74,6 +98,33 @@ public struct CelestialPlanetView: View {
                 )
                 .frame(width: size * 1.5, height: size * 1.5)
             
+            #if os(iOS)
+            if UIImage(named: style.assetImageName) != nil {
+                Image(style.assetImageName)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: size * 1.25, height: size * 1.25)
+                    .shadow(color: style.primaryColor.opacity(0.4), radius: size * 0.15, x: 0, y: 4)
+            } else {
+                proceduralPlanetBody
+            }
+            #else
+            proceduralPlanetBody
+            #endif
+        }
+        .offset(y: floatingOffset)
+        .onAppear {
+            if isAnimated {
+                withAnimation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true)) {
+                    floatingOffset = -6
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var proceduralPlanetBody: some View {
+        ZStack {
             // Planetary Rings (Back layer if ringed)
             if hasRings && style == .purpleRinged {
                 Ellipse()
@@ -167,14 +218,6 @@ public struct CelestialPlanetView: View {
                     .frame(width: size * 1.6, height: size * 0.45)
                     .rotationEffect(.degrees(-22))
                     .offset(y: size * 0.02)
-            }
-        }
-        .offset(y: floatingOffset)
-        .onAppear {
-            if isAnimated {
-                withAnimation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true)) {
-                    floatingOffset = -6
-                }
             }
         }
     }

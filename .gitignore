@@ -11,11 +11,8 @@ DerivedData/
 *.xcworkspace
 .DS_Store
 
-# Distribution artifacts
-dist/
+# Temporary payloads and archives (dist is tracked for direct downloads)
 Payload/
-*.ipa
-*.ipa.sha256
 *.zip
 
 # Temporary test artifacts

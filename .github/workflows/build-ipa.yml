@@ -1,4 +1,4 @@
-name: Build MindSpace Unsigned IPA
+name: Build MindSpace Unsigned IPA & Automated Release
 
 on:
   workflow_dispatch:
@@ -11,9 +11,12 @@ on:
       - 'project.yml'
       - '.github/workflows/build-ipa.yml'
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    name: Build & Package IPA
+    name: Build, Test & Release IPA
     runs-on: macos-14
     timeout-minutes: 25
 
@@ -48,7 +51,7 @@ jobs:
       - name: Generate Xcode Project
         run: xcodegen generate
 
-      - name: Run Unit & Concurrency Tests
+      - name: Run Unit & Simulation Tests
         run: |
           SIM_NAME=$(xcrun simctl list devices available | grep -E "iPhone 16|iPhone 15|iPhone 14" | head -n 1 | sed -E 's/^[[:space:]]+//' | sed -E 's/ \([0-9A-F-]+\).*//')
           echo "Using Simulator: $SIM_NAME"
@@ -86,3 +89,32 @@ jobs:
             MindSpace.ipa
             MindSpace.ipa.sha256
           retention-days: 14
+
+      - name: Publish Direct GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: latest
+          name: "MindSpace v1.0.0 (Latest Release)"
+          body: |
+            ## MindSpace v1.0.0 Offline Celestial Meditation
+            
+            ### What's New:
+            - **Full-Screen Video Mode**: Tap or expand any course/intro video into an edge-to-edge native player.
+            - **Photorealistic Planet Visuals**: High-resolution, cinematic celestial assets for all 9 course categories.
+            - **Lock Screen Audio Playback**: Uninterrupted offline meditation and lock screen media controls.
+            - **Dynamic Daily Journey**: Next session dynamically picks from your active course.
+            - **Daily Sleep Sounds**: Dedicated sleep sound card with daily rotating sounds and duration choices.
+            - **5-Min Reset & SOS**: Fixed reset session routing and emergency calm relief.
+            - **Active Course Progress**: Clean, privacy-first progress tracking with offline .mindspace backup/export.
+            - **1024x1024 Photorealistic App Icon**.
+            
+            ### Direct Installation / Auto-Update:
+            - **Direct IPA Download**: Download `MindSpace.ipa` directly to your iPhone.
+            - **SideStore / AltStore OTA Source**: Add `https://raw.githubusercontent.com/vkr1729/MindSpace-iOS/main/dist/apps.json` to SideStore / AltStore for one-tap auto-updates on your device.
+          files: |
+            MindSpace.ipa
+            MindSpace.ipa.sha256
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

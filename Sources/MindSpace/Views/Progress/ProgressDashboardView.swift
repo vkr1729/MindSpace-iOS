@@ -8,6 +8,7 @@ public struct ProgressDashboardView: View {
     @ObservedObject private var catalogService = CatalogService.shared
     
     @Query(sort: \CompletionEvent.timestamp, order: .reverse) private var completionEvents: [CompletionEvent]
+    @Query(sort: \PlaybackResume.updatedAt, order: .reverse) private var resumes: [PlaybackResume]
     @Query private var settingsList: [UserSettings]
     
     public init() {}
@@ -27,6 +28,21 @@ public struct ProgressDashboardView: View {
         )
     }
     
+    private var inProgressCourses: [(course: CatalogCourse, doneCount: Int)] {
+        guard let allCourses = catalogService.manifest?.categories.flatMap({ $0.courses }) else { return [] }
+        let completedIDs = Set(completionEvents.filter { $0.isQualifyingMeditation }.map { $0.sessionStableId })
+        let resumedCourseNames = Set(resumes.compactMap { $0.courseName })
+        
+        return allCourses.compactMap { course in
+            let done = course.sessions.filter { completedIDs.contains($0.id) }.count
+            let isResumed = resumedCourseNames.contains(course.name)
+            if done > 0 || isResumed {
+                return (course, done)
+            }
+            return nil
+        }
+    }
+    
     public var body: some View {
         NavigationStack {
             ZStack {
@@ -42,24 +58,29 @@ public struct ProgressDashboardView: View {
                             
                             Spacer()
                             
-                            Image(systemName: "calendar")
-                                .font(.system(size: 20))
-                                .foregroundColor(CosmosTheme.moonLavender)
-                                .frame(width: 40, height: 40)
-                                .background(CosmosTheme.spaceCard)
-                                .clipShape(Circle())
+                            NavigationLink(destination: SettingsView()) {
+                                Image(systemName: "calendar")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(CosmosTheme.moonLavender)
+                                    .frame(width: 40, height: 40)
+                                    .background(CosmosTheme.spaceCard)
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
                         }
                         .padding(.horizontal, 20)
                         .padding(.top, 12)
                         
                         // MARK: - Top Metric Badges (3 Horizontally)
                         HStack(spacing: 12) {
-                            metricBadge(
-                                title: "\(max(1, orbitStats.currentStreak)) day Orbit",
-                                subtitle: "\(max(1, orbitStats.currentStreak))/\(orbitStats.nextMilestoneDays) days",
-                                icon: "sparkle",
-                                iconColor: CosmosTheme.starlightGold
-                            )
+                            if settingsList.first?.hideStreak != true {
+                                metricBadge(
+                                    title: "\(max(1, orbitStats.currentStreak)) day Orbit",
+                                    subtitle: "\(max(1, orbitStats.currentStreak))/\(orbitStats.nextMilestoneDays) days",
+                                    icon: "sparkle",
+                                    iconColor: CosmosTheme.starlightGold
+                                )
+                            }
                             
                             metricBadge(
                                 title: "\(orbitStats.totalMindfulMinutes) min",
@@ -91,7 +112,7 @@ public struct ProgressDashboardView: View {
                             .padding(.horizontal, 20)
                         }
                         
-                        // MARK: - Course Progress Section
+                        // MARK: - Course Progress Section (Only Courses Started / In Progress)
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Text("Course Progress")
@@ -100,20 +121,40 @@ public struct ProgressDashboardView: View {
                                 
                                 Spacer()
                                 
-                                Text("View all >")
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                    .foregroundColor(CosmosTheme.moonLavender)
-                            }
-                            .padding(.horizontal, 20)
-                            
-                            VStack(spacing: 10) {
-                                if let courses = catalogService.manifest?.categories.flatMap({ $0.courses }) {
-                                    ForEach(courses.prefix(3)) { course in
-                                        courseProgressRow(course: course)
-                                    }
+                                if !inProgressCourses.isEmpty {
+                                    Text("\(inProgressCourses.count) active")
+                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                        .foregroundColor(CosmosTheme.moonLavender)
                                 }
                             }
                             .padding(.horizontal, 20)
+                            
+                            if inProgressCourses.isEmpty {
+                                CosmicCard(padding: 20) {
+                                    VStack(spacing: 10) {
+                                        CelestialPlanetView(style: .purpleRinged, size: 48, hasRings: true)
+                                        
+                                        Text("No courses in progress yet")
+                                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                                            .foregroundColor(CosmosTheme.textPrimary)
+                                        
+                                        Text("Explore the Library to begin your mindful journey. Your active courses will appear here.")
+                                            .font(.system(size: 13, weight: .regular, design: .rounded))
+                                            .foregroundColor(CosmosTheme.textSecondary)
+                                            .multilineTextAlignment(.center)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                }
+                                .padding(.horizontal, 20)
+                            } else {
+                                VStack(spacing: 10) {
+                                    ForEach(inProgressCourses, id: \.course.id) { item in
+                                        courseProgressRow(course: item.course, doneCount: item.doneCount)
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                            }
                         }
                         
                         // MARK: - Achievements Gallery
@@ -125,7 +166,7 @@ public struct ProgressDashboardView: View {
                                 
                                 Spacer()
                                 
-                                Text("View all >")
+                                Text("\(achievements.filter { $0.isUnlocked }.count)/\(achievements.count) unlocked")
                                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                                     .foregroundColor(CosmosTheme.moonLavender)
                             }
@@ -174,14 +215,11 @@ public struct ProgressDashboardView: View {
     }
     
     @ViewBuilder
-    private func courseProgressRow(course: CatalogCourse) -> some View {
-        let completedIDs = Set(completionEvents.filter { $0.isQualifyingMeditation }.map { $0.sessionStableId })
-        let doneCount = course.sessions.filter { completedIDs.contains($0.id) }.count
-        
+    private func courseProgressRow(course: CatalogCourse, doneCount: Int) -> some View {
         NavigationLink(destination: CourseDetailView(course: course)) {
             HStack(spacing: 14) {
                 CelestialPlanetView(
-                    style: course.name.contains("Anxiety") ? .auroraTeal : .purpleRinged,
+                    style: planetStyle(for: course.name),
                     size: 38,
                     hasRings: false
                 )
@@ -241,5 +279,19 @@ public struct ProgressDashboardView: View {
             }
             .frame(width: 120, height: 130)
         }
+    }
+    
+    private func planetStyle(for courseName: String) -> PlanetStyle {
+        let lower = courseName.lowercased()
+        if lower.contains("foundation") || lower.contains("basics") { return .purpleRinged }
+        if lower.contains("health") || lower.contains("anxiety") || lower.contains("stress") { return .auroraTeal }
+        if lower.contains("happiness") || lower.contains("relationships") || lower.contains("kindness") { return .solarCoral }
+        if lower.contains("work") || lower.contains("focus") || lower.contains("productivity") { return .electricBlue }
+        if lower.contains("sleep") || lower.contains("night") || lower.contains("unwind") { return .crescentMoon }
+        if lower.contains("brave") || lower.contains("grief") || lower.contains("anger") { return .brave }
+        if lower.contains("student") { return .deepLavender }
+        if lower.contains("pro") { return .pro }
+        if lower.contains("sport") { return .sport }
+        return .purpleRinged
     }
 }

@@ -119,8 +119,7 @@ public struct LibraryView: View {
                                         title: course.name,
                                         subtitle: category.name,
                                         sessionCountText: "\(course.totalSessions) sessions",
-                                        planetStyle: planetStyle(for: category.name),
-                                        action: {}
+                                        planetStyle: planetStyle(for: category.name)
                                     )
                                 }
                                 .buttonStyle(.plain)
@@ -157,8 +156,7 @@ public struct LibraryView: View {
                                     title: cat.name,
                                     subtitle: cat.description,
                                     sessionCountText: "\(cat.sessions.count) tracks",
-                                    planetStyle: cat.name.contains("Sleep") ? .crescentMoon : (cat.name == "SOS" ? .solarCoral : .electricBlue),
-                                    action: {}
+                                    planetStyle: planetStyle(for: cat.name)
                                 )
                             }
                             .buttonStyle(.plain)
@@ -194,8 +192,7 @@ public struct LibraryView: View {
                             title: course.name,
                             subtitle: course.description,
                             sessionCountText: "\(course.totalSessions) sessions",
-                            planetStyle: .purpleRinged,
-                            action: {}
+                            planetStyle: planetStyle(for: course.name)
                         )
                     }
                     .buttonStyle(.plain)
@@ -299,12 +296,14 @@ public struct LibraryView: View {
     private func planetStyle(for categoryName: String) -> PlanetStyle {
         let lower = categoryName.lowercased()
         if lower.contains("foundation") || lower.contains("basics") { return .purpleRinged }
-        if lower.contains("health") { return .auroraTeal }
-        if lower.contains("happiness") { return .solarCoral }
-        if lower.contains("work") || lower.contains("focus") { return .electricBlue }
-        if lower.contains("sleep") { return .crescentMoon }
-        if lower.contains("pro") { return .deepLavender }
-        if lower.contains("sport") { return .auroraTeal }
+        if lower.contains("health") || lower.contains("anxiety") || lower.contains("stress") { return .auroraTeal }
+        if lower.contains("happiness") || lower.contains("relationships") || lower.contains("kindness") { return .solarCoral }
+        if lower.contains("work") || lower.contains("focus") || lower.contains("productivity") { return .electricBlue }
+        if lower.contains("sleep") || lower.contains("night") || lower.contains("unwind") { return .crescentMoon }
+        if lower.contains("brave") || lower.contains("grief") || lower.contains("anger") || lower.contains("sos") { return .brave }
+        if lower.contains("student") { return .deepLavender }
+        if lower.contains("pro") { return .pro }
+        if lower.contains("sport") { return .sport }
         return .purpleRinged
     }
 }

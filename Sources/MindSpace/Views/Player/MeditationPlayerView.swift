@@ -7,6 +7,7 @@ public struct MeditationPlayerView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var isShowingCompletionSheet = false
+    @State private var isFullScreenVideoPresented = false
     @State private var isScrubbing = false
     @State private var scrubbedTime: Double = 0.0
     
@@ -90,15 +91,33 @@ public struct MeditationPlayerView: View {
                 // MARK: - Central Visual Anchor (3D Planet or Video)
                 if let videoRel = track?.videoAttachmentPath,
                    let _ = LibraryPathResolver.shared.resolveURL(for: videoRel) {
-                    VideoPlayerView(player: playbackEngine.player)
-                        .aspectRatio(16/9, contentMode: .fit)
-                        .cornerRadius(20)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
-                        )
-                        .padding(.horizontal, 20)
-                        .shadow(color: CosmosTheme.cosmicPurple.opacity(0.3), radius: 16)
+                    ZStack(alignment: .topTrailing) {
+                        VideoPlayerView(player: playbackEngine.player)
+                            .aspectRatio(16/9, contentMode: .fit)
+                            .cornerRadius(20)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
+                            )
+                            .shadow(color: CosmosTheme.cosmicPurple.opacity(0.3), radius: 16)
+                            .onTapGesture {
+                                isFullScreenVideoPresented = true
+                            }
+                        
+                        Button(action: {
+                            isFullScreenVideoPresented = true
+                        }) {
+                            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(CosmosTheme.textPrimary)
+                                .padding(8)
+                                .background(CosmosTheme.spaceBackground.opacity(0.75))
+                                .clipShape(Circle())
+                                .padding(12)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 20)
                 } else {
                     CelestialPlanetView(
                         style: planetStyleForTrack,
@@ -300,6 +319,12 @@ public struct MeditationPlayerView: View {
                 )
             }
         }
+        .fullScreenCover(isPresented: $isFullScreenVideoPresented) {
+            FullScreenVideoPlayerViewController(player: playbackEngine.player) {
+                isFullScreenVideoPresented = false
+            }
+            .ignoresSafeArea()
+        }
         .onChange(of: playbackEngine.hasCompletedCurrentSession) { _, completed in
             if completed {
                 isShowingCompletionSheet = true
@@ -309,10 +334,14 @@ public struct MeditationPlayerView: View {
     
     private var planetStyleForTrack: PlanetStyle {
         guard let name = track?.courseName?.lowercased() else { return .purpleRinged }
-        if name.contains("health") || name.contains("anxiety") { return .auroraTeal }
-        if name.contains("happiness") || name.contains("self-esteem") { return .solarCoral }
-        if name.contains("work") || name.contains("focus") { return .electricBlue }
-        if name.contains("sleep") { return .crescentMoon }
+        if name.contains("health") || name.contains("anxiety") || name.contains("stress") { return .auroraTeal }
+        if name.contains("happiness") || name.contains("self-esteem") || name.contains("relationships") { return .solarCoral }
+        if name.contains("work") || name.contains("focus") || name.contains("productivity") { return .electricBlue }
+        if name.contains("sleep") || name.contains("night") || name.contains("unwind") { return .crescentMoon }
+        if name.contains("brave") || name.contains("grief") || name.contains("anger") { return .brave }
+        if name.contains("student") { return .deepLavender }
+        if name.contains("pro") { return .pro }
+        if name.contains("sport") { return .sport }
         return .purpleRinged
     }
     
