@@ -69,14 +69,14 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY=""
 
-      - name: Enforce & Verify UIBackgroundModes in Compiled App
+      - name: Enforce & Verify UIBackgroundModes & Version in Compiled App
         run: |
           python3 -c '
           import plistlib, sys
           plist_path = "build/Build/Products/Release-iphoneos/MindSpace.app/Info.plist"
           p = plistlib.load(open(plist_path, "rb"))
           
-          # Enforce required entitlements if missing from generation
+          # Enforce required entitlements and version metadata
           if "UIBackgroundModes" not in p or "audio" not in p.get("UIBackgroundModes", []):
               modes = list(p.get("UIBackgroundModes", []))
               if "audio" not in modes:
@@ -85,14 +85,22 @@ jobs:
           
           p["UIFileSharingEnabled"] = True
           p["LSSupportsOpeningDocumentsInPlace"] = True
+          p["CFBundleShortVersionString"] = "1.0.4"
+          p["CFBundleVersion"] = "5"
           
           plistlib.dump(p, open(plist_path, "wb"))
           
           # Strict verification
           verified = plistlib.load(open(plist_path, "rb"))
           print("Verified UIBackgroundModes in compiled app:", verified.get("UIBackgroundModes"))
+          print("Verified CFBundleShortVersionString:", verified.get("CFBundleShortVersionString"))
+          print("Verified CFBundleVersion:", verified.get("CFBundleVersion"))
+          
           if "audio" not in verified.get("UIBackgroundModes", []):
               print("FATAL: audio background mode missing!", file=sys.stderr)
+              sys.exit(1)
+          if verified.get("CFBundleShortVersionString") != "1.0.4":
+              print("FATAL: CFBundleShortVersionString is not 1.0.4!", file=sys.stderr)
               sys.exit(1)
           '
 
