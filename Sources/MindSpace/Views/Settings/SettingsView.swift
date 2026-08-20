@@ -500,7 +500,7 @@ public struct SettingsView: View {
                 self.isScanningLibrary = false
             }
             
-            HapticService.shared.notification(.success)
+            HapticService.shared.success()
         }
     }
 }
