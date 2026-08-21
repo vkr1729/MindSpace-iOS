@@ -1,4 +1,5 @@
 import Foundation
+import AVFoundation
 import CryptoKit
 
 /// Verification report representing the real state of media files on disk.
