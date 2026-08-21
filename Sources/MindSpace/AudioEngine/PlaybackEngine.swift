@@ -231,9 +231,9 @@ public final class PlaybackEngine: ObservableObject {
         self.isStreaming = false
         self.state = .idle
         if !GitHubSyncService.shared.isConfigured {
-            self.playbackError = "Track '\(track.title)' is not downloaded. Configure GitHub Token in Settings to stream online or download for offline play."
+            self.playbackError = "Media file not found: \(track.title). Please configure your GitHub Token or download your library in Settings."
         } else {
-            self.playbackError = "Unable to play track '\(track.title)'. Please check your internet connection or download it for offline play."
+            self.playbackError = "Media file not found: \(track.title). Please check your internet connection or download it for offline play."
         }
     }
     
