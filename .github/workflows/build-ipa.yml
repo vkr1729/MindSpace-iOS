@@ -93,8 +93,6 @@ jobs:
           p["UIFileSharingEnabled"] = True
           p["LSSupportsOpeningDocumentsInPlace"] = True
           p["UILaunchStoryboardName"] = "LaunchScreen"
-          p["CFBundleShortVersionString"] = "2.2.0"
-          p["CFBundleVersion"] = "9"
           
           plistlib.dump(p, open(plist_path, "wb"))
           
@@ -107,9 +105,6 @@ jobs:
           
           if "audio" not in verified.get("UIBackgroundModes", []):
               print("FATAL: audio background mode missing!", file=sys.stderr)
-              sys.exit(1)
-          if verified.get("CFBundleShortVersionString") != "2.2.0":
-              print("FATAL: CFBundleShortVersionString is not 2.2.0!", file=sys.stderr)
               sys.exit(1)
           if verified.get("UILaunchStoryboardName") != "LaunchScreen":
               print("FATAL: UILaunchStoryboardName is not LaunchScreen!", file=sys.stderr)
@@ -132,26 +127,71 @@ jobs:
             MindSpace.ipa
             MindSpace.ipa.sha256
 
-      - name: Publish Direct GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Publish Direct GitHub Release to Public Distribution Repo (mindspace-source)
         if: github.ref == 'refs/heads/main'
-        with:
-          tag_name: latest
-          name: "MindSpace v2.2.0 (Private GitHub Content Sync & Selective Downloads)"
-          body: |
-            ## MindSpace v2.2.0 Celestial Meditation
-            
-            ### What's New in v2.2.0:
-            - **Private GitHub Content Sync**: Authenticate with your private GitHub content repository using a hardware-backed iOS Keychain-stored Personal Access Token (PAT).
-            - **Selective On-Demand Course Downloads**: Download individual courses directly from within Course view without needing to store all 15 GB of media upfront.
-            - **Goal-Oriented Smart Sync**: One-tap sync from Settings that downloads only the foundation course and courses matching your personal onboarding goals (~300 MB).
-            - **Library "Available" Filter**: New quick-filter chip right next to "All" to browse and play only tracks locally cached and ready for offline listening.
-            - **Updated Audio Metadata**: Clean ID3 tags with artist name set to 'MindSpace'.
-            - **100% Private & Self-Hosted**: Self-sustaining releases with direct GitHub binary hosting and SideStore / AltStore OTA source.
-            
-            ### Direct Installation & SideStore / AltStore Source:
-            - **Direct IPA Download**: `https://github.com/vkr1729/MindSpace-iOS/releases/latest/download/MindSpace.ipa`
-            - **SideStore / AltStore OTA Source URL**: `https://raw.githubusercontent.com/vkr1729/MindSpace-iOS/main/apps.json`
-          files: |
-            MindSpace.ipa
-
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.MINDSPACE_SOURCE_PAT || github.token }}
+        run: |
+          echo "Publishing release and syncing SideStore source repository..."
+          VERSION=$(python3 -c 'import json; print(json.load(open("apps.json"))["apps"][0]["version"])')
+          BUILD_NUM=$(python3 -c 'import plistlib; print(plistlib.load(open("Sources/MindSpace/Info.plist", "rb")).get("CFBundleVersion", "1"))')
+          DESC=$(python3 -c 'import json; print(json.load(open("apps.json"))["apps"][0].get("versionDescription", "MindSpace Release"))')
+          IPA_SIZE=$(stat -f%z MindSpace.ipa 2>/dev/null || stat -c%s MindSpace.ipa)
+          
+          echo "Releasing MindSpace v$VERSION (Build $BUILD_NUM) with size $IPA_SIZE bytes to vkr1729/mindspace-source"
+          
+          # Clone public distribution repository
+          rm -rf /tmp/dist_repo
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/vkr1729/mindspace-source.git" /tmp/dist_repo
+          
+          # Update apps.json and source.json in mindspace-source
+          python3 -c "
+          import json
+          with open('/tmp/dist_repo/apps.json', 'r') as f:
+              data = json.load(f)
+          
+          app = data['apps'][0]
+          app['version'] = '$VERSION'
+          app['versionDate'] = '2026-08-21'
+          app['versionDescription'] = '''$DESC'''
+          app['downloadURL'] = f'https://github.com/vkr1729/mindspace-source/releases/download/v$VERSION/MindSpace.ipa'
+          app['size'] = int('$IPA_SIZE')
+          
+          new_version_entry = {
+              'version': '$VERSION',
+              'date': '2026-08-21',
+              'localizedDescription': '''$DESC''',
+              'downloadURL': f'https://github.com/vkr1729/mindspace-source/releases/download/v$VERSION/MindSpace.ipa',
+              'size': int('$IPA_SIZE')
+          }
+          data['apps'][0]['versions'] = [v for v in data['apps'][0].get('versions', []) if v.get('version') != '$VERSION']
+          data['apps'][0]['versions'].insert(0, new_version_entry)
+          
+          with open('/tmp/dist_repo/apps.json', 'w') as f:
+              json.dump(data, f, indent=2)
+          with open('/tmp/dist_repo/source.json', 'w') as f:
+              json.dump(data, f, indent=2)
+          "
+          
+          # Copy AppIcon-1024.png
+          cp Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png /tmp/dist_repo/AppIcon-1024.png
+          
+          # Commit and push to mindspace-source
+          cd /tmp/dist_repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add apps.json source.json AppIcon-1024.png
+          git commit -m "chore(release): automated sync MindSpace v$VERSION ($BUILD_NUM)" || true
+          git push origin main
+          
+          # Create or replace GitHub Release on vkr1729/mindspace-source
+          cd $GITHUB_WORKSPACE
+          gh release create "v$VERSION" MindSpace.ipa MindSpace.ipa.sha256 \
+            --repo vkr1729/mindspace-source \
+            --title "MindSpace v$VERSION" \
+            --notes "$DESC" \
+            --latest || \
+          gh release upload "v$VERSION" MindSpace.ipa MindSpace.ipa.sha256 \
+            --repo vkr1729/mindspace-source --clobber
+          
+          echo "✅ Automated release and SideStore sync complete on vkr1729/mindspace-source!"

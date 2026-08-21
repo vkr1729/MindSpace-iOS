@@ -32,43 +32,36 @@ def send_credentials_and_release_email():
     content_repo = "vkr1729/MindSpace-Content"
     content_repo_url = f"https://github.com/{content_repo}"
     
-    source_url = "https://raw.githubusercontent.com/vkr1729/MindSpace-iOS/main/apps.json"
-    direct_ipa_url = "https://github.com/vkr1729/MindSpace-iOS/releases/latest/download/MindSpace.ipa"
-    github_release_url = "https://github.com/vkr1729/MindSpace-iOS/releases/tag/latest"
+    source_url = "https://vkr1729.github.io/mindspace-source/apps.json"
+    direct_ipa_url = "https://github.com/vkr1729/mindspace-source/releases/download/v2.3.0/MindSpace.ipa"
+    github_release_url = "https://github.com/vkr1729/mindspace-source/releases/tag/v2.3.0"
     
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = "MindSpace iOS v2.2.0 — Private Content Repository & GitHub PAT Access Details"
+    msg["Subject"] = "MindSpace iOS v2.3.0 Released — Cinematic Celestial Visuals, App Icon & SideStore Refresh"
     msg["From"] = f"MindSpace AI Assistant <{sender_email}>"
     msg["To"] = recipient_email
     
     text_content = f"""Hi Kedar,
 
-MindSpace iOS v2.2.0 is officially configured with Private GitHub Content Sync and Selective On-Demand Course Downloads!
+MindSpace iOS v2.3.0 (Build 10) is officially live and ready for SideStore refresh!
 
-=== PRIVATE GITHUB CONTENT REPOSITORY DETAILS ===
-• Repository Name: {content_repo}
-• Repository Link: {content_repo_url}
+=== WHAT'S NEW IN V2.3.0 ===
+• Cinematic Hybrid Celestial Visuals: Converted all 9 planet artworks to 100% transparent alpha with sub-pixel feathering. Zero square box boundaries across all screens (Player, Library, Progress, Today, Completion, and Onboarding).
+• Atmospheric Coronas & Specular Rims: Layered radial glow tuned to course ambient hues (Moon Lavender, Aurora Teal, Solar Coral, Cosmic Purple) with delicate specular light curves.
+• Mindful Breathing Respiration: Synchronized 4.0-second visual breathing anchor during meditation playback with automatic accessibility Reduce Motion support.
+• Polished iOS App Icon: Refined with deep cosmic space gradients, radiant nebula backlighting, and a high-contrast celestial focal body.
+• Private GitHub Content Sync: Keychain-stored PAT credentials and on-demand selective downloads.
+
+=== HOW TO REFRESH IN SIDESTORE ===
+1. Open SideStore on your iPhone.
+2. Ensure your Source URL is:
+   {source_url}
+3. Pull to refresh the Sources tab, or tap "Update" on MindSpace to install v2.3.0.
+4. Direct IPA Download: {direct_ipa_url}
+
+=== PRIVATE GITHUB CONTENT REPOSITORY ===
+• Repository: {content_repo_url}
 • Personal Access Token (PAT): {github_pat}
-
-=== HOW TO SYNC ON YOUR IPHONE ===
-1. Open MindSpace iOS on your device.
-2. Tap the Gear icon to open Settings.
-3. Scroll to the "Private GitHub Content Sync" section.
-4. Verify/enter:
-   - GitHub Repository: {content_repo}
-   - Personal Access Token: {github_pat}
-5. Tap "Save & Test Connection" to securely store your token in the iOS Keychain.
-6. Sync Content Options:
-   - Smart Sync: Downloads your onboarding goal packs (~300 MB)
-   - On-Demand Course Download: Open any course in Library to download it individually
-   - Download All: Syncs all 275+ hours (15 GB)
-7. Filter by "Available" in the Library tab to see all offline downloaded tracks.
-
-=== METADATA & RELEASES ===
-• All 905 audio and video tracks updated with Artist: 'MindSpace'.
-• SideStore / AltStore Community Source: {source_url}
-• Direct IPA Download: {direct_ipa_url}
-• GitHub Releases: {github_release_url}
 
 Best regards,
 MindSpace AI Assistant
@@ -79,14 +72,26 @@ MindSpace AI Assistant
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; background-color: #0b0d17; padding: 24px;">
         <div style="max-width: 640px; margin: 0 auto; background: #121528; border-radius: 20px; border: 1px solid rgba(124, 58, 237, 0.3); overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,0.6);">
           <div style="background: linear-gradient(135deg, #4c1d95, #6d28d9, #7c3aed); padding: 36px 24px; text-align: center;">
-            <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.5px;">MindSpace iOS v2.2.0</h1>
-            <p style="color: #ddd6fe; margin: 8px 0 0 0; font-size: 14px; font-weight: 500;">Private GitHub Content Sync • Selective On-Demand Downloads • SideStore Auto-Update</p>
+            <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.5px;">MindSpace iOS v2.3.0</h1>
+            <p style="color: #ddd6fe; margin: 8px 0 0 0; font-size: 14px; font-weight: 500;">Cinematic Celestial Visuals • Polished App Icon • SideStore Refresh</p>
           </div>
           
           <div style="padding: 28px 24px; color: #f1f5f9;">
             <p style="font-size: 15px; line-height: 1.6; margin-top: 0;">Hi Kedar,</p>
-            <p style="font-size: 15px; line-height: 1.6; color: #cbd5e1;">Your private GitHub content repository has been successfully created, populated with the updated media library (all 905 tracks tagged with Artist <strong>'MindSpace'</strong>), and integrated into MindSpace iOS v2.2.0.</p>
+            <p style="font-size: 15px; line-height: 1.6; color: #cbd5e1;">MindSpace iOS <strong>v2.3.0 (Build 10)</strong> has been compiled, verified, and released with the new <strong>Cinematic Hybrid</strong> celestial visual architecture and polished App Icon.</p>
             
+            <!-- Features Card -->
+            <div style="background: #1a1e38; border-left: 4px solid #7c3aed; padding: 18px; border-radius: 12px; margin: 22px 0;">
+              <h4 style="margin: 0 0 10px 0; color: #c4b5fd; font-size: 15px;">✨ What Was Upgraded in v2.3.0:</h4>
+              <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #e2e8f0; line-height: 1.7;">
+                <li><strong>Cinematic Hybrid Celestial Bodies:</strong> 100% transparent alpha blending on all 9 planet artworks. Completely eliminates square box boundaries across Player, Library, Progress, and Celebration views.</li>
+                <li><strong>Atmospheric Coronas & Specular Rims:</strong> Multi-stop radial backlighting matching category hues with delicate specular rim lighting.</li>
+                <li><strong>Mindful Breathing Physics:</strong> Hypnotic 4-second synchronized visual respiration guide during playback.</li>
+                <li><strong>Polished iOS App Icon:</strong> Deep space cosmic gradients, radiant nebula backlighting, and high-contrast celestial focus.</li>
+                <li><strong>Private GitHub Content Sync:</strong> Secure Keychain-stored PAT credentials and on-demand selective downloads.</li>
+              </ul>
+            </div>
+
             <!-- Credentials Card -->
             <div style="background: #1a1e38; border-left: 4px solid #10b981; padding: 18px; border-radius: 12px; margin: 22px 0;">
               <h4 style="margin: 0 0 10px 0; color: #6ee7b7; font-size: 15px;">🔒 Private Content Repository Details:</h4>
@@ -97,19 +102,6 @@ MindSpace AI Assistant
               </div>
             </div>
 
-            <!-- Features Card -->
-            <div style="background: #1a1e38; border-left: 4px solid #7c3aed; padding: 18px; border-radius: 12px; margin: 22px 0;">
-              <h4 style="margin: 0 0 10px 0; color: #c4b5fd; font-size: 15px;">✨ What Was Built & Configured:</h4>
-              <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #e2e8f0; line-height: 1.7;">
-                <li><strong>Hardware-Backed Keychain Storage:</strong> Secure storage of your PAT inside iOS Keychain.</li>
-                <li><strong>Selective On-Demand Downloads:</strong> Open any course in the Library to download only that course (~120 MB) with live progress.</li>
-                <li><strong>Goal-Oriented Smart Sync:</strong> One-tap sync from Settings that downloads only courses matching your onboarding goals.</li>
-                <li><strong>Library "Available" Filter:</strong> New quick-filter chip right next to "All" to browse and play only tracks locally cached and ready for offline listening.</li>
-                <li><strong>ID3 Artist Metadata:</strong> 100% of 905 audio & video files updated to Artist: 'MindSpace'.</li>
-                <li><strong>SideStore / AltStore Auto-Update:</strong> Seamless OTA updates directly from GitHub Releases.</li>
-              </ul>
-            </div>
-
             <!-- SideStore Source Box -->
             <div style="background: #181b33; border: 1px solid rgba(255,255,255,0.08); padding: 16px; border-radius: 12px; margin: 24px 0;">
               <h3 style="margin: 0 0 6px 0; font-size: 12px; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px;">SideStore / AltStore Community Source URL</h3>
@@ -117,7 +109,7 @@ MindSpace AI Assistant
             </div>
 
             <div style="text-align: center; margin: 28px 0;">
-              <a href="{direct_ipa_url}" style="background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #ffffff; padding: 15px 32px; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 15px; display: inline-block; box-shadow: 0 6px 20px rgba(124, 58, 237, 0.45);">Download MindSpace.ipa v2.2.0</a>
+              <a href="{direct_ipa_url}" style="background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #ffffff; padding: 15px 32px; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 15px; display: inline-block; box-shadow: 0 6px 20px rgba(124, 58, 237, 0.45);">Download MindSpace.ipa v2.3.0</a>
             </div>
           </div>
           
