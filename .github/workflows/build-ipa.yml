@@ -78,56 +78,63 @@ jobs:
 
       - name: Enforce & Verify UIBackgroundModes & Version in Compiled App
         run: |
-          python3 -c '
-          import plistlib, sys
-          plist_path = "build/Build/Products/Release-iphoneos/MindSpace.app/Info.plist"
-          p = plistlib.load(open(plist_path, "rb"))
+          VERSION=$(python3 -c 'import plistlib; print(plistlib.load(open("Sources/MindSpace/Info.plist", "rb")).get("CFBundleShortVersionString"))')
+          BUILD_NUM=$(python3 -c 'import plistlib; print(plistlib.load(open("Sources/MindSpace/Info.plist", "rb")).get("CFBundleVersion"))')
+          PLIST="build/Build/Products/Release-iphoneos/MindSpace.app/Info.plist"
           
-          # Enforce required entitlements and dynamic version metadata
-          source_p = plistlib.load(open("Sources/MindSpace/Info.plist", "rb"))
-          expected_ver = source_p.get("CFBundleShortVersionString")
-          expected_build = source_p.get("CFBundleVersion")
+          echo "Target Version: $VERSION (Build $BUILD_NUM)"
+          echo "Modifying compiled Info.plist at $PLIST"
           
-          p["CFBundleShortVersionString"] = expected_ver
-          p["CFBundleVersion"] = expected_build
+          # Native PlistBuddy modification
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $VERSION" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUM" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_NUM" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :UIFileSharingEnabled true" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :UIFileSharingEnabled bool true" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :LSSupportsOpeningDocumentsInPlace true" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :LSSupportsOpeningDocumentsInPlace bool true" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :UILaunchStoryboardName LaunchScreen" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :UILaunchStoryboardName string LaunchScreen" "$PLIST"
           
-          if "UIBackgroundModes" not in p or "audio" not in p.get("UIBackgroundModes", []):
-              modes = list(p.get("UIBackgroundModes", []))
-              if "audio" not in modes:
-                  modes.append("audio")
-              p["UIBackgroundModes"] = modes
+          # Verify audio background mode
+          /usr/libexec/PlistBuddy -c "Print :UIBackgroundModes" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes array" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Print :UIBackgroundModes:0" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes:0 string audio" "$PLIST"
           
-          p["UIFileSharingEnabled"] = True
-          p["LSSupportsOpeningDocumentsInPlace"] = True
-          p["UILaunchStoryboardName"] = "LaunchScreen"
+          # Verification
+          COMPILED_VER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST")
+          COMPILED_BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST")
           
-          plistlib.dump(p, open(plist_path, "wb"))
+          echo "Verified compiled CFBundleShortVersionString: $COMPILED_VER"
+          echo "Verified compiled CFBundleVersion: $COMPILED_BUILD"
           
-          # Strict verification
-          verified = plistlib.load(open(plist_path, "rb"))
-          print("Verified UIBackgroundModes in compiled app:", verified.get("UIBackgroundModes"))
-          print("Verified UILaunchStoryboardName:", verified.get("UILaunchStoryboardName"))
-          print("Verified CFBundleShortVersionString:", verified.get("CFBundleShortVersionString"))
-          print("Verified CFBundleVersion:", verified.get("CFBundleVersion"))
-          
-          if "audio" not in verified.get("UIBackgroundModes", []):
-              print("FATAL: audio background mode missing!", file=sys.stderr)
-              sys.exit(1)
-          if verified.get("CFBundleShortVersionString") != expected_ver:
-              print(f"FATAL: CFBundleShortVersionString is not {expected_ver}!", file=sys.stderr)
-              sys.exit(1)
-          if verified.get("UILaunchStoryboardName") != "LaunchScreen":
-              print("FATAL: UILaunchStoryboardName is not LaunchScreen!", file=sys.stderr)
-              sys.exit(1)
-          '
+          if [ "$COMPILED_VER" != "$VERSION" ]; then
+            echo "FATAL: Version mismatch in compiled plist: $COMPILED_VER != $VERSION"
+            exit 1
+          fi
 
       - name: Assemble & Zip IPA Payload
         run: |
+          VERSION=$(python3 -c 'import plistlib; print(plistlib.load(open("Sources/MindSpace/Info.plist", "rb")).get("CFBundleShortVersionString"))')
+          BUILD_NUM=$(python3 -c 'import plistlib; print(plistlib.load(open("Sources/MindSpace/Info.plist", "rb")).get("CFBundleVersion"))')
+          
+          rm -rf Payload MindSpace.ipa
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/MindSpace.app Payload/
+          
+          # Direct enforcement inside Payload
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "Payload/MindSpace.app/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUM" "Payload/MindSpace.app/Info.plist"
+          
           zip -qry MindSpace.ipa Payload
           shasum -a 256 MindSpace.ipa > MindSpace.ipa.sha256
           echo "IPA SHA-256 Digest: $(cat MindSpace.ipa.sha256)"
+          
+          # Post-zip verification by inspecting unzipped artifact
+          rm -rf /tmp/post_zip_verify
+          mkdir -p /tmp/post_zip_verify
+          unzip -q MindSpace.ipa -d /tmp/post_zip_verify
+          ZIP_VER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "/tmp/post_zip_verify/Payload/MindSpace.app/Info.plist")
+          echo "FINAL POST-ZIP VERIFIED VERSION INSIDE IPA: $ZIP_VER"
+          if [ "$ZIP_VER" != "$VERSION" ]; then
+            echo "FATAL: Post-zip verification failed! Found $ZIP_VER, expected $VERSION"
+            exit 1
+          fi
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
@@ -194,14 +201,13 @@ jobs:
           git commit -m "chore(release): automated sync MindSpace v$VERSION ($BUILD_NUM)" || true
           git push origin main
           
-          # Create or replace GitHub Release on vkr1729/mindspace-source
+          # Recreate or upload GitHub Release on vkr1729/mindspace-source
           cd $GITHUB_WORKSPACE
+          gh release delete "v$VERSION" --repo vkr1729/mindspace-source -y 2>/dev/null || true
           gh release create "v$VERSION" MindSpace.ipa MindSpace.ipa.sha256 \
             --repo vkr1729/mindspace-source \
             --title "MindSpace v$VERSION" \
             --notes "$DESC" \
-            --latest || \
-          gh release upload "v$VERSION" MindSpace.ipa MindSpace.ipa.sha256 \
-            --repo vkr1729/mindspace-source --clobber
+            --latest
           
           echo "✅ Automated release and SideStore sync complete on vkr1729/mindspace-source!"

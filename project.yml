@@ -27,6 +27,8 @@ targets:
       INFOPLIST_FILE: Sources/MindSpace/Info.plist
       CURRENT_PROJECT_VERSION: "10"
       MARKETING_VERSION: "2.3.0"
+      INFOPLIST_KEY_CFBundleShortVersionString: "2.3.0"
+      INFOPLIST_KEY_CFBundleVersion: "10"
       PRODUCT_BUNDLE_IDENTIFIER: com.mindspace.offline
       PRODUCT_NAME: MindSpace
       ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
