@@ -63,15 +63,17 @@ public enum PlanetStyle: String, CaseIterable, Sendable {
 
 public typealias CelestialPlanetStyle = PlanetStyle
 
-/// A procedural 3D celestial planet view with atmospheric glow, surface texture gradients, and planetary rings.
+/// A cinematic 3D celestial planet view with atmospheric glow, organic texture fidelity, and transparent alpha blending.
 public struct CelestialPlanetView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    
     public let style: PlanetStyle
     public let size: CGFloat
     public let hasRings: Bool
     public let isAnimated: Bool
     
-    @State private var rotationAngle: Double = 0
-    @State private var floatingOffset: CGFloat = 0
+    @State private var breathingScale: CGFloat = 1.0
+    @State private var floatingOffset: CGFloat = 0.0
     
     public init(
         style: PlanetStyle = .purpleRinged,
@@ -87,29 +89,52 @@ public struct CelestialPlanetView: View {
     
     public var body: some View {
         ZStack {
-            // Ambient Atmospheric Glow
+            // Layer 1: Ambient Atmospheric Glow
             Circle()
                 .fill(
                     RadialGradient(
                         colors: [
-                            style.primaryColor.opacity(0.45),
-                            style.primaryColor.opacity(0.12),
+                            style.primaryColor.opacity(0.38),
+                            style.primaryColor.opacity(0.10),
                             Color.clear
                         ],
                         center: .center,
-                        startRadius: size * 0.25,
-                        endRadius: size * 0.75
+                        startRadius: size * 0.20,
+                        endRadius: size * 0.68
                     )
                 )
-                .frame(width: size * 1.5, height: size * 1.5)
+                .frame(width: size * 1.36, height: size * 1.36)
+                .allowsHitTesting(false)
             
+            // Layer 2: Natural Textured Celestial Body with Pure Transparent Alpha
             #if os(iOS)
             if UIImage(named: style.assetImageName) != nil {
-                Image(style.assetImageName)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: size * 1.25, height: size * 1.25)
-                    .shadow(color: style.primaryColor.opacity(0.4), radius: size * 0.15, x: 0, y: 4)
+                ZStack {
+                    Image(style.assetImageName)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: size, height: size)
+                        .shadow(color: style.primaryColor.opacity(0.35), radius: size * 0.12, x: 0, y: 3)
+                    
+                    // Layer 3: Subtle Specular Fresnel Rim Highlight
+                    if style != .purpleRinged {
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.35),
+                                        style.primaryColor.opacity(0.18),
+                                        Color.clear
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: max(1.0, size * 0.02)
+                            )
+                            .frame(width: size * 0.94, height: size * 0.94)
+                            .allowsHitTesting(false)
+                    }
+                }
             } else {
                 proceduralPlanetBody
             }
@@ -117,11 +142,15 @@ public struct CelestialPlanetView: View {
             proceduralPlanetBody
             #endif
         }
-        .offset(y: floatingOffset)
+        .scaleEffect(isAnimated && !reduceMotion ? breathingScale : 1.0)
+        .offset(y: isAnimated && !reduceMotion ? floatingOffset : 0.0)
         .onAppear {
-            if isAnimated {
-                withAnimation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true)) {
-                    floatingOffset = -6
+            if isAnimated && !reduceMotion {
+                withAnimation(.easeInOut(duration: 3.6).repeatForever(autoreverses: true)) {
+                    floatingOffset = -4.0
+                }
+                withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
+                    breathingScale = 1.03
                 }
             }
         }

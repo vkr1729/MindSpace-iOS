@@ -544,8 +544,8 @@ private struct CelestialBreathingAuraView: View {
                     .scaleEffect(breathScale)
             }
             
-            // 3D Celestial Planet
-            CelestialPlanetView(style: style, size: 160, hasRings: true)
+            // 3D Celestial Planet with Cinematic Alpha & Breathing
+            CelestialPlanetView(style: style, size: 160, hasRings: true, isAnimated: isPlaying)
                 .shadow(color: ambientColor.opacity(isPlaying ? 0.6 : 0.3), radius: isPlaying ? 30 : 15)
         }
         .onAppear {

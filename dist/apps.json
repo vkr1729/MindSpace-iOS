@@ -1,30 +1,44 @@
 {
   "name": "MindSpace",
   "identifier": "com.mindspace.offline.source",
-  "sourceURL": "https://mindspace-ios.vercel.app/apps.json",
+  "sourceURL": "https://raw.githubusercontent.com/vkr1729/MindSpace-iOS/main/apps.json",
   "apps": [
     {
       "name": "MindSpace",
       "bundleIdentifier": "com.mindspace.offline",
       "developerName": "MindSpace",
       "subtitle": "100% Offline Celestial Meditation",
-      "version": "2.1.0",
+      "version": "2.3.0",
       "versionDate": "2026-08-21",
-      "versionDescription": "MindSpace 2.1.0: Full Adversarial Remediation Release. Day-attached video intro sequencing (.video -> .audio), rolling 30-day persistent Compassion Passes, disjoint-interval listening union on resume, replay accumulator reset, 5-step cosmic onboarding with offline RecommendationEngine & Medical Disclaimer, accessible VoiceOver scrubber & constellation nodes, exact completion UUID reflection matching, truthful checksum & backup-exclusion auditing, primary Next Session button with Pregnancy gap handling, local-calendar Daily Journey scoping, restored 8-pack/15-singles library hierarchy with Work/Sport & duration filters, and reconciled notification authorization.",
-      "downloadURL": "https://mindspace-ios.vercel.app/MindSpace.ipa",
-      "localizedDescription": "MindSpace is a zero-network, 100% private offline celestial meditation experience with 275+ hours of mindfulness audio and video courses.",
-      "iconURL": "https://mindspace-ios.vercel.app/AppIcon-1024.png",
+      "versionDescription": "MindSpace 2.3.0: Cinematic Hybrid Celestial Visuals & Polished App Icon. Upgraded all 9 celestial planets with transparent alpha blending, atmospheric glowing coronas, mindful breathing physics, and polished iOS App Icon with deep cosmic lighting.",
+      "downloadURL": "https://github.com/vkr1729/MindSpace-iOS/releases/latest/download/MindSpace.ipa",
+      "localizedDescription": "MindSpace is a 100% private offline celestial meditation experience with 275+ hours of mindfulness audio and video courses, private GitHub sync, on-demand selective downloads, and cinematic celestial visuals.",
+      "iconURL": "https://raw.githubusercontent.com/vkr1729/MindSpace-iOS/main/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png",
       "tintColor": "7C3AED",
       "size": 8708348,
       "screenshotURLs": [
-        "https://mindspace-ios.vercel.app/Mock%20Screen%20Codex.png"
+        "https://raw.githubusercontent.com/vkr1729/MindSpace-iOS/main/Mock%20Screen%20Codex.png"
       ],
       "versions": [
+        {
+          "version": "2.3.0",
+          "date": "2026-08-21",
+          "localizedDescription": "Cinematic Hybrid Celestial Visuals & Polished App Icon: Upgraded all 9 celestial planets with transparent alpha blending, atmospheric glowing coronas, mindful breathing physics, and polished iOS App Icon with deep cosmic lighting.",
+          "downloadURL": "https://github.com/vkr1729/MindSpace-iOS/releases/latest/download/MindSpace.ipa",
+          "size": 8708348
+        },
+        {
+          "version": "2.2.0",
+          "date": "2026-08-21",
+          "localizedDescription": "Private GitHub Content Sync & Selective Downloads: Integrated hardware-backed KeychainManager for PAT credentials, on-demand course downloading directly from private GitHub repositories with live progress and SHA-256 verification, Goal-Oriented Smart Sync, and new Library 'Available' filter.",
+          "downloadURL": "https://github.com/vkr1729/MindSpace-iOS/releases/latest/download/MindSpace.ipa",
+          "size": 8708348
+        },
         {
           "version": "2.1.0",
           "date": "2026-08-21",
           "localizedDescription": "Full Adversarial Remediation Release: Day-attached video intro sequencing (.video -> .audio), rolling 30-day persistent Compassion Passes, disjoint-interval listening union on resume, replay accumulator reset, 5-step cosmic onboarding with offline RecommendationEngine & Medical Disclaimer, accessible VoiceOver scrubber & constellation nodes, exact completion UUID reflection matching, truthful checksum & backup-exclusion auditing, primary Next Session button with Pregnancy gap handling, local-calendar Daily Journey scoping, restored 8-pack/15-singles library hierarchy with Work/Sport & duration filters, and reconciled notification authorization.",
-          "downloadURL": "https://mindspace-ios.vercel.app/MindSpace.ipa",
+          "downloadURL": "https://github.com/vkr1729/MindSpace-iOS/releases/latest/download/MindSpace.ipa",
           "size": 8708348
         },
         {
@@ -33,41 +47,6 @@
           "localizedDescription": "Curated 10m/30m/60m sleep sounds, zero-battery-drain animation isolation (CelestialBreathingAuraView & ActiveNodeView), GPU starfield rendering, AudioSessionManager hardware deactivation, DateFormatterCache allocations fix, retained haptic generators, and instant pre-indexed catalog search.",
           "downloadURL": "https://mindspace-ios.vercel.app/MindSpace-v2.0.0.ipa",
           "size": 8412490
-        },
-        {
-          "version": "1.0.5",
-          "date": "2026-08-20",
-          "localizedDescription": "Native edge-to-edge resolution fix with LaunchScreen.storyboard, condensed sleep card duration pills ('10 min'), dedicated Mindful Reminder sheet for the bell icon, animated library verification report, and working Preferences toggles.",
-          "downloadURL": "https://mindspace-ios.vercel.app/MindSpace.ipa",
-          "size": 8397509
-        },
-        {
-          "version": "1.0.4",
-          "date": "2026-08-20",
-          "localizedDescription": "Fixed background audio on lock screen by adding explicit UIBackgroundModes audio entitlement in Info.plist, enhanced Bluetooth/AirPlay routing, and synchronized lock screen playback state.",
-          "downloadURL": "https://mindspace-ios.vercel.app/MindSpace.ipa",
-          "size": 8312190
-        },
-        {
-          "version": "1.0.3",
-          "date": "2026-08-20",
-          "localizedDescription": "Complete UI/UX redesign with UI/UX Pro Max: Celestial breathing visualizer, luminous scrubber, HapticService tactile engine, Cosmic Orbit Hero, living constellation paths, and ambient lighting.",
-          "downloadURL": "https://mindspace-ios.vercel.app/MindSpace.ipa",
-          "size": 8342072
-        },
-        {
-          "version": "1.0.2",
-          "date": "2026-08-20",
-          "localizedDescription": "Lock Screen playback & remote control fix, AVAudioSession reactivation, favorite items support, and session reflection persistence.",
-          "downloadURL": "https://mindspace-ios.vercel.app/MindSpace.ipa",
-          "size": 8238628
-        },
-        {
-          "version": "1.0.1",
-          "date": "2026-08-20",
-          "localizedDescription": "Full-screen video player, photorealistic planet visuals, background/lock screen audio playback, dynamic daily journey recommendation, daily sleep sounds, and in-progress course filtering.",
-          "downloadURL": "https://mindspace-ios.vercel.app/MindSpace.ipa",
-          "size": 8231915
         }
       ],
       "permissions": [
@@ -80,10 +59,10 @@
   ],
   "news": [
     {
-      "title": "MindSpace 2.0 Released",
-      "identifier": "mindspace-release-2.0.0",
-      "caption": "Curated 10m/30m/60m sleep sounds, zero battery drain optimizations, isolated breathing & constellation render loops, and instant search.",
-      "date": "2026-08-20",
+      "title": "MindSpace 2.3 Released",
+      "identifier": "mindspace-release-2.3.0",
+      "caption": "Cinematic Hybrid celestial visuals with transparent alpha blending, atmospheric glowing coronas, and polished iOS App Icon.",
+      "date": "2026-08-21",
       "tintColor": "7C3AED",
       "appID": "com.mindspace.offline"
     }
