@@ -82,6 +82,7 @@ final class HardenedBehavioralTests: XCTestCase {
     @MainActor
     func testAttemptToPlayMissingFileProducesActionableErrorAndNoPlayingState() {
         let engine = PlaybackEngine.shared
+        KeychainManager.shared.delete(key: "github_sync_pat")
         let missingTrack = PlayableTrack(
             id: "missing_test_track",
             title: "Absent Meditation",

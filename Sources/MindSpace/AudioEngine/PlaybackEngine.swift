@@ -219,8 +219,9 @@ public final class PlaybackEngine: ObservableObject {
             return
         }
         
-        // 2. Priority 2: Fallback to On-Demand Streaming from Private GitHub
-        if let (streamAsset, _) = LibraryPathResolver.shared.resolveRemoteStreamAsset(for: track.relativePath) {
+        // 2. Priority 2: Fallback to On-Demand Streaming from Private GitHub (only if configured)
+        if GitHubSyncService.shared.isConfigured,
+           let (streamAsset, _) = LibraryPathResolver.shared.resolveRemoteStreamAsset(for: track.relativePath) {
             self.isStreaming = true
             let playerItem = AVPlayerItem(asset: streamAsset)
             setupAndStartPlayer(playerItem: playerItem, startPosition: startPosition)
@@ -230,11 +231,7 @@ public final class PlaybackEngine: ObservableObject {
         // 3. Fallback: Not downloaded & PAT not configured
         self.isStreaming = false
         self.state = .idle
-        if !GitHubSyncService.shared.isConfigured {
-            self.playbackError = "Media file not found: \(track.title). Please configure your GitHub Token or download your library in Settings."
-        } else {
-            self.playbackError = "Media file not found: \(track.title). Please check your internet connection or download it for offline play."
-        }
+        self.playbackError = "Media file not found: \(track.title). Please configure your GitHub Token or download your library in Settings."
     }
     
     private func setupAndStartPlayer(playerItem: AVPlayerItem, startPosition: Double) {
