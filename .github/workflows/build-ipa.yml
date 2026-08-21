@@ -83,7 +83,14 @@ jobs:
           plist_path = "build/Build/Products/Release-iphoneos/MindSpace.app/Info.plist"
           p = plistlib.load(open(plist_path, "rb"))
           
-          # Enforce required entitlements and version metadata
+          # Enforce required entitlements and dynamic version metadata
+          source_p = plistlib.load(open("Sources/MindSpace/Info.plist", "rb"))
+          expected_ver = source_p.get("CFBundleShortVersionString")
+          expected_build = source_p.get("CFBundleVersion")
+          
+          p["CFBundleShortVersionString"] = expected_ver
+          p["CFBundleVersion"] = expected_build
+          
           if "UIBackgroundModes" not in p or "audio" not in p.get("UIBackgroundModes", []):
               modes = list(p.get("UIBackgroundModes", []))
               if "audio" not in modes:
@@ -105,6 +112,9 @@ jobs:
           
           if "audio" not in verified.get("UIBackgroundModes", []):
               print("FATAL: audio background mode missing!", file=sys.stderr)
+              sys.exit(1)
+          if verified.get("CFBundleShortVersionString") != expected_ver:
+              print(f"FATAL: CFBundleShortVersionString is not {expected_ver}!", file=sys.stderr)
               sys.exit(1)
           if verified.get("UILaunchStoryboardName") != "LaunchScreen":
               print("FATAL: UILaunchStoryboardName is not LaunchScreen!", file=sys.stderr)

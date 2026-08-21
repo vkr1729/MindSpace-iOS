@@ -9,6 +9,7 @@ import os
 import re
 import sys
 import json
+import plistlib
 from pathlib import Path
 from PIL import Image
 import numpy as np
@@ -260,27 +261,53 @@ def test_celestial_asset_alpha_integrity():
     return True
 
 def test_version_release_consistency():
-    print("[6/7] Testing Version 2.3 Release Consistency across project configs...")
-    expected_version = "2.3.0"
-    expected_build = "10"
+    print("[6/7] Testing Strict Dynamic Version Consistency across project.yml, Info.plist, and apps.json...")
     
-    proj_file = ROOT_DIR / "project.yml"
-    if proj_file.exists():
-        proj_text = proj_file.read_text(encoding="utf-8")
-        if f'MARKETING_VERSION: "{expected_version}"' not in proj_text:
-            print(f"  ℹ️ project.yml MARKETING_VERSION will be updated to {expected_version}")
-        if f'CURRENT_PROJECT_VERSION: "{expected_build}"' not in proj_text:
-            print(f"  ℹ️ project.yml CURRENT_PROJECT_VERSION will be updated to {expected_build}")
-            
+    # 1. Read Sources/MindSpace/Info.plist
     plist_file = SOURCES_DIR / "MindSpace" / "Info.plist"
-    if plist_file.exists():
-        plist_text = plist_file.read_text(encoding="utf-8")
-        if f"<string>{expected_version}</string>" not in plist_text:
-            print(f"  ℹ️ Info.plist CFBundleShortVersionString will be updated to {expected_version}")
-        if f"<string>{expected_build}</string>" not in plist_text:
-            print(f"  ℹ️ Info.plist CFBundleVersion will be updated to {expected_build}")
+    if not plist_file.exists():
+        print("  ❌ Sources/MindSpace/Info.plist missing!")
+        return False
+    source_plist = plistlib.load(open(plist_file, "rb"))
+    expected_version = source_plist.get("CFBundleShortVersionString")
+    expected_build = source_plist.get("CFBundleVersion")
+    
+    # 2. Read project.yml
+    proj_file = ROOT_DIR / "project.yml"
+    if not proj_file.exists():
+        print("  ❌ project.yml missing!")
+        return False
+    proj_text = proj_file.read_text(encoding="utf-8")
+    if f'MARKETING_VERSION: "{expected_version}"' not in proj_text:
+        print(f"  ❌ project.yml MARKETING_VERSION mismatch! Expected '{expected_version}'")
+        return False
+    if f'CURRENT_PROJECT_VERSION: "{expected_build}"' not in proj_text:
+        print(f"  ❌ project.yml CURRENT_PROJECT_VERSION mismatch! Expected '{expected_build}'")
+        return False
+        
+    # 3. Read apps.json
+    apps_file = ROOT_DIR / "apps.json"
+    if not apps_file.exists():
+        print("  ❌ apps.json missing!")
+        return False
+    apps_data = json.load(open(apps_file, "r"))
+    app_entry = apps_data["apps"][0]
+    if app_entry.get("version") != expected_version:
+        print(f"  ❌ apps.json main version '{app_entry.get('version')}' != Info.plist '{expected_version}'!")
+        return False
+    if app_entry.get("versions", [])[0].get("version") != expected_version:
+        print(f"  ❌ apps.json latest version list entry '{app_entry.get('versions', [])[0].get('version')}' != '{expected_version}'!")
+        return False
+        
+    # 4. Read dist/apps.json if present
+    dist_apps = ROOT_DIR / "dist" / "apps.json"
+    if dist_apps.exists():
+        dist_data = json.load(open(dist_apps, "r"))
+        if dist_data["apps"][0].get("version") != expected_version:
+            print(f"  ❌ dist/apps.json version '{dist_data['apps'][0].get('version')}' != '{expected_version}'!")
+            return False
             
-    print("  ✅ PASS: Configuration checks ready for Step 4 release updates.")
+    print(f"  ✅ PASS: Strict version alignment verified across all files: Version '{expected_version}' (Build '{expected_build}').")
     return True
 
 def test_behavioral_hardening():
