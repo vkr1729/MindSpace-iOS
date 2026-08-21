@@ -27,24 +27,31 @@ jobs:
         run: |
           brew install xcodegen
 
-      - name: Verify Zero-Network Rule (API Scan)
+      - name: Verify Zero-Network & Privacy Rule (API Scan)
         run: |
           echo "Scanning codebase for forbidden networking symbols..."
-          FORBIDDEN_PATTERNS=("URLSession" "WebKit" "CFNetwork" "Network.framework" "NWPathMonitor")
+          FORBIDDEN_PATTERNS=("WebKit" "CFNetwork" "Network.framework" "NWPathMonitor")
           VIOLATIONS=0
           for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
             MATCHES=$(grep -rnw "Sources/" -e "$pattern" 2>/dev/null || true)
             if [ -n "$MATCHES" ]; then
-              echo "❌ Zero-network violation found for '$pattern':"
+              echo "❌ Forbidden networking symbol found for '$pattern':"
               echo "$MATCHES"
               VIOLATIONS=$((VIOLATIONS + 1))
             fi
           done
+          # Ensure URLSession is strictly isolated to GitHubSyncService
+          NON_SYNC_URLSESSION=$(grep -rnw "Sources/" -e "URLSession" --exclude="GitHubSyncService.swift" 2>/dev/null || true)
+          if [ -n "$NON_SYNC_URLSESSION" ]; then
+            echo "❌ URLSession leaked outside GitHubSyncService:"
+            echo "$NON_SYNC_URLSESSION"
+            VIOLATIONS=$((VIOLATIONS + 1))
+          fi
           if [ $VIOLATIONS -gt 0 ]; then
-            echo "Build failed: Zero-network rule violated. MindSpace must remain 100% offline."
+            echo "Build failed: Networking/telemetry symbols detected outside authorized sync service."
             exit 1
           fi
-          echo "✅ Zero-network compliance verified. 0 external network symbols found."
+          echo "✅ Zero telemetry compliance verified. Networking strictly confined to GitHubSyncService."
 
       - name: Generate Xcode Project
         run: xcodegen generate
@@ -86,8 +93,8 @@ jobs:
           p["UIFileSharingEnabled"] = True
           p["LSSupportsOpeningDocumentsInPlace"] = True
           p["UILaunchStoryboardName"] = "LaunchScreen"
-          p["CFBundleShortVersionString"] = "2.1.0"
-          p["CFBundleVersion"] = "8"
+          p["CFBundleShortVersionString"] = "2.2.0"
+          p["CFBundleVersion"] = "9"
           
           plistlib.dump(p, open(plist_path, "wb"))
           
@@ -101,8 +108,8 @@ jobs:
           if "audio" not in verified.get("UIBackgroundModes", []):
               print("FATAL: audio background mode missing!", file=sys.stderr)
               sys.exit(1)
-          if verified.get("CFBundleShortVersionString") != "2.1.0":
-              print("FATAL: CFBundleShortVersionString is not 2.1.0!", file=sys.stderr)
+          if verified.get("CFBundleShortVersionString") != "2.2.0":
+              print("FATAL: CFBundleShortVersionString is not 2.2.0!", file=sys.stderr)
               sys.exit(1)
           if verified.get("UILaunchStoryboardName") != "LaunchScreen":
               print("FATAL: UILaunchStoryboardName is not LaunchScreen!", file=sys.stderr)
@@ -130,22 +137,21 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest
-          name: "MindSpace v2.0 (Celestial Optimization & Runtime Efficiency)"
+          name: "MindSpace v2.2.0 (Private GitHub Content Sync & Selective Downloads)"
           body: |
-            ## MindSpace v2.0 Offline Celestial Meditation
+            ## MindSpace v2.2.0 Celestial Meditation
             
-            ### What's New in v2.0:
-            - **Curated Sleep Sound Durations**: Home screen Sleep Sanctuary section now features only 10 min, 30 min, and 60 min duration sessions.
-            - **Zero Battery Drain & Isolated Render Loops**: Breathing aura (`CelestialBreathingAuraView`) and active constellation pulse (`ActiveNodeView`) isolated to eliminate 60/120Hz CPU wakeups and parent view invalidation loops.
-            - **GPU-Accelerated Ambient Starfield**: Offloaded ambient starfield twinkling to CoreAnimation layer compositor via `.drawingGroup()`.
-            - **Audio Engine Battery Preservation**: Tuned time observation to 4Hz (0.25s) and added automatic `AVAudioSession` DSP hardware deactivation when playback stops.
-            - **Zero Heap Allocations via DateFormatterCache**: Eliminated repeated `DateFormatter` allocations across monthly heatmap grid, streak calculation, and backup export routines.
-            - **Instant Tactile Sensory Feedback**: Retained and prepared singleton feedback generators on `@MainActor` for ultra-responsive tactile cues with zero IPC overhead.
-            - **Pre-Indexed Sub-Millisecond Search**: Tokenized catalog records for instant filtering with zero sorting overhead during keystrokes.
-            - **100% Offline & Private**: Zero network dependencies, zero telemetry, full offline functionality.
+            ### What's New in v2.2.0:
+            - **Private GitHub Content Sync**: Authenticate with your private GitHub content repository using a hardware-backed iOS Keychain-stored Personal Access Token (PAT).
+            - **Selective On-Demand Course Downloads**: Download individual courses directly from within Course view without needing to store all 15 GB of media upfront.
+            - **Goal-Oriented Smart Sync**: One-tap sync from Settings that downloads only the foundation course and courses matching your personal onboarding goals (~300 MB).
+            - **Library "Available" Filter**: New quick-filter chip right next to "All" to browse and play only tracks locally cached and ready for offline listening.
+            - **Updated Audio Metadata**: Clean ID3 tags with artist name set to 'MindSpace'.
+            - **100% Private & Self-Hosted**: Self-sustaining releases with direct GitHub binary hosting and SideStore / AltStore OTA source.
             
-            ### Direct Installation / Auto-Update:
-            - **Direct Web & IPA Download**: https://mindspace-ios.vercel.app
-            - **SideStore / AltStore OTA Source**: `https://mindspace-ios.vercel.app/apps.json`
+            ### Direct Installation & SideStore / AltStore Source:
+            - **Direct IPA Download**: `https://github.com/vkr1729/MindSpace-iOS/releases/latest/download/MindSpace.ipa`
+            - **SideStore / AltStore OTA Source URL**: `https://raw.githubusercontent.com/vkr1729/MindSpace-iOS/main/apps.json`
           files: |
             MindSpace.ipa
+

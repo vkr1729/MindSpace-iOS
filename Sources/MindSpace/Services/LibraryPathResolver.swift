@@ -83,6 +83,62 @@ public struct LibraryPathResolver: Sendable {
         return resolveURL(for: relativePath) != nil
     }
     
+    /// Verifies if an entire course (all sessions + intro video) is downloaded and available offline.
+    public func isCourseAvailable(course: CatalogCourse) -> Bool {
+        if let intro = course.introVideo, !isFileAvailable(relativePath: intro.relativePath) {
+            return false
+        }
+        for session in course.sessions {
+            if !isFileAvailable(relativePath: session.relativePath) {
+                return false
+            }
+            for video in session.videoAttachments ?? [] {
+                if !isFileAvailable(relativePath: video.relativePath) {
+                    return false
+                }
+            }
+        }
+        return true
+    }
+    
+    /// Counts found tracks vs total tracks in a course.
+    public func courseAvailableTrackCount(course: CatalogCourse) -> (found: Int, total: Int) {
+        var found = 0
+        var total = 0
+        
+        if let intro = course.introVideo {
+            total += 1
+            if isFileAvailable(relativePath: intro.relativePath) { found += 1 }
+        }
+        
+        for session in course.sessions {
+            total += 1
+            if isFileAvailable(relativePath: session.relativePath) { found += 1 }
+            for video in session.videoAttachments ?? [] {
+                total += 1
+                if isFileAvailable(relativePath: video.relativePath) { found += 1 }
+            }
+        }
+        
+        return (found, total)
+    }
+    
+    /// Calculates total storage size of all tracks in a course.
+    public func courseTotalSizeBytes(course: CatalogCourse) -> Int64 {
+        var total: Int64 = 0
+        if let intro = course.introVideo {
+            total += intro.sizeBytes
+        }
+        for session in course.sessions {
+            total += session.sizeBytes
+            for video in session.videoAttachments ?? [] {
+                total += video.sizeBytes
+            }
+        }
+        return total
+    }
+
+    
     /// Checks whether the library directory is correctly hardened with iCloud backup exclusion and complete-until-auth protection.
     public func checkHardeningStatus() -> Bool {
         let url = libraryDirectoryURL

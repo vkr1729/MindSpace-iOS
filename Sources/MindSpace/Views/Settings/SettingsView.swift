@@ -12,6 +12,7 @@ public struct SettingsView: View {
     @Query private var favorites: [FavoriteItem]
     @Query(sort: \PlaybackResume.updatedAt, order: .reverse) private var resumes: [PlaybackResume]
     @Query private var settingsList: [UserSettings]
+    @ObservedObject private var syncService = GitHubSyncService.shared
     
     @State private var exportURL: URL?
     @State private var isShowingShareSheet = false
@@ -24,6 +25,13 @@ public struct SettingsView: View {
     @State private var verificationReport: LibraryVerificationReport?
     @State private var reminderDate: Date = Date()
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
+    
+    // GitHub Sync State
+    @State private var githubRepoInput: String = ""
+    @State private var githubPATInput: String = ""
+    @State private var isPATVisible: Bool = false
+    @State private var isTestingConnection: Bool = false
+    @State private var connectionTestResult: (success: Bool, message: String)?
     
     public init() {}
     
@@ -257,6 +265,237 @@ public struct SettingsView: View {
                         .padding(.horizontal, 20)
                     }
                     
+                    // MARK: - Private GitHub Content Sync
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Private GitHub Content Sync")
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(CosmosTheme.textSecondary)
+                            .padding(.horizontal, 20)
+                        
+                        CosmicCard(padding: 16) {
+                            VStack(alignment: .leading, spacing: 14) {
+                                Text("Download and sync offline meditation courses directly from your private GitHub repository.")
+                                    .font(.system(size: 13, weight: .regular, design: .rounded))
+                                    .foregroundColor(CosmosTheme.textSecondary)
+                                
+                                // Repository Input
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("GitHub Repository (owner/repo)")
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .foregroundColor(CosmosTheme.textPrimary)
+                                    
+                                    HStack {
+                                        Image(systemName: "folder.badge.gearshape")
+                                            .foregroundColor(CosmosTheme.moonLavender)
+                                        TextField("e.g. vkr1729/MindSpace-Content", text: $githubRepoInput)
+                                            .font(.system(size: 14, design: .monospaced))
+                                            .foregroundColor(CosmosTheme.textPrimary)
+                                            .autocorrectionDisabled()
+                                            .textInputAutocapitalization(.never)
+                                    }
+                                    .padding(10)
+                                    .background(CosmosTheme.spacePill)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                                }
+                                
+                                // PAT Token Input
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("Personal Access Token (PAT)")
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .foregroundColor(CosmosTheme.textPrimary)
+                                    
+                                    HStack {
+                                        Image(systemName: "key.fill")
+                                            .foregroundColor(CosmosTheme.starlightGold)
+                                        
+                                        if isPATVisible {
+                                            TextField("ghp_... or github_pat_...", text: $githubPATInput)
+                                                .font(.system(size: 14, design: .monospaced))
+                                                .foregroundColor(CosmosTheme.textPrimary)
+                                                .autocorrectionDisabled()
+                                                .textInputAutocapitalization(.never)
+                                        } else {
+                                            SecureField("ghp_... or github_pat_...", text: $githubPATInput)
+                                                .font(.system(size: 14, design: .monospaced))
+                                                .foregroundColor(CosmosTheme.textPrimary)
+                                                .autocorrectionDisabled()
+                                                .textInputAutocapitalization(.never)
+                                        }
+                                        
+                                        Button(action: { isPATVisible.toggle() }) {
+                                            Image(systemName: isPATVisible ? "eye.slash" : "eye")
+                                                .foregroundColor(CosmosTheme.textSecondary)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    .padding(10)
+                                    .background(CosmosTheme.spacePill)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                                }
+                                
+                                // Save & Test Connection Button
+                                Button(action: {
+                                    HapticService.shared.medium()
+                                    syncService.savedRepo = githubRepoInput
+                                    syncService.savedPAT = githubPATInput
+                                    isTestingConnection = true
+                                    connectionTestResult = nil
+                                    Task {
+                                        let res = await syncService.testConnection()
+                                        await MainActor.run {
+                                            self.isTestingConnection = false
+                                            self.connectionTestResult = res
+                                        }
+                                    }
+                                }) {
+                                    HStack(spacing: 6) {
+                                        if isTestingConnection {
+                                            ProgressView().tint(.white).scaleEffect(0.8)
+                                            Text("Verifying Credentials...")
+                                        } else {
+                                            Image(systemName: "externaldrive.badge.checkmark")
+                                            Text("Save & Test Connection")
+                                        }
+                                    }
+                                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .background(CosmosTheme.cosmicPurple)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                }
+                                .buttonStyle(.cosmicPressable)
+                                .disabled(isTestingConnection || syncService.isSyncing)
+                                
+                                // Connection Result Alert/Banner
+                                if let result = connectionTestResult {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: result.success ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                                            .foregroundColor(result.success ? CosmosTheme.auroraTeal : CosmosTheme.solarCoral)
+                                        Text(result.message)
+                                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                                            .foregroundColor(result.success ? CosmosTheme.auroraTeal : CosmosTheme.solarCoral)
+                                    }
+                                    .padding(10)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(CosmosTheme.spacePill)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                }
+                                
+                                Divider().background(CosmosTheme.spaceCardBorder)
+                                
+                                // Content Download Actions
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Text("Content Download Actions")
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .foregroundColor(CosmosTheme.textPrimary)
+                                    
+                                    HStack(spacing: 10) {
+                                        // Smart Sync Button
+                                        Button(action: {
+                                            HapticService.shared.medium()
+                                            let settings = getOrCreateSettings()
+                                            syncService.smartSync(goals: settings.selectedGoals)
+                                        }) {
+                                            VStack(spacing: 4) {
+                                                HStack(spacing: 6) {
+                                                    Image(systemName: "sparkles")
+                                                    Text("Smart Sync")
+                                                }
+                                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                                .foregroundColor(CosmosTheme.starlightGold)
+                                                
+                                                Text("Goal packs (~300 MB)")
+                                                    .font(.system(size: 10, design: .rounded))
+                                                    .foregroundColor(CosmosTheme.textSecondary)
+                                            }
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 10)
+                                            .background(CosmosTheme.spacePill)
+                                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(CosmosTheme.starlightGold.opacity(0.4), lineWidth: 1))
+                                        }
+                                        .buttonStyle(.cosmicPressable)
+                                        .disabled(syncService.isSyncing || !syncService.isConfigured)
+                                        
+                                        // Download All Button
+                                        Button(action: {
+                                            HapticService.shared.medium()
+                                            syncService.downloadAll()
+                                        }) {
+                                            VStack(spacing: 4) {
+                                                HStack(spacing: 6) {
+                                                    Image(systemName: "arrow.down.to.line.circle.fill")
+                                                    Text("Download All")
+                                                }
+                                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                                .foregroundColor(CosmosTheme.auroraTeal)
+                                                
+                                                Text("Full library (15 GB)")
+                                                    .font(.system(size: 10, design: .rounded))
+                                                    .foregroundColor(CosmosTheme.textSecondary)
+                                            }
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 10)
+                                            .background(CosmosTheme.spacePill)
+                                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(CosmosTheme.auroraTeal.opacity(0.4), lineWidth: 1))
+                                        }
+                                        .buttonStyle(.cosmicPressable)
+                                        .disabled(syncService.isSyncing || !syncService.isConfigured)
+                                    }
+                                }
+                                
+                                // Active Sync Progress Banner
+                                if syncService.isSyncing {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        HStack {
+                                            Image(systemName: "arrow.triangle.2.circlepath")
+                                                .foregroundColor(CosmosTheme.auroraTeal)
+                                            Text(syncService.currentTaskTitle)
+                                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                                .foregroundColor(CosmosTheme.textPrimary)
+                                            Spacer()
+                                            Text("\(syncService.completedTracks)/\(syncService.totalTracks)")
+                                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                                                .foregroundColor(CosmosTheme.starlightGold)
+                                        }
+                                        
+                                        ProgressView(value: syncService.progressFraction)
+                                            .tint(CosmosTheme.auroraTeal)
+                                        
+                                        HStack {
+                                            Text("\(Int(syncService.progressFraction * 100))% complete")
+                                                .font(.system(size: 11, design: .rounded))
+                                                .foregroundColor(CosmosTheme.textSecondary)
+                                            Spacer()
+                                            Button("Cancel") {
+                                                syncService.cancelSync()
+                                            }
+                                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                            .foregroundColor(CosmosTheme.solarCoral)
+                                        }
+                                    }
+                                    .padding(12)
+                                    .background(CosmosTheme.spacePill)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(CosmosTheme.auroraTeal.opacity(0.4), lineWidth: 1))
+                                } else if let successMsg = syncService.lastSuccessMessage {
+                                    Text(successMsg)
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .foregroundColor(CosmosTheme.auroraTeal)
+                                } else if let errorMsg = syncService.lastErrorMessage {
+                                    Text(errorMsg)
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .foregroundColor(CosmosTheme.solarCoral)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                    }
+                    
                     // MARK: - Progress Portability & Backup
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Progress Backup & Portability")
@@ -471,6 +710,8 @@ public struct SettingsView: View {
             _ = getOrCreateSettings()
             syncReminderDateFromSettings()
             checkNotificationAuth()
+            githubRepoInput = syncService.savedRepo
+            githubPATInput = syncService.savedPAT
         }
         #if os(iOS)
         .sheet(isPresented: $isShowingShareSheet) {

@@ -21,6 +21,11 @@ final class ZeroNetworkTests: XCTestCase {
         
         for case let fileURL as URL in enumerator {
             if fileURL.pathExtension == "swift" {
+                // GitHubSyncService is the dedicated authenticated sync manager
+                if fileURL.lastPathComponent == "GitHubSyncService.swift" {
+                    continue
+                }
+                
                 let content = try String(contentsOf: fileURL, encoding: .utf8)
                 for symbol in forbiddenSymbols {
                     if content.contains(symbol) {

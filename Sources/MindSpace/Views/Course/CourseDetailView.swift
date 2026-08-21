@@ -7,6 +7,7 @@ public struct CourseDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @ObservedObject private var playbackEngine = PlaybackEngine.shared
+    @ObservedObject private var syncService = GitHubSyncService.shared
     
     public let course: CatalogCourse
     
@@ -14,6 +15,9 @@ public struct CourseDetailView: View {
     @Query private var favorites: [FavoriteItem]
     
     @State private var isShowingBridgeSheet: Bool = false
+    @State private var isShowingDownloadAlert: Bool = false
+    @State private var downloadAlertMessage: String = ""
+
     
     public init(course: CatalogCourse) {
         self.course = course
@@ -191,6 +195,91 @@ public struct CourseDetailView: View {
                     .cosmicHeroStyle(cornerRadius: 22, glowColor: ambientColor, padding: 18)
                     .padding(.horizontal, 20)
                     
+                    // MARK: - On-Demand Course Download Banner (if not downloaded)
+                    if !LibraryPathResolver.shared.isCourseAvailable(course: course) {
+                        VStack(spacing: 10) {
+                            if syncService.isSyncing && syncService.activeCourseId == course.id {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack {
+                                        Image(systemName: "arrow.down.circle.fill")
+                                            .foregroundColor(CosmosTheme.auroraTeal)
+                                        Text("Downloading \(course.name)...")
+                                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                            .foregroundColor(CosmosTheme.textPrimary)
+                                        Spacer()
+                                        Text("\(syncService.completedTracks)/\(syncService.totalTracks)")
+                                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                                            .foregroundColor(CosmosTheme.starlightGold)
+                                    }
+                                    
+                                    ProgressView(value: syncService.progressFraction)
+                                        .tint(CosmosTheme.auroraTeal)
+                                    
+                                    HStack {
+                                        Text("\(Int(syncService.progressFraction * 100))% complete")
+                                            .font(.system(size: 11, design: .rounded))
+                                            .foregroundColor(CosmosTheme.textSecondary)
+                                        Spacer()
+                                        Button("Cancel") {
+                                            syncService.cancelSync()
+                                        }
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .foregroundColor(CosmosTheme.solarCoral)
+                                    }
+                                }
+                                .padding(14)
+                                .cosmicCardStyle(cornerRadius: 16, borderColor: CosmosTheme.auroraTeal.opacity(0.4), padding: 0)
+                            } else {
+                                let totalBytes = LibraryPathResolver.shared.courseTotalSizeBytes(course: course)
+                                let formattedMB = String(format: "%.0f MB", Double(totalBytes) / (1024 * 1024))
+                                
+                                Button(action: {
+                                    HapticService.shared.medium()
+                                    if !syncService.isConfigured {
+                                        downloadAlertMessage = "GitHub content repository and Personal Access Token (PAT) must be configured in Settings before downloading."
+                                        isShowingDownloadAlert = true
+                                    } else {
+                                        syncService.downloadCourse(course: course)
+                                    }
+                                }) {
+                                    HStack(spacing: 12) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(CosmosTheme.auroraTeal.opacity(0.18))
+                                                .frame(width: 38, height: 38)
+                                            Image(systemName: "icloud.and.arrow.down.fill")
+                                                .font(.system(size: 17))
+                                                .foregroundColor(CosmosTheme.auroraTeal)
+                                        }
+                                        
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("Download Course for Offline Play")
+                                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                                .foregroundColor(CosmosTheme.textPrimary)
+                                            Text("\(course.sessions.count) sessions • \(formattedMB)")
+                                                .font(.system(size: 12, weight: .regular, design: .rounded))
+                                                .foregroundColor(CosmosTheme.textSecondary)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        Text("Download")
+                                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 7)
+                                            .background(CosmosTheme.auroraTeal)
+                                            .clipShape(Capsule())
+                                    }
+                                    .padding(12)
+                                }
+                                .buttonStyle(.cosmicPressable)
+                                .cosmicCardStyle(cornerRadius: 16, borderColor: CosmosTheme.auroraTeal.opacity(0.3), padding: 0)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                    }
+                    
                     // MARK: - Interactive Living Constellation Path
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
@@ -347,6 +436,18 @@ public struct CourseDetailView: View {
         .sheet(isPresented: $isShowingBridgeSheet) {
             bridgeReflectionSheet
         }
+        .alert("MindSpace Offline Content", isPresented: $isShowingDownloadAlert) {
+            if !syncService.isConfigured {
+                Button("OK", role: .cancel) {}
+            } else {
+                Button("Download Now") {
+                    syncService.downloadCourse(course: course)
+                }
+                Button("Cancel", role: .cancel) {}
+            }
+        } message: {
+            Text(downloadAlertMessage)
+        }
     }
     
     private var bridgeReflectionSheet: some View {
@@ -406,6 +507,18 @@ public struct CourseDetailView: View {
     }
     
     private func playSession(_ session: CatalogSession) {
+        if !LibraryPathResolver.shared.isFileAvailable(relativePath: session.relativePath) {
+            HapticService.shared.warning()
+            if !syncService.isConfigured {
+                downloadAlertMessage = "This session '\(session.title)' is not downloaded yet. Please configure your GitHub PAT in Settings to enable offline syncing."
+                isShowingDownloadAlert = true
+            } else {
+                downloadAlertMessage = "This session '\(session.title)' is not downloaded yet. Would you like to download \(course.name) now?"
+                isShowingDownloadAlert = true
+            }
+            return
+        }
+        
         let videoAttachment = session.videoAttachments?.first
         let track = PlayableTrack(
             id: session.id,
@@ -423,6 +536,18 @@ public struct CourseDetailView: View {
     }
     
     private func playIntroVideo(_ intro: VideoAttachment) {
+        if !LibraryPathResolver.shared.isFileAvailable(relativePath: intro.relativePath) {
+            HapticService.shared.warning()
+            if !syncService.isConfigured {
+                downloadAlertMessage = "Intro video is not downloaded yet. Please configure your GitHub PAT in Settings."
+                isShowingDownloadAlert = true
+            } else {
+                downloadAlertMessage = "Intro video is not downloaded yet. Would you like to download \(course.name) now?"
+                isShowingDownloadAlert = true
+            }
+            return
+        }
+        
         let track = PlayableTrack(
             id: intro.id,
             title: intro.title,
@@ -436,6 +561,7 @@ public struct CourseDetailView: View {
         playbackEngine.loadAndPlay(track: track)
         playbackEngine.isFullPlayerPresented = true
     }
+
     
     private func toggleCourseFavorite() {
         if let existing = favorites.first(where: { $0.sessionStableId == course.id }) {

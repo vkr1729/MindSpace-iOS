@@ -3,6 +3,7 @@ import SwiftData
 
 public enum LibraryFilter: String, CaseIterable, Identifiable {
     case all = "All"
+    case available = "Available"
     case courses = "Courses"
     case singles = "Singles"
     case sos = "SOS"
@@ -245,7 +246,7 @@ public struct LibraryView: View {
     private var categoryHierarchyView: some View {
         VStack(alignment: .leading, spacing: 20) {
             // PACKS / COURSES SECTION
-            if selectedFilter == .all || selectedFilter == .courses || selectedFilter == .work || selectedFilter == .sport {
+            if selectedFilter == .all || selectedFilter == .available || selectedFilter == .courses || selectedFilter == .work || selectedFilter == .sport {
                 if let categories = catalogService.manifest?.categories {
                     let filteredCategories = categories.filter { cat in
                         if selectedFilter == .work { return cat.name.localizedCaseInsensitiveContains("work") }
@@ -253,43 +254,50 @@ public struct LibraryView: View {
                         return true
                     }
                     
-                    VStack(alignment: .leading, spacing: 14) {
-                        Text("Course Packs (\(filteredCategories.count) Categories)")
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
-                            .foregroundColor(CosmosTheme.textPrimary)
-                            .padding(.horizontal, 20)
-                        
-                        ForEach(filteredCategories) { category in
-                            VStack(alignment: .leading, spacing: 10) {
-                                HStack {
-                                    Text(category.name)
-                                        .font(.system(size: 15, weight: .bold, design: .rounded))
-                                        .foregroundColor(CosmosTheme.moonLavender)
-                                    Spacer()
-                                    Text("\(category.courses.count) courses")
-                                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                                        .foregroundColor(CosmosTheme.textSecondary)
-                                }
+                    let categoriesWithMatches = filteredCategories.filter { cat in
+                        cat.courses.contains { matchesFilters(course: $0) }
+                    }
+                    
+                    if !categoriesWithMatches.isEmpty {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text("Course Packs (\(categoriesWithMatches.count) Categories)")
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .foregroundColor(CosmosTheme.textPrimary)
                                 .padding(.horizontal, 20)
-                                
-                                ForEach(category.courses) { course in
-                                    if matchesFilters(course: course) {
-                                        NavigationLink(destination: CourseDetailView(course: course)) {
-                                            courseRow(course: course, category: category)
+                            
+                            ForEach(categoriesWithMatches) { category in
+                                let matchingCourses = category.courses.filter { matchesFilters(course: $0) }
+                                if !matchingCourses.isEmpty {
+                                    VStack(alignment: .leading, spacing: 10) {
+                                        HStack {
+                                            Text(category.name)
+                                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                                                .foregroundColor(CosmosTheme.moonLavender)
+                                            Spacer()
+                                            Text("\(matchingCourses.count) courses")
+                                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                                .foregroundColor(CosmosTheme.textSecondary)
                                         }
-                                        .buttonStyle(.plain)
                                         .padding(.horizontal, 20)
+                                        
+                                        ForEach(matchingCourses) { course in
+                                            NavigationLink(destination: CourseDetailView(course: course)) {
+                                                courseRow(course: course, category: category)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .padding(.horizontal, 20)
+                                        }
                                     }
+                                    .padding(.bottom, 6)
                                 }
                             }
-                            .padding(.bottom, 6)
                         }
                     }
                 }
             }
             
             // SINGLES SECTION
-            if selectedFilter == .all || selectedFilter == .singles || selectedFilter == .sos || selectedFilter == .sleep || selectedFilter == .work || selectedFilter == .sport {
+            if selectedFilter == .all || selectedFilter == .available || selectedFilter == .singles || selectedFilter == .sos || selectedFilter == .sleep || selectedFilter == .work || selectedFilter == .sport {
                 if let singlesCats = catalogService.manifest?.singlesCategories {
                     let filteredSingles = singlesCats.filter { cat in
                         if selectedFilter == .sos { return cat.name == "SOS" || cat.name.contains("Anxious") }
@@ -299,32 +307,38 @@ public struct LibraryView: View {
                         return true
                     }
                     
-                    VStack(alignment: .leading, spacing: 14) {
-                        Text("Singles (\(filteredSingles.count) Categories)")
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
-                            .foregroundColor(CosmosTheme.textPrimary)
-                            .padding(.horizontal, 20)
-                        
-                        ForEach(filteredSingles) { cat in
-                            let matchingSessions = cat.sessions.filter { matchesFilters(session: $0) }
-                            if !matchingSessions.isEmpty {
-                                NavigationLink(destination: SinglesListView(category: cat, onSelectSession: { single in
-                                    HapticService.shared.medium()
-                                    let track = PlayableTrack(
-                                        id: single.id,
-                                        title: single.title,
-                                        courseName: cat.name,
-                                        relativePath: single.relativePath,
-                                        duration: single.duration,
-                                        contentType: cat.name.lowercased().contains("sleep") ? "sleep" : "meditation"
-                                    )
-                                    playbackEngine.loadAndPlay(track: track)
-                                    playbackEngine.isFullPlayerPresented = true
-                                })) {
-                                    singlesCategoryRow(category: cat, count: matchingSessions.count)
-                                }
-                                .buttonStyle(.plain)
+                    let categoriesWithMatches = filteredSingles.filter { cat in
+                        cat.sessions.contains { matchesFilters(session: $0) }
+                    }
+                    
+                    if !categoriesWithMatches.isEmpty {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text("Singles (\(categoriesWithMatches.count) Categories)")
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .foregroundColor(CosmosTheme.textPrimary)
                                 .padding(.horizontal, 20)
+                            
+                            ForEach(categoriesWithMatches) { cat in
+                                let matchingSessions = cat.sessions.filter { matchesFilters(session: $0) }
+                                if !matchingSessions.isEmpty {
+                                    NavigationLink(destination: SinglesListView(category: cat, onSelectSession: { single in
+                                        HapticService.shared.medium()
+                                        let track = PlayableTrack(
+                                            id: single.id,
+                                            title: single.title,
+                                            courseName: cat.name,
+                                            relativePath: single.relativePath,
+                                            duration: single.duration,
+                                            contentType: cat.name.lowercased().contains("sleep") ? "sleep" : "meditation"
+                                        )
+                                        playbackEngine.loadAndPlay(track: track)
+                                        playbackEngine.isFullPlayerPresented = true
+                                    })) {
+                                        singlesCategoryRow(category: cat, count: matchingSessions.count)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(.horizontal, 20)
+                                }
                             }
                         }
                     }
@@ -595,6 +609,9 @@ public struct LibraryView: View {
     }
     
     private func matchesFilters(course: CatalogCourse) -> Bool {
+        if selectedFilter == .available && !LibraryPathResolver.shared.isCourseAvailable(course: course) {
+            return false
+        }
         if selectedMedia == .video && course.introVideo == nil && !course.sessions.contains(where: { !($0.videoAttachments ?? []).isEmpty }) {
             return false
         }
@@ -611,6 +628,9 @@ public struct LibraryView: View {
     }
     
     private func matchesFilters(session: SingleSession) -> Bool {
+        if selectedFilter == .available && !LibraryPathResolver.shared.isFileAvailable(relativePath: session.relativePath) {
+            return false
+        }
         if !selectedDuration.matches(seconds: session.duration) {
             return false
         }
