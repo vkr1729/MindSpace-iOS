@@ -45,8 +45,8 @@ final class GitHubSyncAndAvailabilityTests: XCTestCase {
         let session1 = CatalogSession(
             id: "test_s1",
             title: "Day 01",
-            relativePath: "NonExistent/Day01.mp3",
             dayNumber: 1,
+            relativePath: "NonExistent/Day01.mp3",
             duration: 600,
             sizeBytes: 1024,
             sha256: "dummy_sha"
