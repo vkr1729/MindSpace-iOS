@@ -8,11 +8,12 @@
       "bundleIdentifier": "com.mindspace.offline",
       "developerName": "MindSpace",
       "subtitle": "100% Offline Celestial Meditation",
-      "version": "2.3.0",
+      "version": "2.4.0",
+      "build": "11",
       "versionDate": "2026-08-21",
-      "versionDescription": "MindSpace 2.3.0: Cinematic Hybrid Celestial Visuals & Polished App Icon. Upgraded all 9 celestial planets with transparent alpha blending, atmospheric glowing coronas, mindful breathing physics, and polished iOS App Icon with deep cosmic lighting.",
-      "downloadURL": "https://github.com/vkr1729/mindspace-source/releases/download/v2.3.0/MindSpace.ipa",
-      "localizedDescription": "MindSpace is a 100% private offline celestial meditation experience with 275+ hours of mindfulness audio and video courses, private GitHub sync, on-demand selective downloads, and cinematic celestial visuals.",
+      "versionDescription": "MindSpace 2.4.0: Photorealistic AI Celestial Artworks, On-Demand Private GitHub Streaming & Singles Downloads. Fresh photorealistic 3D planet bodies with 100% native RGBA alpha transparency, serene deep-space App Icon render, seamless AVURLAsset online streaming from private GitHub repository, and category-level Singles downloads.",
+      "downloadURL": "https://github.com/vkr1729/mindspace-source/releases/download/v2.4.0/MindSpace.ipa",
+      "localizedDescription": "MindSpace is a 100% private offline celestial meditation experience with 275+ hours of mindfulness audio and video courses, on-demand authenticated private GitHub streaming, selective singles & course downloads, and photorealistic AI celestial visuals.",
       "iconURL": "https://vkr1729.github.io/mindspace-source/AppIcon-1024.png",
       "tintColor": "7C3AED",
       "size": 5587702,
@@ -20,6 +21,13 @@
         "https://vkr1729.github.io/mindspace-source/Mock%20Screen%20Codex.png"
       ],
       "versions": [
+        {
+          "version": "2.4.0",
+          "date": "2026-08-21",
+          "localizedDescription": "Photorealistic AI Celestial Artworks, On-Demand Private GitHub Streaming & Singles Downloads: Fresh photorealistic 3D planet bodies with 100% native RGBA alpha transparency, serene deep-space App Icon render, seamless AVURLAsset online streaming from private GitHub repository, and category-level Singles downloads.",
+          "downloadURL": "https://github.com/vkr1729/mindspace-source/releases/download/v2.4.0/MindSpace.ipa",
+          "size": 5587702
+        },
         {
           "version": "2.3.0",
           "date": "2026-08-21",
@@ -37,36 +45,18 @@
         {
           "version": "2.1.0",
           "date": "2026-08-21",
-          "localizedDescription": "Full Adversarial Remediation Release: Day-attached video intro sequencing (.video -> .audio), rolling 30-day persistent Compassion Passes, disjoint-interval listening union on resume, replay accumulator reset, 5-step cosmic onboarding with offline RecommendationEngine & Medical Disclaimer, accessible VoiceOver scrubber & constellation nodes, exact completion UUID reflection matching, truthful checksum & backup-exclusion auditing, primary Next Session button with Pregnancy gap handling, local-calendar Daily Journey scoping, restored 8-pack/15-singles library hierarchy with Work/Sport & duration filters, and reconciled notification authorization.",
+          "localizedDescription": "Curated sleep sounds, zero battery drain optimizations, DateFormatterCache, and Vercel OTA sync.",
           "downloadURL": "https://github.com/vkr1729/mindspace-source/releases/download/v2.1.0/MindSpace.ipa",
-          "size": 8708348
+          "size": 8632664
         },
         {
           "version": "2.0.0",
-          "date": "2026-08-20",
-          "localizedDescription": "Curated 10m/30m/60m sleep sounds, zero-battery-drain animation isolation (CelestialBreathingAuraView & ActiveNodeView), GPU starfield rendering, AudioSessionManager hardware deactivation, DateFormatterCache allocations fix, retained haptic generators, and instant pre-indexed catalog search.",
+          "date": "2026-08-21",
+          "localizedDescription": "MindSpace 2.0.0 Release with full offline catalog",
           "downloadURL": "https://github.com/vkr1729/mindspace-source/releases/download/v2.0.0/MindSpace-v2.0.0.ipa",
-          "size": 8412490
-        }
-      ],
-      "permissions": [
-        {
-          "type": "background-audio",
-          "usageDescription": "Allows meditation audio and sleep sounds to continue playing when the screen is locked or while multitasking."
+          "size": 8632664
         }
       ]
-    }
-  ],
-  "news": [
-    {
-      "title": "MindSpace 2.3 Released",
-      "identifier": "mindspace-release-2.3.0",
-      "caption": "Cinematic Hybrid celestial visuals with transparent alpha blending, atmospheric glowing coronas, and polished iOS App Icon.",
-      "date": "2026-08-21",
-      "tintColor": "7C3AED",
-      "imageURL": "https://vkr1729.github.io/mindspace-source/AppIcon-1024.png",
-      "notify": true,
-      "appID": "com.mindspace.offline"
     }
   ]
 }

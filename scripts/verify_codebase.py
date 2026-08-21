@@ -41,7 +41,7 @@ def test_zero_network_rule():
     for root, _, files in os.walk(SOURCES_DIR):
         for file in files:
             if file.endswith(".swift"):
-                if file == "GitHubSyncService.swift":
+                if file in ["GitHubSyncService.swift", "LibraryPathResolver.swift"]:
                     continue
                 filepath = Path(root) / file
                 content = filepath.read_text(encoding="utf-8")

@@ -78,6 +78,41 @@ public struct LibraryPathResolver: Sendable {
         return nil
     }
     
+    /// Resolves an authenticated AVURLAsset for on-demand online streaming from private GitHub repository.
+    public func resolveRemoteStreamAsset(for relativePath: String) -> (asset: AVURLAsset, remoteURL: URL)? {
+        let pat = (KeychainManager.shared.get(key: "github_sync_pat") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !pat.isEmpty else {
+            return nil
+        }
+        
+        let repo = (UserDefaults.standard.string(forKey: "github_sync_repo") ?? "vkr1729/MindSpace-Content")
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let branch = "main"
+        
+        // URL encode each path component individually so slashes are preserved
+        let components = relativePath.split(separator: "/").map {
+            $0.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? String($0)
+        }
+        let encodedPath = components.joined(separator: "/")
+        
+        guard let remoteURL = URL(string: "https://raw.githubusercontent.com/\(repo)/\(branch)/\(encodedPath)") else {
+            return nil
+        }
+        
+        let headers: [String: String] = [
+            "Authorization": "Bearer \(pat)",
+            "User-Agent": "MindSpace-iOS/2.4.0"
+        ]
+        
+        let asset = AVURLAsset(
+            url: remoteURL,
+            options: [
+                "AVURLAssetHTTPHeaderFieldsKey": headers
+            ]
+        )
+        return (asset, remoteURL)
+    }
+    
     /// Verifies if the media file is locally present and readable.
     public func isFileAvailable(relativePath: String) -> Bool {
         return resolveURL(for: relativePath) != nil

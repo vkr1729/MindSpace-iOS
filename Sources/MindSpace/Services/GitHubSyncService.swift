@@ -259,6 +259,55 @@ public final class GitHubSyncService: ObservableObject {
         )
     }
     
+    // MARK: - Download Singles Category
+    
+    public func downloadSinglesCategory(category: SinglesCategory) {
+        guard !isSyncing else { return }
+        guard isConfigured else {
+            self.lastErrorMessage = "GitHub repository and PAT token are required. Please configure in Settings."
+            return
+        }
+        
+        var missingItems: [(relativePath: String, sizeBytes: Int64, sha256: String, title: String)] = []
+        for session in category.sessions {
+            if !LibraryPathResolver.shared.isFileAvailable(relativePath: session.relativePath) {
+                missingItems.append((session.relativePath, session.sizeBytes, session.sha256, session.title))
+            }
+        }
+        
+        guard !missingItems.isEmpty else {
+            self.lastSuccessMessage = "\(category.name) is already completely downloaded."
+            return
+        }
+        
+        self.activeCourseId = category.id
+        startDownloadQueue(
+            title: "Downloading \(category.name)",
+            items: missingItems
+        )
+    }
+    
+    // MARK: - Download Single Session
+    
+    public func downloadSingleSession(session: SingleSession) {
+        guard !isSyncing else { return }
+        guard isConfigured else {
+            self.lastErrorMessage = "GitHub repository and PAT token are required. Please configure in Settings."
+            return
+        }
+        
+        if LibraryPathResolver.shared.isFileAvailable(relativePath: session.relativePath) {
+            self.lastSuccessMessage = "\(session.title) is already downloaded."
+            return
+        }
+        
+        self.activeCourseId = session.id
+        startDownloadQueue(
+            title: "Downloading \(session.title)",
+            items: [(session.relativePath, session.sizeBytes, session.sha256, session.title)]
+        )
+    }
+    
     // MARK: - Download Queue Engine
     
     private func startDownloadQueue(

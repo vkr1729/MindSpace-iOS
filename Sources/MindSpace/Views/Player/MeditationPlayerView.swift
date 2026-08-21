@@ -93,11 +93,11 @@ public struct MeditationPlayerView: View {
                         
                         HStack(spacing: 5) {
                             Circle()
-                                .fill(CosmosTheme.auroraTeal)
+                                .fill(playbackEngine.isStreaming ? CosmosTheme.starlightGold : CosmosTheme.auroraTeal)
                                 .frame(width: 6, height: 6)
-                            Text(isVideoPhase ? "Video Lesson • 100% Offline" : "100% Offline")
+                            Text(playbackEngine.isStreaming ? "✦ Cosmic Stream" : (isVideoPhase ? "Video Lesson • 100% Offline" : "100% Offline"))
                                 .font(.system(size: 12, weight: .medium, design: .rounded))
-                                .foregroundColor(CosmosTheme.textSecondary)
+                                .foregroundColor(playbackEngine.isStreaming ? CosmosTheme.starlightGold : CosmosTheme.textSecondary)
                         }
                     }
                     .opacity(isZenMode ? 0.2 : 1.0)

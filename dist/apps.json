@@ -8,7 +8,7 @@
       "bundleIdentifier": "com.mindspace.offline",
       "developerName": "MindSpace",
       "subtitle": "100% Offline Celestial Meditation",
-      "version": "2.3.0",
+      "version": "2.4.0",
       "versionDate": "2026-08-21",
       "versionDescription": "MindSpace 2.3.0: Cinematic Hybrid Celestial Visuals & Polished App Icon. Upgraded all 9 celestial planets with transparent alpha blending, atmospheric glowing coronas, mindful breathing physics, and polished iOS App Icon with deep cosmic lighting.",
       "downloadURL": "https://github.com/vkr1729/mindspace-source/releases/download/v2.3.0/MindSpace.ipa",
@@ -54,7 +54,8 @@
           "type": "background-audio",
           "usageDescription": "Allows meditation audio and sleep sounds to continue playing when the screen is locked or while multitasking."
         }
-      ]
+      ],
+      "build": "11"
     }
   ],
   "news": [

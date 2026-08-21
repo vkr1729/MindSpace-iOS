@@ -104,6 +104,7 @@ public final class PlaybackEngine: ObservableObject {
     @Published public var hasCompletedCurrentSession: Bool = false
     @Published public var playbackError: String?
     @Published public var lastCompletionInfo: PlaybackCompletionInfo?
+    @Published public private(set) var isStreaming: Bool = false
     
     // MARK: - Internal AVFoundation & Components
     public var player: AVPlayer?
@@ -163,31 +164,41 @@ public final class PlaybackEngine: ObservableObject {
         
         // 4. Check if there is an attached day-video to play first
         if let videoRel = track.videoAttachmentPath,
-           !startInAudioPhase && startPosition == 0.0,
-           let videoURL = LibraryPathResolver.shared.resolveURL(for: videoRel) {
-            // Play attached day video first
-            self.currentPhase = .video
-            self.duration = track.videoDuration ?? 0.0
-            self.currentTime = 0.0
-            self.lastSavedResumePosition = 0.0
-            self.state = .loading
-            
-            let playerItem = AVPlayerItem(url: videoURL)
-            let avPlayer = AVPlayer(playerItem: playerItem)
-            avPlayer.automaticallyWaitsToMinimizeStalling = false
-            self.player = avPlayer
-            
-            setupTimeObserver()
-            setupItemObservers(for: playerItem)
-            
-            avPlayer.playImmediately(atRate: speed.rawValue)
-            self.state = .playing
-            updateNowPlayingCenter()
-            return
+           !startInAudioPhase && startPosition == 0.0 {
+            if let videoURL = LibraryPathResolver.shared.resolveURL(for: videoRel) {
+                // Play local video
+                self.isStreaming = false
+                playVideoItem(playerItem: AVPlayerItem(url: videoURL), track: track)
+                return
+            } else if let (streamAsset, _) = LibraryPathResolver.shared.resolveRemoteStreamAsset(for: videoRel) {
+                // Stream video from private GitHub
+                self.isStreaming = true
+                playVideoItem(playerItem: AVPlayerItem(asset: streamAsset), track: track)
+                return
+            }
         }
         
         // 5. Play audio session
         startAudioPhase(track: track, startPosition: startPosition, accumulatedSeconds: accumulatedListenedSeconds)
+    }
+    
+    private func playVideoItem(playerItem: AVPlayerItem, track: PlayableTrack) {
+        self.currentPhase = .video
+        self.duration = track.videoDuration ?? 0.0
+        self.currentTime = 0.0
+        self.lastSavedResumePosition = 0.0
+        self.state = .loading
+        
+        let avPlayer = AVPlayer(playerItem: playerItem)
+        avPlayer.automaticallyWaitsToMinimizeStalling = false
+        self.player = avPlayer
+        
+        setupTimeObserver()
+        setupItemObservers(for: playerItem)
+        
+        avPlayer.playImmediately(atRate: speed.rawValue)
+        self.state = .playing
+        updateNowPlayingCenter()
     }
     
     private func startAudioPhase(track: PlayableTrack, startPosition: Double, accumulatedSeconds: Double) {
@@ -200,13 +211,33 @@ public final class PlaybackEngine: ObservableObject {
         let acc = ListeningAccumulator(duration: track.duration, initialAccumulatedSeconds: accumulatedSeconds)
         self.accumulator = acc
         
-        guard let url = LibraryPathResolver.shared.resolveURL(for: track.relativePath) else {
-            self.state = .idle
-            self.playbackError = "Media file not found: \(track.title). Please rescan or transfer your library in Settings."
+        // 1. Priority 1: Check Local File (0ms latency, true offline)
+        if let localURL = LibraryPathResolver.shared.resolveURL(for: track.relativePath) {
+            self.isStreaming = false
+            let playerItem = AVPlayerItem(url: localURL)
+            setupAndStartPlayer(playerItem: playerItem, startPosition: startPosition)
             return
         }
         
-        let playerItem = AVPlayerItem(url: url)
+        // 2. Priority 2: Fallback to On-Demand Streaming from Private GitHub
+        if let (streamAsset, _) = LibraryPathResolver.shared.resolveRemoteStreamAsset(for: track.relativePath) {
+            self.isStreaming = true
+            let playerItem = AVPlayerItem(asset: streamAsset)
+            setupAndStartPlayer(playerItem: playerItem, startPosition: startPosition)
+            return
+        }
+        
+        // 3. Fallback: Not downloaded & PAT not configured
+        self.isStreaming = false
+        self.state = .idle
+        if !GitHubSyncService.shared.isConfigured {
+            self.playbackError = "Track '\(track.title)' is not downloaded. Configure GitHub Token in Settings to stream online or download for offline play."
+        } else {
+            self.playbackError = "Unable to play track '\(track.title)'. Please check your internet connection or download it for offline play."
+        }
+    }
+    
+    private func setupAndStartPlayer(playerItem: AVPlayerItem, startPosition: Double) {
         let avPlayer = AVPlayer(playerItem: playerItem)
         avPlayer.automaticallyWaitsToMinimizeStalling = false
         self.player = avPlayer
@@ -280,6 +311,7 @@ public final class PlaybackEngine: ObservableObject {
         player = nil
         state = .idle
         currentTime = 0.0
+        isStreaming = false
         if !preserveMiniPlayer {
             isMiniPlayerVisible = false
         }
