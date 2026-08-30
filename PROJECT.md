@@ -118,7 +118,7 @@ Quiet Native wins decisively. It makes Continue and playback unmistakable, avoid
 - A course row contains title, session count, progress, availability, and an optional semantic symbol. The symbol is supportive, not a hero image.
 - Availability states are explicit: Downloaded, Downloading with progress and Cancel, Stream available, Offline unavailable, and configuration error with recovery guidance.
 - The primary button has normal, pressed, disabled, and loading states. Pressed state uses small opacity/scale feedback only when Reduce Motion is off.
-- Progress uses value plus text; completion uses a checkmark and plain confirmation that the event was recorded once.
+- Progress uses value plus text; completion uses a checkmark and plain confirmation that mindful time was recorded. Duplicate protection remains behavioral rather than test-oriented user-facing copy.
 
 ### Motion and accessibility
 

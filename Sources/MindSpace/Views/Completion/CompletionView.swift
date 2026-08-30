@@ -117,7 +117,7 @@ public struct CompletionView: View {
                         .foregroundStyle(MindSpaceTheme.textPrimary)
                         .multilineTextAlignment(.center)
                     
-                    Text("\(durationMinutes) mindful \(durationMinutes == 1 ? "minute" : "minutes") recorded once")
+                    Text("\(durationMinutes) mindful \(durationMinutes == 1 ? "minute" : "minutes") recorded")
                         .font(.headline)
                         .foregroundStyle(isQualifying ? MindSpaceTheme.completion : MindSpaceTheme.secondaryAccent)
                 }
