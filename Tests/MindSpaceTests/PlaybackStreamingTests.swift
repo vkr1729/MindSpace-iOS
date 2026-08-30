@@ -15,7 +15,7 @@ final class PlaybackStreamingTests: XCTestCase {
         let expected = "Packs/1%20-%20Foundation/Basics%201/MindSpace%20-%20Basics%201%20-%20Day%2001.mp3"
         XCTAssertEqual(encodedPath, expected)
         
-        let repo = "vkr1729/MindSpace-Content"
+        let repo = "owner/private-content-repo"
         let fullURLString = "https://raw.githubusercontent.com/\(repo)/main/\(encodedPath)"
         let url = URL(string: fullURLString)
         XCTAssertNotNil(url)

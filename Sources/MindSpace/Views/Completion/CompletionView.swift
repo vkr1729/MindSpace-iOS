@@ -1,8 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// Screen 5: Elevated Completion Screen with Celebration Starburst & Tactile Reflections
-/// Reference: Mock Screen Codex.png & UI/UX Pro Max Design Intelligence
+/// Quiet confirmation that a session was recorded, with the next action clear.
 public struct CompletionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -19,8 +18,6 @@ public struct CompletionView: View {
     @Query private var settingsList: [UserSettings]
     
     @State private var selectedReflection: String?
-    @State private var starScale: CGFloat = 0.8
-    @State private var starOpacity: Double = 0.5
     
     public init(
         completionId: UUID? = nil,
@@ -73,13 +70,11 @@ public struct CompletionView: View {
     
     public var body: some View {
         ZStack {
-            CosmosTheme.spaceBackground.ignoresSafeArea()
-            StarsBackgroundView()
+            MindSpaceTheme.background.ignoresSafeArea()
             
-            // Atmospheric Celebration Glow
             RadialGradient(
                 colors: [
-                    isQualifying ? CosmosTheme.starlightGold.opacity(0.18) : CosmosTheme.cosmicPurple.opacity(0.15),
+                    isQualifying ? MindSpaceTheme.completion.opacity(0.08) : MindSpaceTheme.accent.opacity(0.06),
                     Color.clear
                 ],
                 center: .center,
@@ -87,8 +82,10 @@ public struct CompletionView: View {
                 endRadius: 280
             )
             .ignoresSafeArea()
+            .accessibilityHidden(true)
             
-            VStack(spacing: 20) {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 20) {
                 // MARK: - Header
                 HStack {
                     Spacer()
@@ -98,91 +95,81 @@ public struct CompletionView: View {
                         dismiss()
                     }) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(CosmosTheme.textPrimary)
-                            .frame(width: 38, height: 38)
-                            .background(CosmosTheme.spaceCard)
+                            .font(.body.weight(.bold))
+                            .foregroundStyle(MindSpaceTheme.textPrimary)
+                            .frame(width: 44, height: 44)
+                            .background(MindSpaceTheme.surface)
                             .clipShape(Circle())
-                            .overlay(Circle().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                            .overlay(Circle().stroke(MindSpaceTheme.divider, lineWidth: 1))
                     }
-                    .buttonStyle(.cosmicPressable)
+                    .buttonStyle(.mindSpacePressable)
+                    .accessibilityLabel("Close completion")
+                    .accessibilityIdentifier("completion.close")
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 16)
                 
                 Spacer()
                 
-                // MARK: - Celebration Title with Starlight Aura
                 VStack(spacing: 6) {
-                    Text(isQualifying ? "Orbit Continued" : "Session Recorded")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundColor(CosmosTheme.textPrimary)
+                    Text(isQualifying ? "Practice complete" : "Session recorded")
+                        .font(.largeTitle.weight(.bold))
+                        .foregroundStyle(MindSpaceTheme.textPrimary)
+                        .multilineTextAlignment(.center)
                     
-                    Text("\(durationMinutes) Mindful \(durationMinutes == 1 ? "Minute" : "Minutes") Recorded")
-                        .font(.system(size: 17, weight: .semibold, design: .rounded))
-                        .foregroundColor(isQualifying ? CosmosTheme.starlightGold : CosmosTheme.moonLavender)
+                    Text("\(durationMinutes) mindful \(durationMinutes == 1 ? "minute" : "minutes") recorded once")
+                        .font(.headline)
+                        .foregroundStyle(isQualifying ? MindSpaceTheme.completion : MindSpaceTheme.secondaryAccent)
                 }
                 
-                // MARK: - Constellation Arc Celebration Visual
                 VStack(spacing: 12) {
                     ZStack {
-                        // Pulsing outer halo
                         Circle()
-                            .fill((isQualifying ? CosmosTheme.starlightGold : CosmosTheme.cosmicPurple).opacity(0.15))
-                            .frame(width: 140, height: 140)
-                            .scaleEffect(starScale)
-                            .opacity(starOpacity)
-                        
-                        // Curved arc line
-                        Circle()
-                            .trim(from: 0.25, to: 0.75)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [CosmosTheme.cosmicPurple, CosmosTheme.starlightGold, CosmosTheme.solarCoral],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                ),
-                                style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
-                            )
-                            .frame(width: 190, height: 190)
-                            .rotationEffect(.degrees(180))
-                        
-                        // Center Sparkling Star
-                        Image(systemName: isQualifying ? "sparkle" : "leaf.fill")
-                            .font(.system(size: 42, weight: .bold))
-                            .foregroundColor(isQualifying ? CosmosTheme.starlightGold : CosmosTheme.moonLavender)
-                            .shadow(color: (isQualifying ? CosmosTheme.starlightGold : CosmosTheme.cosmicPurple).opacity(0.85), radius: 18)
+                            .fill((isQualifying ? MindSpaceTheme.completion : MindSpaceTheme.accent).opacity(0.12))
+                            .frame(width: 96, height: 96)
+
+                        Image(systemName: isQualifying ? "checkmark" : "leaf.fill")
+                            .font(.system(size: 36, weight: .semibold))
+                            .foregroundStyle(isQualifying ? MindSpaceTheme.completion : MindSpaceTheme.secondaryAccent)
                     }
                     .frame(height: 120)
+                    .accessibilityHidden(true)
                     
-                    Text(isQualifying ? "You're building something beautiful." : "Every moment of awareness counts.")
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundColor(CosmosTheme.textSecondary)
+                    Text(isQualifying ? "Your progress is up to date." : "Every moment of awareness counts.")
+                        .font(.body)
+                        .foregroundStyle(MindSpaceTheme.textSecondary)
                 }
                 .padding(.vertical, 4)
                 
                 // MARK: - Milestone Progress Card
-                CosmicCard(padding: 14) {
+                MindSpaceCard(padding: 14) {
                     HStack(spacing: 14) {
-                        CelestialPlanetView(style: isQualifying ? .goldenSun : .purpleRinged, size: 48, hasRings: !isQualifying)
+                        Image(systemName: isQualifying ? "chart.line.uptrend.xyaxis" : "leaf")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(isQualifying ? MindSpaceTheme.accent : MindSpaceTheme.secondaryAccent)
+                            .frame(width: 44, height: 44)
+                            .background((isQualifying ? MindSpaceTheme.accent : MindSpaceTheme.secondaryAccent).opacity(0.10))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .accessibilityHidden(true)
                         
                         VStack(alignment: .leading, spacing: 2) {
                             if isQualifying {
-                                Text("\(orbitStats.currentStreak) of \(orbitStats.nextMilestoneDays) Days Orbit")
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textPrimary)
+                                Text("\(orbitStats.currentStreak) of \(orbitStats.nextMilestoneDays) practice days")
+                                    .font(.headline)
+                                    .foregroundStyle(MindSpaceTheme.textPrimary)
                                 
                                 Text("Next milestone: \(orbitStats.nextMilestoneDays) days")
-                                    .font(.system(size: 13, weight: .regular, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textSecondary)
+                                    .font(.subheadline)
+                                    .foregroundStyle(MindSpaceTheme.textSecondary)
                             } else {
-                                Text("\(orbitStats.currentStreak) Days Mindful")
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textPrimary)
+                                Text("\(orbitStats.currentStreak) mindful days")
+                                    .font(.headline)
+                                    .foregroundStyle(MindSpaceTheme.textPrimary)
                                 
-                                Text("Complete full sessions to expand your Orbit")
-                                    .font(.system(size: 13, weight: .regular, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textSecondary)
+                                Text("Complete full sessions to build your practice streak")
+                                    .font(.subheadline)
+                                    .foregroundStyle(MindSpaceTheme.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                         }
                         
@@ -194,13 +181,13 @@ public struct CompletionView: View {
                 // MARK: - Emotional Reflection Selector
                 VStack(spacing: 10) {
                     Text("How are you feeling right now?")
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundColor(CosmosTheme.textSecondary)
+                        .font(.body)
+                        .foregroundStyle(MindSpaceTheme.textSecondary)
                     
                     HStack(spacing: 12) {
-                        reflectionPill(title: "✨ Lighter", tag: "lighter")
-                        reflectionPill(title: "🌱 Centered", tag: "same")
-                        reflectionPill(title: "⚓ Grounded", tag: "heavier")
+                        reflectionPill(title: "Lighter", tag: "lighter")
+                        reflectionPill(title: "Centered", tag: "same")
+                        reflectionPill(title: "Grounded", tag: "heavier")
                     }
                 }
                 .padding(.top, 4)
@@ -230,18 +217,17 @@ public struct CompletionView: View {
                         }) {
                             HStack {
                                 Text("Next session (Day \(next.session.dayNumber))")
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                                    .font(.headline)
                                 Image(systemName: "arrow.right")
-                                    .font(.system(size: 14, weight: .bold))
+                                    .font(.subheadline.weight(.bold))
+                                    .accessibilityHidden(true)
                             }
-                            .foregroundColor(CosmosTheme.textPrimary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(CosmosTheme.cosmicPurple)
+                            .foregroundStyle(MindSpaceTheme.background)
+                            .frame(maxWidth: .infinity, minHeight: 50)
+                            .background(MindSpaceTheme.accent)
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            .shadow(color: CosmosTheme.cosmicPurple.opacity(0.4), radius: 10, y: 4)
                         }
-                        .buttonStyle(.cosmicPressable)
+                        .buttonStyle(.mindSpacePrimaryPressable)
                     }
                     
                     Button(action: {
@@ -250,29 +236,26 @@ public struct CompletionView: View {
                         dismiss()
                     }) {
                         Text("Done")
-                            .font(.system(size: 16, weight: .semibold, design: .rounded))
-                            .foregroundColor(CosmosTheme.textSecondary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(CosmosTheme.spaceCard)
+                            .font(.headline)
+                            .foregroundStyle(MindSpaceTheme.textPrimary)
+                            .frame(maxWidth: .infinity, minHeight: 50)
+                            .background(MindSpaceTheme.surface)
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
+                                    .stroke(MindSpaceTheme.divider, lineWidth: 1)
                             )
                     }
-                    .buttonStyle(.cosmicPressable)
+                    .accessibilityIdentifier("completion.done")
+                    .buttonStyle(.mindSpacePressable)
                 }
                 .padding(.horizontal, 24)
-                .padding(.bottom, 24)
+                    .padding(.bottom, 24)
+                }
             }
         }
         .onAppear {
             HapticService.shared.success()
-            withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) {
-                starScale = 1.25
-                starOpacity = 0.85
-            }
         }
     }
     
@@ -294,43 +277,31 @@ public struct CompletionView: View {
         let isSel = (selectedReflection == tag)
         Button(action: {
             HapticService.shared.medium()
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                selectedReflection = tag
-            }
+            selectedReflection = tag
             saveReflection()
         }) {
             HStack(spacing: 6) {
                 Text(title)
-                    .font(.system(size: 14, weight: isSel ? .bold : .medium, design: .rounded))
-                    .foregroundColor(isSel ? CosmosTheme.spaceBackground : CosmosTheme.textPrimary)
+                    .font(.subheadline.weight(isSel ? .bold : .medium))
+                    .foregroundStyle(isSel ? MindSpaceTheme.background : MindSpaceTheme.textPrimary)
                 
                 if isSel {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(CosmosTheme.spaceBackground)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(MindSpaceTheme.background)
+                        .accessibilityHidden(true)
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(
-                isSel ?
-                LinearGradient(
-                    colors: [CosmosTheme.starlightGold, Color(hex: "#EAB308")],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ) :
-                LinearGradient(
-                    colors: [CosmosTheme.spaceCard, CosmosTheme.spaceCard],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
+            .frame(minHeight: 44)
+            .background(isSel ? MindSpaceTheme.completion : MindSpaceTheme.surface)
             .clipShape(Capsule())
             .overlay(
-                Capsule().stroke(isSel ? Color.clear : CosmosTheme.spaceCardBorder, lineWidth: 1)
+                Capsule().stroke(isSel ? Color.clear : MindSpaceTheme.divider, lineWidth: 1)
             )
-            .shadow(color: isSel ? CosmosTheme.starlightGold.opacity(0.4) : Color.clear, radius: 8, x: 0, y: 3)
         }
-        .buttonStyle(.cosmicPressable)
+        .buttonStyle(.mindSpacePressable)
+        .accessibilityLabel("Feeling \(title)")
+        .accessibilityAddTraits(isSel ? .isSelected : [])
     }
 }

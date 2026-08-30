@@ -1,24 +1,21 @@
 import SwiftUI
 
-/// Planetary category card matching Screen 2 with ambient illumination.
+/// Compact, image-free category card for scan-heavy library surfaces.
 public struct CategoryCardView: View {
     public let title: String
     public let subtitle: String
     public let sessionCountText: String
-    public let planetStyle: PlanetStyle
     public let action: (() -> Void)?
     
     public init(
         title: String,
         subtitle: String,
         sessionCountText: String,
-        planetStyle: PlanetStyle = .purpleRinged,
         action: (() -> Void)? = nil
     ) {
         self.title = title
         self.subtitle = subtitle
         self.sessionCountText = sessionCountText
-        self.planetStyle = planetStyle
         self.action = action
     }
     
@@ -30,7 +27,9 @@ public struct CategoryCardView: View {
             }) {
                 cardContent
             }
-            .buttonStyle(.cosmicPressable)
+            .buttonStyle(.mindSpacePressable)
+            .accessibilityElement(children: .combine)
+            .accessibilityHint("Opens category")
         } else {
             cardContent
         }
@@ -38,35 +37,25 @@ public struct CategoryCardView: View {
     
     private var cardContent: some View {
         HStack(spacing: 16) {
-            // Planetary Art with subtle ambient aura
-            ZStack {
-                Circle()
-                    .fill(planetStyle.primaryColor.opacity(0.18))
-                    .frame(width: 58, height: 58)
-                    .blur(radius: 6)
-                
-                CelestialPlanetView(style: planetStyle, size: 52, hasRings: planetStyle == .purpleRinged)
-                    .frame(width: 58, height: 58)
-            }
+            MindSpaceCourseBadge(name: title, size: 52)
             
             // Titles and Session Count
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundColor(CosmosTheme.textPrimary)
+                    .foregroundColor(MindSpaceTheme.textPrimary)
                 
                 Text(subtitle)
                     .font(.system(size: 13, weight: .regular, design: .rounded))
-                    .foregroundColor(CosmosTheme.textSecondary)
+                    .foregroundColor(MindSpaceTheme.textSecondary)
                     .lineLimit(1)
                 
                 HStack(spacing: 4) {
-                    Circle()
-                        .fill(planetStyle.primaryColor)
-                        .frame(width: 5, height: 5)
+                    Image(systemName: "play.circle.fill")
+                        .accessibilityHidden(true)
                     Text(sessionCountText)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundColor(planetStyle.primaryColor)
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(MindSpaceTheme.accent(for: title))
                 }
                 .padding(.top, 2)
             }
@@ -75,15 +64,15 @@ public struct CategoryCardView: View {
             
             Image(systemName: "chevron.right")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(CosmosTheme.textSecondary)
+                .foregroundColor(MindSpaceTheme.textSecondary)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .background(
             ZStack {
-                CosmosTheme.spaceCard
+                MindSpaceTheme.surface
                 LinearGradient(
-                    colors: [planetStyle.primaryColor.opacity(0.06), Color.clear],
+                    colors: [MindSpaceTheme.accent(for: title).opacity(0.06), Color.clear],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
@@ -92,8 +81,9 @@ public struct CategoryCardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
+                .stroke(MindSpaceTheme.divider, lineWidth: 1)
         )
         .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .frame(minHeight: 44)
     }
 }

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 MindSpace Comprehensive Verification Suite
-Performs static analysis, Zero-Network enforcement, syntax validation,
-sleep sound curation simulation, celestial asset alpha integrity, and version release consistency checks.
+Performs static analysis, authorized-network enforcement, syntax validation,
+sleep sound curation, Quiet Native visual invariants, and release consistency checks.
 """
 
 import os
@@ -12,7 +12,6 @@ import json
 import plistlib
 from pathlib import Path
 from PIL import Image
-import numpy as np
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 SOURCES_DIR = ROOT_DIR / "Sources"
@@ -186,25 +185,13 @@ def test_optimizations_and_date_cache():
         print("  ❌ DateFormatterCache.swift is missing!")
         return False
         
-    stars_file = SOURCES_DIR / "MindSpace" / "DesignSystem" / "StarsBackgroundView.swift"
-    stars_src = stars_file.read_text(encoding="utf-8")
-    if ".drawingGroup()" not in stars_src:
-        print("  ❌ StarsBackgroundView is missing .drawingGroup() GPU offload!")
-        return False
-        
     player_file = SOURCES_DIR / "MindSpace" / "Views" / "Player" / "MeditationPlayerView.swift"
     player_src = player_file.read_text(encoding="utf-8")
-    if "CelestialBreathingAuraView" not in player_src:
-        print("  ❌ MeditationPlayerView does not use CelestialBreathingAuraView!")
+    if "FocusBreathingView" not in player_src:
+        print("  ❌ MeditationPlayerView is missing its state-communicating focus cue!")
         return False
-    if "breathPhase" in player_src:
-        print("  ❌ MeditationPlayerView still contains breathPhase in parent view state!")
-        return False
-        
-    constellation_file = SOURCES_DIR / "MindSpace" / "Views" / "Course" / "ConstellationPathView.swift"
-    constellation_src = constellation_file.read_text(encoding="utf-8")
-    if "ActiveNodeView" not in constellation_src:
-        print("  ❌ ConstellationPathView does not use ActiveNodeView!")
+    if "accessibilityReduceMotion" not in player_src:
+        print("  ❌ MeditationPlayerView does not respect Reduce Motion!")
         return False
         
     engine_file = SOURCES_DIR / "MindSpace" / "AudioEngine" / "PlaybackEngine.swift"
@@ -222,32 +209,50 @@ def test_optimizations_and_date_cache():
     print("  ✅ PASS: All battery optimizations, animation isolations, and cache integrations verified.")
     return True
 
-def test_celestial_asset_alpha_integrity():
-    print("[5/7] Testing Celestial Asset Alpha Transparency & AppIcon...")
-    assets = [
-        'planet_foundation', 'planet_health', 'planet_happiness',
-        'planet_sleep', 'planet_work', 'planet_brave',
-        'planet_sport', 'planet_students', 'planet_pro'
+def test_quiet_native_visual_identity():
+    print("[5/7] Testing Quiet Native visual identity & AppIcon...")
+    retired_files = [
+        SOURCES_DIR / "MindSpace" / "DesignSystem" / "CelestialPlanetView.swift",
+        SOURCES_DIR / "MindSpace" / "DesignSystem" / "StarsBackgroundView.swift",
+        SOURCES_DIR / "MindSpace" / "DesignSystem" / "CosmosTheme.swift",
+        SOURCES_DIR / "MindSpace" / "Views" / "Course" / "ConstellationPathView.swift",
+        SOURCES_DIR / "MindSpace" / "Views" / "Today" / "OrbitArcGaugeView.swift",
     ]
-    
-    for name in assets:
-        p = ASSETS_DIR / f"{name}.imageset" / f"{name}.png"
-        if not p.exists():
-            print(f"  ❌ Missing asset: {p}")
-            return False
-        im = Image.open(p)
-        arr = np.array(im)
-        if arr.shape[2] != 4:
-            print(f"  ❌ Asset {name} is not RGBA!")
-            return False
-        corners = [arr[0,0,3], arr[0,-1,3], arr[-1,0,3], arr[-1,-1,3]]
-        if any(c != 0 for c in corners):
-            print(f"  ❌ Asset {name} does not have transparent corners: {corners}")
-            return False
-        if arr[256, 256, 3] != 255:
-            print(f"  ❌ Asset {name} center is not fully opaque: {arr[256,256,3]}")
-            return False
-            
+    remaining_files = [path for path in retired_files if path.exists()]
+    if remaining_files:
+        print("  ❌ Retired celestial source remains:")
+        for path in remaining_files:
+            print(f"    - {path.relative_to(ROOT_DIR)}")
+        return False
+
+    planet_assets = sorted(ASSETS_DIR.glob("planet*.imageset"))
+    if planet_assets:
+        print("  ❌ Retired planet asset sets remain:")
+        for path in planet_assets:
+            print(f"    - {path.relative_to(ROOT_DIR)}")
+        return False
+
+    theme_file = SOURCES_DIR / "MindSpace" / "DesignSystem" / "MindSpaceTheme.swift"
+    theme_src = theme_file.read_text(encoding="utf-8") if theme_file.exists() else ""
+    required_tokens = ["MindSpaceTheme", "MindSpacePrimaryButton", "MindSpaceCourseBadge", "accessibilityReduceMotion"]
+    missing_tokens = [token for token in required_tokens if token not in theme_src]
+    if missing_tokens:
+        print(f"  ❌ Quiet Native design system is incomplete: {', '.join(missing_tokens)}")
+        return False
+
+    forbidden_source_tokens = ["CelestialPlanetView", "PlanetStyle", "StarsBackgroundView", "ConstellationPathView", "OrbitArcGaugeView"]
+    violations = []
+    for source_file in SOURCES_DIR.rglob("*.swift"):
+        source = source_file.read_text(encoding="utf-8")
+        for token in forbidden_source_tokens:
+            if token in source:
+                violations.append(f"{source_file.relative_to(ROOT_DIR)} contains {token}")
+    if violations:
+        print("  ❌ Retired visual implementation is still referenced:")
+        for violation in violations:
+            print(f"    - {violation}")
+        return False
+
     app_icon = ASSETS_DIR / "AppIcon.appiconset" / "AppIcon-1024.png"
     if not app_icon.exists():
         print("  ❌ AppIcon-1024.png missing!")
@@ -256,8 +261,11 @@ def test_celestial_asset_alpha_integrity():
     if icon_im.size != (1024, 1024):
         print(f"  ❌ AppIcon-1024.png has invalid size: {icon_im.size}")
         return False
-        
-    print("  ✅ PASS: All 9 planet assets verified with 100% transparent corners & AppIcon validated.")
+    if icon_im.mode != "RGB":
+        print(f"  ❌ AppIcon-1024.png must be opaque RGB, found {icon_im.mode}!")
+        return False
+
+    print("  ✅ PASS: Celestial sources/assets are absent and the opaque Quiet Native AppIcon is valid.")
     return True
 
 def test_version_release_consistency():
@@ -346,7 +354,7 @@ if __name__ == "__main__":
         test_swift_bracket_balance_and_syntax(),
         test_sleep_sound_curation(),
         test_optimizations_and_date_cache(),
-        test_celestial_asset_alpha_integrity(),
+        test_quiet_native_visual_identity(),
         test_version_release_consistency(),
         test_behavioral_hardening()
     ]

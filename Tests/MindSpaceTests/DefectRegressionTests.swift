@@ -356,19 +356,16 @@ final class DefectRegressionTests: XCTestCase {
         XCTAssertTrue(DurationFilter.long.matches(seconds: longSession.duration))
     }
     
-    // MARK: - P2-07: Constellation Bridge of Reflection Node
-    func testP2_07_ConstellationBridgeOfReflectionNode() {
-        let bridgeNode = ConstellationNode(
-            id: "bridge_reflection_27_29",
-            dayNumber: 27,
-            title: "Bridge of Reflection",
-            isCompleted: true,
-            isActive: false,
-            isBridgeOfReflection: true
-        )
-        
-        XCTAssertTrue(bridgeNode.isBridgeOfReflection)
-        XCTAssertEqual(bridgeNode.dayNumber, 27)
-        XCTAssertEqual(bridgeNode.title, "Bridge of Reflection")
+    // MARK: - P2-07: Reflection Days Preserve Day-30 Progression
+    func testP2_07_ReflectionDaysPreserveDay30Progression() {
+        let sessions = [
+            CatalogSession(id: "day_27", title: "Day 27", dayNumber: 27, relativePath: "day27.mp3", duration: 600),
+            CatalogSession(id: "day_30", title: "Day 30", dayNumber: 30, relativePath: "day30.mp3", duration: 600)
+        ]
+
+        XCTAssertNotNil(sessions.first(where: { $0.dayNumber == 27 }))
+        XCTAssertNil(sessions.first(where: { $0.dayNumber == 28 }))
+        XCTAssertNil(sessions.first(where: { $0.dayNumber == 29 }))
+        XCTAssertNotNil(sessions.first(where: { $0.dayNumber == 30 }))
     }
 }

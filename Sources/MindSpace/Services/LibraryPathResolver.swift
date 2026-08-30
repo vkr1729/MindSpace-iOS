@@ -86,8 +86,11 @@ public struct LibraryPathResolver: Sendable {
             return nil
         }
         
-        let repo = (UserDefaults.standard.string(forKey: "github_sync_repo") ?? "vkr1729/MindSpace-Content")
+        let repo = (UserDefaults.standard.string(forKey: "github_sync_repo") ?? "")
             .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !repo.isEmpty else {
+            return nil
+        }
         let branch = "main"
         
         // URL encode each path component individually so slashes are preserved
@@ -100,9 +103,10 @@ public struct LibraryPathResolver: Sendable {
             return nil
         }
         
+        let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
         let headers: [String: String] = [
             "Authorization": "Bearer \(pat)",
-            "User-Agent": "MindSpace-iOS/2.4.0"
+            "User-Agent": "MindSpace-iOS/\(appVersion)"
         ]
         
         let asset = AVURLAsset(

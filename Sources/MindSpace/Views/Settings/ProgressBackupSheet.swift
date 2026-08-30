@@ -77,36 +77,36 @@ public struct ImportPreviewDialogView: View {
         VStack(spacing: 20) {
             Text("Import Progress")
                 .font(.system(size: 20, weight: .bold, design: .rounded))
-                .foregroundColor(CosmosTheme.textPrimary)
+                .foregroundColor(MindSpaceTheme.textPrimary)
             
             Text("MindSpace backup detected (\(String(document.exportedAt.prefix(10))))")
                 .font(.system(size: 14, weight: .regular, design: .rounded))
-                .foregroundColor(CosmosTheme.textSecondary)
+                .foregroundColor(MindSpaceTheme.textSecondary)
             
-            CosmicCard(padding: 16) {
+            MindSpaceCard(padding: 16) {
                 VStack(spacing: 10) {
                     HStack {
                         Text("Completed Sessions")
-                            .foregroundColor(CosmosTheme.textSecondary)
+                            .foregroundColor(MindSpaceTheme.textSecondary)
                         Spacer()
                         Text("\(document.completionEvents.count)")
-                            .foregroundColor(CosmosTheme.textPrimary)
+                            .foregroundColor(MindSpaceTheme.textPrimary)
                             .bold()
                     }
                     HStack {
                         Text("Current Streak")
-                            .foregroundColor(CosmosTheme.textSecondary)
+                            .foregroundColor(MindSpaceTheme.textSecondary)
                         Spacer()
                         Text("\(document.stats.currentStreak) days")
-                            .foregroundColor(CosmosTheme.starlightGold)
+                            .foregroundColor(MindSpaceTheme.warning)
                             .bold()
                     }
                     HStack {
                         Text("Mindful Minutes")
-                            .foregroundColor(CosmosTheme.textSecondary)
+                            .foregroundColor(MindSpaceTheme.textSecondary)
                         Spacer()
                         Text("\(document.stats.totalMindfulMinutes) min")
-                            .foregroundColor(CosmosTheme.cosmicPurple)
+                            .foregroundColor(MindSpaceTheme.accent)
                             .bold()
                     }
                 }
@@ -120,7 +120,7 @@ public struct ImportPreviewDialogView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(CosmosTheme.cosmicPurple)
+                        .background(MindSpaceTheme.accent)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
                 .buttonStyle(.plain)
@@ -128,13 +128,13 @@ public struct ImportPreviewDialogView: View {
                 Button(action: onCleanRestore) {
                     Text("Restore Clean (Replace)")
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundColor(CosmosTheme.solarCoral)
+                        .foregroundColor(MindSpaceTheme.danger)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(CosmosTheme.spaceCard)
+                        .background(MindSpaceTheme.surface)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 14).stroke(CosmosTheme.solarCoral.opacity(0.5), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 14).stroke(MindSpaceTheme.danger.opacity(0.5), lineWidth: 1)
                         )
                 }
                 .buttonStyle(.plain)
@@ -142,13 +142,13 @@ public struct ImportPreviewDialogView: View {
                 Button(action: onCancel) {
                     Text("Cancel")
                         .font(.system(size: 14, weight: .regular, design: .rounded))
-                        .foregroundColor(CosmosTheme.textSecondary)
+                        .foregroundColor(MindSpaceTheme.textSecondary)
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(24)
-        .background(CosmosTheme.spaceCard)
+        .background(MindSpaceTheme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 24))
         .padding(24)
     }

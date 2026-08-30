@@ -4,25 +4,25 @@ import SwiftUI
 
 final class UIUXPolishTests: XCTestCase {
     
-    // MARK: - Ambient Theme Token Tests
-    func testCosmosThemeAmbientColorDerivation() {
-        let sleepColor = CosmosTheme.ambientColor(for: "Deep Sleep Sanctuary")
-        XCTAssertEqual(sleepColor, CosmosTheme.moonLavender)
+    // MARK: - Semantic Theme Token Tests
+    func testMindSpaceThemeAccentDerivation() {
+        let sleepColor = MindSpaceTheme.accent(for: "Deep Sleep")
+        XCTAssertEqual(sleepColor, MindSpaceTheme.secondaryAccent)
         
-        let anxietyColor = CosmosTheme.ambientColor(for: "Managing Anxiety")
-        XCTAssertEqual(anxietyColor, CosmosTheme.auroraTeal)
+        let anxietyColor = MindSpaceTheme.accent(for: "Managing Anxiety")
+        XCTAssertEqual(anxietyColor, MindSpaceTheme.success)
         
-        let focusColor = CosmosTheme.ambientColor(for: "Work & Focus")
-        XCTAssertEqual(focusColor, CosmosTheme.celestialBlue)
+        let focusColor = MindSpaceTheme.accent(for: "Work & Focus")
+        XCTAssertEqual(focusColor, MindSpaceTheme.focus)
         
-        let sosColor = CosmosTheme.ambientColor(for: "SOS Relief")
-        XCTAssertEqual(sosColor, CosmosTheme.solarCoral)
+        let sosColor = MindSpaceTheme.accent(for: "SOS Relief")
+        XCTAssertEqual(sosColor, MindSpaceTheme.danger)
         
-        let braveColor = CosmosTheme.ambientColor(for: "Brave & Resilient")
-        XCTAssertEqual(braveColor, CosmosTheme.starlightGold)
+        let braveColor = MindSpaceTheme.accent(for: "Brave & Resilient")
+        XCTAssertEqual(braveColor, MindSpaceTheme.warning)
         
-        let fallbackColor = CosmosTheme.ambientColor(for: "Basics")
-        XCTAssertEqual(fallbackColor, CosmosTheme.cosmicPurple)
+        let fallbackColor = MindSpaceTheme.accent(for: "Basics")
+        XCTAssertEqual(fallbackColor, MindSpaceTheme.accent)
     }
     
     // MARK: - Haptic Service Safety Tests
@@ -56,21 +56,19 @@ final class UIUXPolishTests: XCTestCase {
         XCTAssertTrue(item.isCompleted)
     }
     
-    // MARK: - Constellation Node Visual Attributes
-    func testConstellationNodeVisualMapping() {
-        let node = ConstellationNode(
-            id: "node_1",
-            dayNumber: 1,
+    // MARK: - Linear Course Progress Mapping
+    func testCourseSessionProgressMapping() {
+        let session = CatalogSession(
+            id: "session_1",
             title: "Foundation Day 1",
-            isCompleted: true,
-            isActive: false,
-            isBridgeOfReflection: false
+            dayNumber: 1,
+            relativePath: "Foundation/Day1.mp3",
+            duration: 600
         )
-        
-        XCTAssertEqual(node.dayNumber, 1)
-        XCTAssertTrue(node.isCompleted)
-        XCTAssertFalse(node.isActive)
-        XCTAssertFalse(node.isBridgeOfReflection)
+        let completedIDs: Set<String> = [session.id]
+
+        XCTAssertEqual(session.dayNumber, 1)
+        XCTAssertTrue(completedIDs.contains(session.id))
     }
     
     // MARK: - Condensed Duration Tests

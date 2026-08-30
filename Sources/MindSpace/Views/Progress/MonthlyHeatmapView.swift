@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Monthly activity heatmap with 4-level cosmic starlight dot indicators.
+/// Monthly activity heatmap with four explicit intensity levels.
 /// Reference: Mock Screen Codex.png (Screen 6: Your journey)
 public struct MonthlyHeatmapView: View {
     public let activeDates: Set<String>
@@ -46,13 +46,13 @@ public struct MonthlyHeatmapView: View {
     }
     
     public var body: some View {
-        CosmicCard(padding: 16) {
+        MindSpaceCard(padding: 16) {
             VStack(spacing: 14) {
                 // Month Header & Navigation
                 HStack {
                     Text(monthYearTitle)
                         .font(.system(size: 16, weight: .bold, design: .rounded))
-                        .foregroundColor(CosmosTheme.textPrimary)
+                        .foregroundColor(MindSpaceTheme.textPrimary)
                     
                     Spacer()
                     
@@ -60,22 +60,24 @@ public struct MonthlyHeatmapView: View {
                         Button(action: { changeMonth(by: -1) }) {
                             Image(systemName: "chevron.left")
                                 .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(CosmosTheme.textSecondary)
-                                .frame(width: 28, height: 28)
-                                .background(CosmosTheme.spaceCardBorder)
+                                .foregroundColor(MindSpaceTheme.textSecondary)
+                                .frame(width: 44, height: 44)
+                                .background(MindSpaceTheme.divider)
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Previous month")
                         
                         Button(action: { changeMonth(by: 1) }) {
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(CosmosTheme.textSecondary)
-                                .frame(width: 28, height: 28)
-                                .background(CosmosTheme.spaceCardBorder)
+                                .foregroundColor(MindSpaceTheme.textSecondary)
+                                .frame(width: 44, height: 44)
+                                .background(MindSpaceTheme.divider)
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Next month")
                     }
                 }
                 
@@ -84,7 +86,7 @@ public struct MonthlyHeatmapView: View {
                     ForEach(["M", "T", "W", "T", "F", "S", "S"], id: \.self) { day in
                         Text(day)
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundColor(CosmosTheme.textSecondary)
+                            .foregroundColor(MindSpaceTheme.textSecondary)
                             .frame(maxWidth: .infinity)
                     }
                 }
@@ -109,20 +111,22 @@ public struct MonthlyHeatmapView: View {
                 HStack(spacing: 6) {
                     Text("Less")
                         .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundColor(CosmosTheme.textSecondary)
+                        .foregroundColor(MindSpaceTheme.textSecondary)
                     
-                    legendDot(color: CosmosTheme.spaceCardBorder)
-                    legendDot(color: CosmosTheme.cosmicPurple.opacity(0.4))
-                    legendDot(color: CosmosTheme.cosmicPurple)
-                    legendDot(color: CosmosTheme.starlightGold)
+                    legendDot(color: MindSpaceTheme.divider)
+                    legendDot(color: MindSpaceTheme.accent.opacity(0.4))
+                    legendDot(color: MindSpaceTheme.accent)
+                    legendDot(color: MindSpaceTheme.warning)
                     
                     Text("More")
                         .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundColor(CosmosTheme.textSecondary)
+                        .foregroundColor(MindSpaceTheme.textSecondary)
                 }
                 .padding(.top, 4)
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Practice activity for \(monthYearTitle)")
     }
     
     @ViewBuilder
@@ -135,13 +139,16 @@ public struct MonthlyHeatmapView: View {
                 .frame(width: 28, height: 28)
                 .overlay(
                     Circle()
-                        .stroke(isToday ? CosmosTheme.starlightGold : Color.clear, lineWidth: 1.5)
+                        .stroke(isToday ? MindSpaceTheme.warning : Color.clear, lineWidth: 1.5)
                 )
             
             Text("\(calendar.component(.day, from: date))")
                 .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundColor(minutes > 0 ? CosmosTheme.spaceBackground : CosmosTheme.textSecondary)
+                .foregroundColor(minutes > 0 ? MindSpaceTheme.background : MindSpaceTheme.textSecondary)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(DateFormatterCache.dayKey(from: date))
+        .accessibilityValue(minutes == 0 ? "No practice" : "\(minutes) mindful minutes")
     }
     
     @ViewBuilder
@@ -153,13 +160,13 @@ public struct MonthlyHeatmapView: View {
     
     private func dotColor(for minutes: Int) -> Color {
         if minutes == 0 {
-            return CosmosTheme.spaceCardBorder.opacity(0.5)
+            return MindSpaceTheme.divider.opacity(0.5)
         } else if minutes < 10 {
-            return CosmosTheme.cosmicPurple.opacity(0.5)
+            return MindSpaceTheme.accent.opacity(0.5)
         } else if minutes < 20 {
-            return CosmosTheme.cosmicPurple
+            return MindSpaceTheme.accent
         } else {
-            return CosmosTheme.starlightGold
+            return MindSpaceTheme.warning
         }
     }
     

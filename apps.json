@@ -7,20 +7,27 @@
       "name": "MindSpace",
       "bundleIdentifier": "com.mindspace.offline",
       "developerName": "MindSpace",
-      "subtitle": "100% Offline Celestial Meditation",
-      "version": "2.4.0",
-      "build": "11",
-      "versionDate": "2026-08-21",
-      "versionDescription": "MindSpace 2.4.0: Photorealistic AI Celestial Artworks, On-Demand Private GitHub Streaming & Singles Downloads. Fresh photorealistic 3D planet bodies with 100% native RGBA alpha transparency, serene deep-space App Icon render, seamless AVURLAsset online streaming from private GitHub repository, and category-level Singles downloads.",
-      "downloadURL": "https://github.com/vkr1729/mindspace-source/releases/download/v2.4.0/MindSpace.ipa",
-      "localizedDescription": "MindSpace is a 100% private offline celestial meditation experience with 275+ hours of mindfulness audio and video courses, on-demand authenticated private GitHub streaming, selective singles & course downloads, and photorealistic AI celestial visuals.",
+      "subtitle": "Private meditation, quietly focused",
+      "version": "3.0.0",
+      "build": "12",
+      "versionDate": "2026-08-30",
+      "versionDescription": "MindSpace 3.0.0 introduces a calm, image-free iOS interface with clearer daily practice, course progress, playback, completion, accessibility, and private-content states while preserving existing data and behavior.",
+      "downloadURL": "https://github.com/vkr1729/mindspace-source/releases/download/v3.0.0/MindSpace.ipa",
+      "localizedDescription": "MindSpace is a private, account-free meditation app with 275+ hours of audio and video courses, authenticated private GitHub streaming, selective downloads, offline playback, progress, reminders, and portable backups.",
       "iconURL": "https://vkr1729.github.io/mindspace-source/AppIcon-1024.png",
-      "tintColor": "7C3AED",
+      "tintColor": "8BCAB7",
       "size": 5587702,
       "screenshotURLs": [
         "https://vkr1729.github.io/mindspace-source/Mock%20Screen%20Codex.png"
       ],
       "versions": [
+        {
+          "version": "3.0.0",
+          "date": "2026-08-30",
+          "localizedDescription": "Quiet Native redesign with an image-free visual system, clearer Today-to-completion flow, accessible controls and adaptive layouts, a non-celestial app icon, and preserved playback, downloads, progress, credentials, and backups.",
+          "downloadURL": "https://github.com/vkr1729/mindspace-source/releases/download/v3.0.0/MindSpace.ipa",
+          "size": 5587702
+        },
         {
           "version": "2.4.0",
           "date": "2026-08-21",

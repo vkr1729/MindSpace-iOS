@@ -25,11 +25,11 @@ final class GitHubSyncAndAvailabilityTests: XCTestCase {
     @MainActor
     func testGitHubSyncServiceConfiguration() {
         let sync = GitHubSyncService.shared
-        sync.savedRepo = "vkr1729/MindSpace-Content"
+        sync.savedRepo = "owner/private-content-repo"
         sync.savedPAT = "mock_pat_test"
         
         XCTAssertTrue(sync.isConfigured)
-        XCTAssertEqual(sync.savedRepo, "vkr1729/MindSpace-Content")
+        XCTAssertEqual(sync.savedRepo, "owner/private-content-repo")
         XCTAssertEqual(sync.savedPAT, "mock_pat_test")
     }
     

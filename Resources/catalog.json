@@ -14,7 +14,7 @@
       "order": 1,
       "description": "Build your daily practice with timeless fundamentals",
       "colorHex": "#7C5CFC",
-      "iconName": "planet_purple",
+      "iconName": "figure.mind.and.body",
       "courses": [
         {
           "id": "course_1_1_basics",
@@ -412,7 +412,7 @@
       "order": 2,
       "description": "Support your physical and emotional wellbeing",
       "colorHex": "#4ECCA3",
-      "iconName": "planet_teal",
+      "iconName": "waveform.path.ecg",
       "courses": [
         {
           "id": "course_2_1_managing_anxiety",
@@ -3158,7 +3158,7 @@
       "order": 3,
       "description": "Navigate difficult emotions and life transitions",
       "colorHex": "#FF7B72",
-      "iconName": "planet_coral",
+      "iconName": "shield.fill",
       "courses": [
         {
           "id": "course_3_1_grief",
@@ -4000,7 +4000,7 @@
       "order": 4,
       "description": "Cultivate joy, relationships, and acceptance",
       "colorHex": "#F6D06F",
-      "iconName": "planet_gold",
+      "iconName": "heart.fill",
       "courses": [
         {
           "id": "course_4_1_self_esteem",
@@ -5712,7 +5712,7 @@
       "order": 5,
       "description": "Clarity, focus, and sustainable productivity",
       "colorHex": "#3B82F6",
-      "iconName": "planet_blue",
+      "iconName": "scope",
       "courses": [
         {
           "id": "course_5_1_prioritization",
@@ -6992,7 +6992,7 @@
       "order": 6,
       "description": "Study focus, exam calm, and campus life",
       "colorHex": "#9D8DF1",
-      "iconName": "planet_lavender",
+      "iconName": "book.fill",
       "courses": [
         {
           "id": "course_6_1_leaving_home",
@@ -7248,7 +7248,7 @@
       "order": 7,
       "description": "Deepen silence and extended meditation technique",
       "colorHex": "#7C5CFC",
-      "iconName": "planet_pro",
+      "iconName": "circle.grid.2x2.fill",
       "courses": [
         {
           "id": "course_7_1_level_1",
@@ -8081,7 +8081,7 @@
       "order": 8,
       "description": "Training focus, competition calm, and recovery",
       "colorHex": "#4ECCA3",
-      "iconName": "planet_sport",
+      "iconName": "figure.run",
       "courses": [
         {
           "id": "course_8_1_motivation",

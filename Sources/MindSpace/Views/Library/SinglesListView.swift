@@ -17,7 +17,12 @@ public struct SinglesListView: View {
     }
     
     private var isCategoryCurrentlySyncing: Bool {
-        syncService.isSyncing && syncService.activeCourseId == category.id
+        #if DEBUG
+        if UITestSupport.isEnabled, UITestSupport.downloadingCategoryID == category.id {
+            return true
+        }
+        #endif
+        return syncService.isSyncing && syncService.activeCourseId == category.id
     }
     
     public var body: some View {
@@ -29,11 +34,11 @@ public struct SinglesListView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(category.name)
                                 .font(.system(size: 26, weight: .bold, design: .rounded))
-                                .foregroundColor(CosmosTheme.textPrimary)
+                                .foregroundColor(MindSpaceTheme.textPrimary)
                             
                             Text(category.description)
                                 .font(.system(size: 15, weight: .regular, design: .rounded))
-                                .foregroundColor(CosmosTheme.textSecondary)
+                                .foregroundColor(MindSpaceTheme.textSecondary)
                         }
                         
                         Spacer()
@@ -42,30 +47,30 @@ public struct SinglesListView: View {
                         if isCategoryCurrentlySyncing {
                             HStack(spacing: 6) {
                                 ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: CosmosTheme.auroraTeal))
+                                    .progressViewStyle(CircularProgressViewStyle(tint: MindSpaceTheme.success))
                                     .scaleEffect(0.85)
                                 Text("\(Int(syncService.progressFraction * 100))%")
                                     .font(.system(size: 12, weight: .bold, design: .rounded))
-                                    .foregroundColor(CosmosTheme.auroraTeal)
+                                    .foregroundColor(MindSpaceTheme.success)
                             }
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(CosmosTheme.spaceCard)
+                            .background(MindSpaceTheme.surface)
                             .clipShape(Capsule())
-                            .overlay(Capsule().stroke(CosmosTheme.auroraTeal.opacity(0.3), lineWidth: 1))
+                            .overlay(Capsule().stroke(MindSpaceTheme.success.opacity(0.3), lineWidth: 1))
                         } else if isCategoryCompletelyDownloaded {
                             HStack(spacing: 4) {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(CosmosTheme.auroraTeal)
+                                    .foregroundColor(MindSpaceTheme.success)
                                 Text("Offline")
                                     .font(.system(size: 12, weight: .bold, design: .rounded))
-                                    .foregroundColor(CosmosTheme.auroraTeal)
+                                    .foregroundColor(MindSpaceTheme.success)
                             }
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(CosmosTheme.spaceCard)
+                            .background(MindSpaceTheme.surface)
                             .clipShape(Capsule())
-                            .overlay(Capsule().stroke(CosmosTheme.auroraTeal.opacity(0.25), lineWidth: 1))
+                            .overlay(Capsule().stroke(MindSpaceTheme.success.opacity(0.25), lineWidth: 1))
                         } else {
                             Button(action: {
                                 HapticService.shared.medium()
@@ -77,14 +82,14 @@ public struct SinglesListView: View {
                                     Text("Download All")
                                         .font(.system(size: 12, weight: .bold, design: .rounded))
                                 }
-                                .foregroundColor(CosmosTheme.starlightGold)
+                                .foregroundColor(MindSpaceTheme.warning)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 7)
-                                .background(CosmosTheme.spaceCard)
+                                .background(MindSpaceTheme.surface)
                                 .clipShape(Capsule())
-                                .overlay(Capsule().stroke(CosmosTheme.starlightGold.opacity(0.4), lineWidth: 1))
+                                .overlay(Capsule().stroke(MindSpaceTheme.warning.opacity(0.4), lineWidth: 1))
                             }
-                            .buttonStyle(.cosmicPressable)
+                            .buttonStyle(.mindSpacePressable)
                         }
                     }
                 }
@@ -112,29 +117,29 @@ public struct SinglesListView: View {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(session.title)
                                         .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                        .foregroundColor(CosmosTheme.textPrimary)
+                                        .foregroundColor(MindSpaceTheme.textPrimary)
                                     
                                     HStack(spacing: 6) {
                                         if let sub = session.subCategory {
                                             Text(sub)
                                                 .font(.system(size: 12, weight: .regular, design: .rounded))
-                                                .foregroundColor(CosmosTheme.textSecondary)
+                                                .foregroundColor(MindSpaceTheme.textSecondary)
                                         }
                                         
                                         // Status Chip
                                         if isDownloaded {
                                             HStack(spacing: 3) {
-                                                Circle().fill(CosmosTheme.auroraTeal).frame(width: 4, height: 4)
+                                                Circle().fill(MindSpaceTheme.success).frame(width: 4, height: 4)
                                                 Text("Downloaded")
                                                     .font(.system(size: 10, weight: .medium, design: .rounded))
-                                                    .foregroundColor(CosmosTheme.auroraTeal)
+                                                    .foregroundColor(MindSpaceTheme.success)
                                             }
                                         } else {
                                             HStack(spacing: 3) {
-                                                Circle().fill(CosmosTheme.starlightGold).frame(width: 4, height: 4)
+                                                Circle().fill(MindSpaceTheme.warning).frame(width: 4, height: 4)
                                                 Text("Stream Available")
                                                     .font(.system(size: 10, weight: .medium, design: .rounded))
-                                                    .foregroundColor(CosmosTheme.starlightGold)
+                                                    .foregroundColor(MindSpaceTheme.warning)
                                             }
                                         }
                                     }
@@ -144,22 +149,22 @@ public struct SinglesListView: View {
                                 
                                 Text(session.formattedDuration)
                                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textSecondary)
+                                    .foregroundColor(MindSpaceTheme.textSecondary)
                                 
                                 Image(systemName: isDownloaded ? "play.circle.fill" : "play.circle")
                                     .font(.system(size: 26))
-                                    .foregroundColor(isDownloaded ? CosmosTheme.cosmicPurple : CosmosTheme.starlightGold)
+                                    .foregroundColor(isDownloaded ? MindSpaceTheme.accent : MindSpaceTheme.warning)
                             }
                             .padding(.horizontal, 16)
                             .padding(.vertical, 14)
-                            .background(CosmosTheme.spaceCard)
+                            .background(MindSpaceTheme.surface)
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
+                                    .stroke(MindSpaceTheme.divider, lineWidth: 1)
                             )
                         }
-                        .buttonStyle(.cosmicPressable)
+                        .buttonStyle(.mindSpacePressable)
                         .padding(.horizontal, 20)
                     }
                 }
@@ -167,7 +172,7 @@ public struct SinglesListView: View {
                 Spacer(minLength: 80)
             }
         }
-        .background(CosmosTheme.spaceBackground.ignoresSafeArea())
+        .background(MindSpaceTheme.background.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
     }
 }

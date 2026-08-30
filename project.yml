@@ -7,8 +7,8 @@ options:
 
 settings:
   base:
-    CURRENT_PROJECT_VERSION: "11"
-    MARKETING_VERSION: "2.4.0"
+    CURRENT_PROJECT_VERSION: "12"
+    MARKETING_VERSION: "3.0.0"
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     SWIFT_STRICT_CONCURRENCY: complete
     ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -25,10 +25,10 @@ targets:
     settings:
       GENERATE_INFOPLIST_FILE: NO
       INFOPLIST_FILE: Sources/MindSpace/Info.plist
-      CURRENT_PROJECT_VERSION: "11"
-      MARKETING_VERSION: "2.4.0"
-      INFOPLIST_KEY_CFBundleShortVersionString: "2.4.0"
-      INFOPLIST_KEY_CFBundleVersion: "11"
+      CURRENT_PROJECT_VERSION: "12"
+      MARKETING_VERSION: "3.0.0"
+      INFOPLIST_KEY_CFBundleShortVersionString: "3.0.0"
+      INFOPLIST_KEY_CFBundleVersion: "12"
       PRODUCT_BUNDLE_IDENTIFIER: com.mindspace.offline
       PRODUCT_NAME: MindSpace
       ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -41,8 +41,35 @@ targets:
       - path: Tests/MindSpaceTests
     settings:
       GENERATE_INFOPLIST_FILE: YES
-      CURRENT_PROJECT_VERSION: "11"
-      MARKETING_VERSION: "2.4.0"
+      CURRENT_PROJECT_VERSION: "12"
+      MARKETING_VERSION: "3.0.0"
       PRODUCT_BUNDLE_IDENTIFIER: com.mindspace.offline.tests
     dependencies:
       - target: MindSpace
+
+  MindSpaceUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/MindSpaceUITests
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+      CURRENT_PROJECT_VERSION: "12"
+      MARKETING_VERSION: "3.0.0"
+      PRODUCT_BUNDLE_IDENTIFIER: com.mindspace.offline.uitests
+      TEST_TARGET_NAME: MindSpace
+    dependencies:
+      - target: MindSpace
+
+schemes:
+  MindSpace:
+    build:
+      targets:
+        MindSpace: all
+        MindSpaceTests: [test]
+        MindSpaceUITests: [test]
+    test:
+      gatherCoverageData: true
+      targets:
+        - MindSpaceTests
+        - MindSpaceUITests

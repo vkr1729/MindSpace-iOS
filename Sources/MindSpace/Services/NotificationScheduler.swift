@@ -33,7 +33,7 @@ public final class NotificationScheduler: Sendable {
         
         let content = UNMutableNotificationContent()
         content.title = "MindSpace"
-        content.body = "Take a breath. Your daily orbit is waiting for you."
+        content.body = "Take a breath. Your daily practice is ready when you are."
         content.sound = .default
         
         let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)

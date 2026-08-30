@@ -102,16 +102,16 @@ def extract_day_number(filename: str) -> int:
 
 def get_pack_category_meta(cat_folder: str):
     meta = {
-        "1 - Foundation": ("Foundation", "#7C5CFC", "planet_purple", "Build your daily practice with timeless fundamentals"),
-        "2 - Health": ("Health", "#4ECCA3", "planet_teal", "Support your physical and emotional wellbeing"),
-        "3 - Brave": ("Brave", "#FF7B72", "planet_coral", "Navigate difficult emotions and life transitions"),
-        "4 - Happiness": ("Happiness", "#F6D06F", "planet_gold", "Cultivate joy, relationships, and acceptance"),
-        "5 - Work & Performance": ("Work & Performance", "#3B82F6", "planet_blue", "Clarity, focus, and sustainable productivity"),
-        "6 - Students": ("Students", "#9D8DF1", "planet_lavender", "Study focus, exam calm, and campus life"),
-        "7 - MindSpace Pro": ("MindSpace Pro", "#7C5CFC", "planet_pro", "Deepen silence and extended meditation technique"),
-        "8 - Sport": ("Sport", "#4ECCA3", "planet_sport", "Training focus, competition calm, and recovery")
+        "1 - Foundation": ("Foundation", "#8BCAB7", "figure.mind.and.body", "Build your daily practice with timeless fundamentals"),
+        "2 - Health": ("Health", "#8BCAB7", "waveform.path.ecg", "Support your physical and emotional wellbeing"),
+        "3 - Brave": ("Brave", "#D6BD92", "shield.fill", "Navigate difficult emotions and life transitions"),
+        "4 - Happiness": ("Happiness", "#B7D6C8", "heart.fill", "Cultivate joy, relationships, and acceptance"),
+        "5 - Work & Performance": ("Work & Performance", "#8CB9C4", "scope", "Clarity, focus, and sustainable productivity"),
+        "6 - Students": ("Students", "#8CB9C4", "book.fill", "Study focus, exam calm, and campus life"),
+        "7 - MindSpace Pro": ("MindSpace Pro", "#AAB8AE", "circle.grid.2x2.fill", "Deepen silence and extended meditation technique"),
+        "8 - Sport": ("Sport", "#8BCAB7", "figure.run", "Training focus, competition calm, and recovery")
     }
-    name, color, icon, desc = meta.get(cat_folder, (cat_folder, "#7C5CFC", "planet_default", "Explore guided meditations"))
+    name, color, icon, desc = meta.get(cat_folder, (cat_folder, "#8BCAB7", "square.grid.2x2.fill", "Explore guided meditations"))
     return name, color, icon, desc
 
 def get_singles_category_meta(cat_folder: str):

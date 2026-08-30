@@ -28,18 +28,23 @@ public enum AppTab: Int, CaseIterable, Identifiable {
     }
 }
 
-/// Root application view hosting the 4 cosmic tabs, onboarding gate, and persistent mini-player dock.
+/// Root application view hosting four tabs, onboarding, and the mini-player.
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playbackEngine = PlaybackEngine.shared
     
     @Query private var settingsList: [UserSettings]
     
     @State private var selectedTab: AppTab = .today
     @State private var showOnboarding: Bool = false
+
+    private let persistenceIssue: String?
     
-    public init() {}
+    public init(persistenceIssue: String? = nil) {
+        self.persistenceIssue = persistenceIssue
+    }
     
     private var hasCompletedOnboarding: Bool {
         settingsList.first?.hasCompletedOnboarding ?? false
@@ -47,7 +52,7 @@ public struct ContentView: View {
     
     public var body: some View {
         ZStack(alignment: .bottom) {
-            CosmosTheme.spaceBackground.ignoresSafeArea()
+            MindSpaceTheme.background.ignoresSafeArea()
             
             // MARK: - Tab Views
             Group {
@@ -72,8 +77,13 @@ public struct ContentView: View {
                         MeditationPlayerView()
                     }
                 
-                // Custom Cosmic Tab Bar
+                // Bottom tab bar
                 customTabBar
+            }
+
+            if let persistenceIssue {
+                persistenceRecoveryView(message: persistenceIssue)
+                    .zIndex(100)
             }
         }
         .fullScreenCover(isPresented: $showOnboarding) {
@@ -94,6 +104,26 @@ public struct ContentView: View {
             }
         }
     }
+
+    private func persistenceRecoveryView(message: String) -> some View {
+        ZStack {
+            MindSpaceTheme.background.ignoresSafeArea()
+
+            ContentUnavailableView {
+                Label("Progress unavailable", systemImage: "externaldrive.badge.exclamationmark")
+            } description: {
+                Text(message)
+            } actions: {
+                Text("Close and reopen MindSpace. If the problem continues, keep the app installed and restore from a known backup after the store is inspected.")
+                    .font(.footnote)
+                    .foregroundStyle(MindSpaceTheme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
+            .foregroundStyle(MindSpaceTheme.textPrimary)
+        }
+        .accessibilityElement(children: .contain)
+    }
     
     private func checkOnboardingStatus() {
         if let settings = settingsList.first {
@@ -105,38 +135,46 @@ public struct ContentView: View {
         }
     }
     
-    // MARK: - Custom Cosmic Tab Bar
+    // MARK: - Bottom tab bar
     private var customTabBar: some View {
         HStack(spacing: 0) {
             ForEach(AppTab.allCases) { tab in
                 Button(action: {
-                    withAnimation(.easeInOut(duration: 0.15)) {
+                    if reduceMotion {
                         selectedTab = tab
+                    } else {
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            selectedTab = tab
+                        }
                     }
                 }) {
                     VStack(spacing: 4) {
                         Image(systemName: tab.iconName)
-                            .font(.system(size: 20))
-                            .foregroundColor(selectedTab == tab ? CosmosTheme.cosmicPurple : CosmosTheme.textSecondary)
+                            .font(.title3)
+                            .foregroundStyle(selectedTab == tab ? MindSpaceTheme.accent : MindSpaceTheme.textSecondary)
+                            .accessibilityHidden(true)
                         
                         Text(tab.title)
-                            .font(.system(size: 11, weight: selectedTab == tab ? .semibold : .regular, design: .rounded))
-                            .foregroundColor(selectedTab == tab ? CosmosTheme.textPrimary : CosmosTheme.textSecondary)
+                            .font(.caption2.weight(selectedTab == tab ? .semibold : .regular))
+                            .foregroundStyle(selectedTab == tab ? MindSpaceTheme.textPrimary : MindSpaceTheme.textSecondary)
                     }
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, minHeight: 44)
                     .padding(.vertical, 8)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(tab.title)
+                .accessibilityAddTraits(selectedTab == tab ? .isSelected : [])
+                .accessibilityIdentifier("tab.\(tab.title.lowercased())")
             }
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 20)
         .background(
-            CosmosTheme.spaceCard
+            MindSpaceTheme.surface
                 .overlay(
                     Rectangle()
-                        .fill(CosmosTheme.spaceCardBorder)
+                        .fill(MindSpaceTheme.divider)
                         .frame(height: 1),
                     alignment: .top
                 )

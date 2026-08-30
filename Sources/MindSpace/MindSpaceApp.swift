@@ -4,8 +4,13 @@ import SwiftData
 @main
 struct MindSpaceApp: App {
     let container: ModelContainer
+    let persistenceIssue: String?
     
     init() {
+        #if DEBUG
+        UITestSupport.prepareFilesystem()
+        #endif
+
         // Initialize Library Path Resolver & Sandboxing Hardening
         LibraryPathResolver.shared.applyHardeningAndProtection()
         
@@ -20,35 +25,29 @@ struct MindSpaceApp: App {
         ])
         
         var resolvedContainer: ModelContainer?
+        var persistentStoreError: Error?
         
         // 1. Try standard persistent store
         do {
             let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
             resolvedContainer = try ModelContainer(for: schema, configurations: [config])
         } catch {
-            print("Warning: Persistent ModelContainer failed: \(error.localizedDescription). Attempting store recovery...")
-            
-            // 2. Attempt store recovery for schema migration from prior builds
-            if let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-                let storeURL = appSupport.appendingPathComponent("default.store")
-                let shmURL = appSupport.appendingPathComponent("default.store-shm")
-                let walURL = appSupport.appendingPathComponent("default.store-wal")
-                try? FileManager.default.removeItem(at: storeURL)
-                try? FileManager.default.removeItem(at: shmURL)
-                try? FileManager.default.removeItem(at: walURL)
-                
-                let retryConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-                resolvedContainer = try? ModelContainer(for: schema, configurations: [retryConfig])
-            }
+            persistentStoreError = error
+            print("Warning: Persistent ModelContainer could not be opened. Existing store files were preserved.")
         }
         
-        // 3. Fallback to in-memory container to guarantee app launches under all conditions
+        // A temporary container lets the app present a recovery screen. The screen
+        // blocks normal use so new progress cannot be written to disposable storage.
         if let ready = resolvedContainer {
             self.container = ready
+            self.persistenceIssue = nil
         } else {
             let memoryConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
             do {
                 self.container = try ModelContainer(for: schema, configurations: [memoryConfig])
+                self.persistenceIssue = persistentStoreError == nil
+                    ? "MindSpace could not prepare progress storage."
+                    : "MindSpace could not open the existing progress store. Your stored data was preserved."
             } catch {
                 fatalError("Critical: Failed to create ModelContainer: \(error.localizedDescription)")
             }
@@ -57,11 +56,13 @@ struct MindSpaceApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(persistenceIssue: persistenceIssue)
                 .modelContainer(container)
                 .preferredColorScheme(.dark)
                 .onAppear {
-                    ensureInitialSettings()
+                    if persistenceIssue == nil {
+                        ensureInitialSettings()
+                    }
                 }
         }
     }
@@ -69,6 +70,13 @@ struct MindSpaceApp: App {
     @MainActor
     private func ensureInitialSettings() {
         let context = container.mainContext
+        #if DEBUG
+        if UITestSupport.isEnabled {
+            UITestSupport.prepareStore(context)
+            return
+        }
+        #endif
+
         var fetchDescriptor = FetchDescriptor<UserSettings>()
         fetchDescriptor.fetchLimit = 1
         if let existing = try? context.fetch(fetchDescriptor), existing.isEmpty {

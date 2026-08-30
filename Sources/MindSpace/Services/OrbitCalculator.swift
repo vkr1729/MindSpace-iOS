@@ -206,34 +206,34 @@ public struct OrbitCalculator: Sendable {
         [
             CelestialAchievement(
                 id: "first_orbit",
-                title: "First Orbit",
-                description: "Complete a 7-day unbroken meditation orbit",
+                title: "First Week",
+                description: "Practice on 7 consecutive days",
                 requiredStreak: 7,
-                iconName: "sparkles",
+                iconName: "calendar.badge.checkmark",
                 isUnlocked: currentStreak >= 7
             ),
             CelestialAchievement(
                 id: "stellar_start",
-                title: "Stellar Start",
-                description: "Maintain a 14-day meditation orbit",
+                title: "Two Weeks",
+                description: "Practice on 14 consecutive days",
                 requiredStreak: 14,
-                iconName: "star.circle.fill",
+                iconName: "calendar",
                 isUnlocked: currentStreak >= 14
             ),
             CelestialAchievement(
                 id: "deep_space",
-                title: "Deep Space",
-                description: "Reach a 30-day celestial meditation orbit",
+                title: "One Month",
+                description: "Practice on 30 consecutive days",
                 requiredStreak: 30,
-                iconName: "globe.americas.fill",
+                iconName: "chart.line.uptrend.xyaxis",
                 isUnlocked: currentStreak >= 30
             ),
             CelestialAchievement(
                 id: "century_constellation",
-                title: "Century Constellation",
-                description: "100 mindful meditation sessions",
+                title: "One Hundred Sessions",
+                description: "Complete 100 meditation sessions",
                 requiredStreak: 100,
-                iconName: "sun.max.fill",
+                iconName: "checkmark.seal.fill",
                 isUnlocked: totalSessions >= 100
             )
         ]

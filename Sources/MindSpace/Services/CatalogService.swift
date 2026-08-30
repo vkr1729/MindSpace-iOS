@@ -20,6 +20,14 @@ public final class CatalogService: ObservableObject {
     private var sortedSingles: [(single: SingleSession, searchToken: String)] = []
     
     public init() {
+        #if DEBUG
+        if UITestSupport.isEnabled {
+            let fixture = UITestSupport.catalogManifest
+            self.manifest = fixture
+            buildIndices(fixture)
+            return
+        }
+        #endif
         loadCatalog()
     }
     
