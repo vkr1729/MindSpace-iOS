@@ -282,6 +282,10 @@ def test_version_release_consistency():
     if source_plist.get("UILaunchScreen") != {}:
         print("  ❌ Info.plist must use a native UILaunchScreen dictionary to avoid legacy 320×480 compatibility mode!")
         return False
+    scene_manifest = source_plist.get("UIApplicationSceneManifest", {})
+    if scene_manifest.get("UIApplicationSupportsMultipleScenes") is not False:
+        print("  ❌ Info.plist must declare the single-scene SwiftUI lifecycle used by WindowGroup!")
+        return False
     
     # 2. Read project.yml
     proj_file = ROOT_DIR / "project.yml"
@@ -294,6 +298,9 @@ def test_version_release_consistency():
         return False
     if f'CURRENT_PROJECT_VERSION: "{expected_build}"' not in proj_text:
         print(f"  ❌ project.yml CURRENT_PROJECT_VERSION mismatch! Expected '{expected_build}'")
+        return False
+    if 'TARGETED_DEVICE_FAMILY: "1"' not in proj_text:
+        print("  ❌ project.yml must explicitly target the iPhone device family!")
         return False
         
     # 3. Read apps.json
