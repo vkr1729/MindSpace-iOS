@@ -88,6 +88,14 @@ jobs:
         if: always()
         run: |
           mkdir -p TestResults/Attachments
+          xcrun simctl io "$SIMULATOR_UDID" screenshot TestResults/simulator-window.png || true
+          xcodebuild -project MindSpace.xcodeproj -scheme MindSpace -showBuildSettings \
+            > TestResults/build-settings.txt || true
+          PROCESSED_INFO="build/Build/Products/Debug-iphonesimulator/MindSpace.app/Info.plist"
+          if [ -f "$PROCESSED_INFO" ]; then
+            cp "$PROCESSED_INFO" TestResults/ProcessedInfo.plist
+            plutil -p "$PROCESSED_INFO"
+          fi
           if [ -d TestResults/MindSpace.xcresult ]; then
             xcrun xcresulttool export attachments \
               --path TestResults/MindSpace.xcresult \
