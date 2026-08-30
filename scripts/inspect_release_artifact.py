@@ -84,7 +84,12 @@ def main() -> None:
             "build": compiled.get("CFBundleVersion") == expected_build,
             "background_audio": "audio" in compiled.get("UIBackgroundModes", []),
             "file_sharing": compiled.get("UIFileSharingEnabled") is True,
-            "launch_storyboard": compiled.get("UILaunchStoryboardName") == "LaunchScreen",
+            "opening_documents_in_place": compiled.get("LSSupportsOpeningDocumentsInPlace") is True,
+            "native_launch_screen": compiled.get("UILaunchScreen") == {},
+            "single_scene_lifecycle": compiled.get("UIApplicationSceneManifest", {}).get(
+                "UIApplicationSupportsMultipleScenes"
+            ) is False,
+            "iphone_device_family": compiled.get("UIDeviceFamily") == [1],
         }
         failed = [name for name, passed in assertions.items() if not passed]
         if failed:

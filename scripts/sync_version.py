@@ -95,7 +95,11 @@ def sync_compiled_plist(plist_file, version, build):
         p["UIBackgroundModes"] = modes
     p["UIFileSharingEnabled"] = True
     p["LSSupportsOpeningDocumentsInPlace"] = True
-    p["UILaunchStoryboardName"] = "LaunchScreen"
+    p.pop("UILaunchStoryboardName", None)
+    p["UILaunchScreen"] = {}
+    p["UIApplicationSceneManifest"] = {
+        "UIApplicationSupportsMultipleScenes": False,
+    }
     
     plistlib.dump(p, open(p_path, "wb"))
     
@@ -108,7 +112,7 @@ def sync_compiled_plist(plist_file, version, build):
         print(f"❌ FATAL: Plist injection verification failed: {ver} != {version}", file=sys.stderr)
         sys.exit(1)
 
-def verify_ipa(ipa_path, expected_version):
+def verify_ipa(ipa_path, expected_version, expected_build):
     ipa_file = Path(ipa_path)
     if not ipa_file.exists():
         print(f"❌ IPA not found at {ipa_file}", file=sys.stderr)
@@ -128,11 +132,15 @@ def verify_ipa(ipa_path, expected_version):
         print(f"   Payload Info.plist CFBundleShortVersionString: '{ver}'")
         print(f"   Payload Info.plist CFBundleVersion:            '{bld}'")
         print(f"   Expected Canonical Version:                   '{expected_version}'")
+        print(f"   Expected Canonical Build:                     '{expected_build}'")
         print("==========================================================")
         if ver != str(expected_version):
             print(f"❌ FATAL ERROR: Version mismatch inside IPA! Expected '{expected_version}', found '{ver}'", file=sys.stderr)
             sys.exit(1)
-        print("🎉 SUCCESS: IPA version strictly matches canonical apps.json version!")
+        if bld != str(expected_build):
+            print(f"❌ FATAL ERROR: Build mismatch inside IPA! Expected '{expected_build}', found '{bld}'", file=sys.stderr)
+            sys.exit(1)
+        print("🎉 SUCCESS: IPA version and build strictly match canonical apps.json metadata!")
 
 def main():
     parser = argparse.ArgumentParser(description="MindSpace Version Synchronization Engine")
@@ -150,7 +158,7 @@ def main():
         sync_compiled_plist(args.inject_plist, version, build)
         
     if args.verify_ipa:
-        verify_ipa(args.verify_ipa, version)
+        verify_ipa(args.verify_ipa, version, build)
 
 if __name__ == "__main__":
     main()
