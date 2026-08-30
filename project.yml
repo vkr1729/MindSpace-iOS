@@ -20,8 +20,6 @@ targets:
     sources:
       - path: Sources/MindSpace
       - path: Resources
-    info:
-      path: Sources/MindSpace/Info.plist
     settings:
       GENERATE_INFOPLIST_FILE: NO
       INFOPLIST_FILE: Sources/MindSpace/Info.plist
