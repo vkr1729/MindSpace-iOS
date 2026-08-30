@@ -28,6 +28,13 @@ final class MindSpaceUITests: XCTestCase {
         app.launchEnvironment["MINDSPACE_UI_TEST_SKIP_ONBOARDING"] = skipOnboarding ? "1" : "0"
         app.launchEnvironment["MINDSPACE_UI_TEST_SCENARIO"] = scenario
         app.launch()
+        let mainWindow = app.windows.firstMatch
+        XCTAssertTrue(mainWindow.waitForExistence(timeout: 12), "MindSpace must create its main window")
+        XCTAssertGreaterThan(
+            mainWindow.frame.height,
+            800,
+            "MindSpace must use the native iPhone 16 viewport, not legacy 320×480 compatibility mode"
+        )
         return app
     }
 

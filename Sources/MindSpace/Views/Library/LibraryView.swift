@@ -474,6 +474,7 @@ public struct LibraryView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 20)
+                .accessibilityIdentifier("library.course.\(course.id)")
             }
             
             // Singles

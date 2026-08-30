@@ -82,8 +82,7 @@ jobs:
             -scheme MindSpace \
             -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
             -derivedDataPath build \
-            -resultBundlePath TestResults/MindSpace.xcresult \
-            CODE_SIGNING_ALLOWED=NO
+            -resultBundlePath TestResults/MindSpace.xcresult
 
       - name: Export test attachments and result summary
         if: always()

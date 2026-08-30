@@ -279,6 +279,9 @@ def test_version_release_consistency():
     source_plist = plistlib.load(open(plist_file, "rb"))
     expected_version = source_plist.get("CFBundleShortVersionString")
     expected_build = source_plist.get("CFBundleVersion")
+    if source_plist.get("UILaunchScreen") != {}:
+        print("  ❌ Info.plist must use a native UILaunchScreen dictionary to avoid legacy 320×480 compatibility mode!")
+        return False
     
     # 2. Read project.yml
     proj_file = ROOT_DIR / "project.yml"
