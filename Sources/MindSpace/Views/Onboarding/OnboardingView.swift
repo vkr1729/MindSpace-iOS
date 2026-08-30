@@ -147,7 +147,6 @@ public struct OnboardingView: View {
                                 .foregroundColor(MindSpaceTheme.textSecondary)
                         }
                         .frame(minHeight: 44)
-                        .accessibilityAddTraits(isSelected ? .isSelected : [])
                     }
                 }
             }
