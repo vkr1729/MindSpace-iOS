@@ -1,7 +1,7 @@
 {
   "name": "MindSpace",
   "identifier": "com.mindspace.offline.source",
-  "sourceURL": "https://vkr1729.github.io/mindspace-source/apps.json",
+  "sourceURL": "https://raw.githubusercontent.com/vkr1729/mindspace-source/main/apps.json",
   "apps": [
     {
       "name": "MindSpace",
@@ -10,23 +10,23 @@
       "subtitle": "Private meditation, quietly focused",
       "version": "3.0.0",
       "build": "12",
-      "versionDate": "2026-08-30",
+      "versionDate": "2026-08-31",
       "versionDescription": "MindSpace 3.0.0 introduces a calm, image-free iOS interface with clearer daily practice, course progress, playback, completion, accessibility, and private-content states while preserving existing data and behavior.",
       "downloadURL": "https://github.com/vkr1729/mindspace-source/releases/download/v3.0.0/MindSpace.ipa",
       "localizedDescription": "MindSpace is a private, account-free meditation app with 275+ hours of audio and video courses, authenticated private GitHub streaming, selective downloads, offline playback, progress, reminders, and portable backups.",
       "iconURL": "https://vkr1729.github.io/mindspace-source/AppIcon-1024.png",
       "tintColor": "8BCAB7",
-      "size": 5587702,
+      "size": 1854062,
       "screenshotURLs": [
-        "https://vkr1729.github.io/mindspace-source/Mock%20Screen%20Codex.png"
+        "https://raw.githubusercontent.com/vkr1729/mindspace-source/main/MindSpace-v3-Today.png"
       ],
       "versions": [
         {
           "version": "3.0.0",
-          "date": "2026-08-30",
+          "date": "2026-08-31",
           "localizedDescription": "Quiet Native redesign with an image-free visual system, clearer Today-to-completion flow, accessible controls and adaptive layouts, a non-celestial app icon, and preserved playback, downloads, progress, credentials, and backups.",
           "downloadURL": "https://github.com/vkr1729/mindspace-source/releases/download/v3.0.0/MindSpace.ipa",
-          "size": 5587702
+          "size": 1854062
         },
         {
           "version": "2.4.0",

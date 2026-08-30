@@ -153,7 +153,7 @@ Quiet Native wins decisively. It makes Continue and playback unmistakable, avoid
 2. Material boundary: unit/UI tests prove duplicate completion does not inflate progress and persistence survives relaunch.
 3. Privacy and packaging: static scan plus IPA inspection proves the expected bundle/version, no planet assets, and no PAT/token/private content.
 
-Exact secondary workflow commands and run URLs will be recorded after the mirror exists.
+The secondary mirror is `vkreddy1729-ops/MindSpace-iOS-UAT`; the canonical `origin` remains unchanged. Its workflow is manual-only and never publishes to the primary account.
 
 ## UAT plan
 
@@ -168,14 +168,28 @@ Exact secondary workflow commands and run URLs will be recorded after the mirror
 
 ## Final UAT result
 
-Pending implementation and the secondary macOS workflow. This section will record the tested commit, environment, workflow URL, tests, screenshots, defects/fixes/reruns, remaining device-only checks, final IPA path/size/hash, and release URL. The app is not release-ready while this section is pending.
+Status: **Passed for personal-device testing.** No known crash, data-loss defect, progress inflation, inaccessible primary action, clipped core content, playback regression, or secret exposure remains in the tested build.
+
+- Tested application commit: `e84a3a2ea89103258ba989f8f9d54aff3ef6318d`.
+- Final secondary workflow: [MindSpace v3 UAT and Unsigned IPA run 33325001325](https://github.com/vkreddy1729-ops/MindSpace-iOS-UAT/actions/runs/33325001325).
+- Environment: GitHub macOS 26 runner; Xcode 26.6 build 17F113; iPhone 16 arm64 simulator; iOS 26.5 build 23F77.
+- Results: seven static privacy/structure/design/version gates passed; 78 unit tests passed; four XCUITest journeys passed; 82 total, zero failed, zero skipped.
+- Simulator journeys: Accessibility XXXL onboarding and Today; Library/search/course/deterministic availability states; full player/mini-player/completion/progress and relaunch persistence; seeded progress plus Settings/private-content/portability reachability.
+- Visual inspection: ten 1178×2556 screenshots inspected against Quiet Native. Primary actions remain visible, the app uses the native iPhone viewport, mini-player/navigation clearance is sound, and no retired celestial image appears. One test-oriented completion phrase was simplified and the full gate rerun.
+- Artifact inspection: ZIP CRC, executable, bundle identifier `com.mindspace.offline`, v3.0.0 build 12, native launch metadata, background audio, document sharing, iPhone device family, retired-asset scan, credential patterns, private-repository identifiers, private checkout paths, and developer paths all passed.
+- Final unsigned IPA: `/home/kedarnath-reddy-vallaboina/MindSpace-v3.0.0-build12.ipa`; 1,854,062 bytes; SHA-256 `b9cb943f4a50afbb250bb76648dbbb2d405887488a0ca7706d912bdf0aa9f696`.
+- Public release target: [v3.0.0](https://github.com/vkr1729/mindspace-source/releases/tag/v3.0.0). The v2.4.0 release and metadata entry remain untouched.
+
+Defects found and repaired during UAT: macOS Python package isolation, absent exact simulator creation, one Swift modifier scope compile error, simulator Keychain failures caused by disabled test signing, a legacy 320×480 compatibility window caused by XcodeGen overwriting the maintained Info.plist, and a stale IPA assertion that still required the deleted launch storyboard. Runs after each repair separated infrastructure faults from app regressions. Run 33324339265 first proved the corrected packaging gate; final run 33325001325 repeated the entire gate after screenshot-copy polish.
+
+Remaining physical-device checks: SideStore installation/signing and seven-day refresh; background and lock-screen/Now Playing behavior; audio-route and interruption behavior; reminder delivery; haptics; Files document-picker export/import; and subjective one-handed touch comfort. These are intentionally outside simulator UAT.
 
 ## Migration and release note
 
-Planned next version: v3.0.0 build 12, subject to confirming build 12 does not already exist in the public distribution repository at release time. This is an additive release: the existing v2.4.0 release, tag, IPA, and metadata entry remain available and will not be deleted, replaced, or retagged.
+Release version: v3.0.0 build 12. The public distribution repository had no existing v3.0.0 tag or release at verification time. This is an additive release: the existing v2.4.0 release, tag, IPA, and metadata entry remain available and are not deleted, replaced, or retagged.
 
 MindSpace v3.0 refreshes the interface with a quiet, image-free design. It removes planet artwork and celestial progress language while preserving the existing catalog, downloaded media, playback behavior, favorites, reminders, private GitHub configuration, backups, and stored progress. No account, analytics, telemetry, or backend has been added. Existing identifiers and data models remain compatible so the installed v2.4.0 store can open without destructive migration.
 
 ## Run and limitations
 
-Open the generated Xcode project, select an iPhone 16 simulator on iOS 26, and run the `MindSpace` scheme. The current Linux host cannot perform that step. SideStore installation, LiveContainer behavior, notification delivery, haptics, lock-screen presentation, and subjective touch comfort require the user's physical device after the simulator release gate passes.
+Open the generated Xcode project, select an iPhone 16 simulator on iOS 26, and run the `MindSpace` scheme. The Linux working host cannot run Xcode, so compilation and simulator evidence came from the private secondary mirror. SideStore installation, LiveContainer behavior, notification delivery, haptics, lock-screen presentation, and subjective touch comfort require the user's physical device.
