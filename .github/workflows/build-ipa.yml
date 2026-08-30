@@ -41,7 +41,9 @@ jobs:
       - name: Install build tools
         run: |
           brew install xcodegen
-          python3 -m pip install --user pillow
+          python3 -m venv "$RUNNER_TEMP/mindspace-python"
+          "$RUNNER_TEMP/mindspace-python/bin/pip" install pillow
+          echo "$RUNNER_TEMP/mindspace-python/bin" >> "$GITHUB_PATH"
 
       - name: Run privacy, structure, visual, and version gates
         run: python3 scripts/verify_codebase.py
