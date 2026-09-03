@@ -33,30 +33,30 @@ def send_credentials_and_release_email():
     content_repo_url = f"https://github.com/{content_repo}"
     
     source_url = "https://vkr1729.github.io/mindspace-source/apps.json"
-    direct_ipa_url = "https://github.com/vkr1729/mindspace-source/releases/download/v2.3.0/MindSpace.ipa"
-    github_release_url = "https://github.com/vkr1729/mindspace-source/releases/tag/v2.3.0"
+    direct_ipa_url = "https://github.com/vkr1729/mindspace-source/releases/download/v2.4.0/MindSpace.ipa"
+    github_release_url = "https://github.com/vkr1729/mindspace-source/releases/tag/v2.4.0"
     
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = "MindSpace iOS v2.3.0 Released — Cinematic Celestial Visuals, App Icon & SideStore Refresh"
+    msg["Subject"] = "MindSpace iOS v2.4.0 Released — AI Celestial Artworks, GitHub Streaming & Singles Downloads"
     msg["From"] = f"MindSpace AI Assistant <{sender_email}>"
     msg["To"] = recipient_email
     
     text_content = f"""Hi Kedar,
 
-MindSpace iOS v2.3.0 (Build 10) is officially live and ready for SideStore refresh!
+MindSpace iOS v2.4.0 (Build 11) is officially live and ready for SideStore refresh!
 
-=== WHAT'S NEW IN V2.3.0 ===
-• Cinematic Hybrid Celestial Visuals: Converted all 9 planet artworks to 100% transparent alpha with sub-pixel feathering. Zero square box boundaries across all screens (Player, Library, Progress, Today, Completion, and Onboarding).
-• Atmospheric Coronas & Specular Rims: Layered radial glow tuned to course ambient hues (Moon Lavender, Aurora Teal, Solar Coral, Cosmic Purple) with delicate specular light curves.
-• Mindful Breathing Respiration: Synchronized 4.0-second visual breathing anchor during meditation playback with automatic accessibility Reduce Motion support.
-• Polished iOS App Icon: Refined with deep cosmic space gradients, radiant nebula backlighting, and a high-contrast celestial focal body.
-• Private GitHub Content Sync: Keychain-stored PAT credentials and on-demand selective downloads.
+=== WHAT'S NEW IN V2.4.0 ===
+• Photorealistic AI Celestial Artworks: Fresh 3D planet artworks with 100% native RGBA alpha transparency (zero square boundaries across all screens).
+• Serene Photorealistic App Icon: High-detail celestial sphere render tailored to the iOS squircle with radiant atmospheric rim lighting.
+• On-Demand Private GitHub Streaming: Stream any un-downloaded track seamlessly using authenticated AVURLAsset with Keychain PAT.
+• Category-Level Singles Downloads: 1-tap download buttons for all Singles categories (Sleep Sounds, SOS, Classics, etc.) with live progress.
+• Zero-Drift Version Pipeline: Single Source of Truth architecture guaranteeing zero version mismatch errors in SideStore.
 
 === HOW TO REFRESH IN SIDESTORE ===
 1. Open SideStore on your iPhone.
 2. Ensure your Source URL is:
    {source_url}
-3. Pull to refresh the Sources tab, or tap "Update" on MindSpace to install v2.3.0.
+3. Pull to refresh the Sources tab, and tap "Update" on MindSpace v2.4.0.
 4. Direct IPA Download: {direct_ipa_url}
 
 === PRIVATE GITHUB CONTENT REPOSITORY ===
@@ -72,23 +72,23 @@ MindSpace AI Assistant
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; background-color: #0b0d17; padding: 24px;">
         <div style="max-width: 640px; margin: 0 auto; background: #121528; border-radius: 20px; border: 1px solid rgba(124, 58, 237, 0.3); overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,0.6);">
           <div style="background: linear-gradient(135deg, #4c1d95, #6d28d9, #7c3aed); padding: 36px 24px; text-align: center;">
-            <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.5px;">MindSpace iOS v2.3.0</h1>
-            <p style="color: #ddd6fe; margin: 8px 0 0 0; font-size: 14px; font-weight: 500;">Cinematic Celestial Visuals • Polished App Icon • SideStore Refresh</p>
+            <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.5px;">MindSpace iOS v2.4.0</h1>
+            <p style="color: #ddd6fe; margin: 8px 0 0 0; font-size: 14px; font-weight: 500;">AI Celestial Artworks • GitHub Streaming • Singles Downloads</p>
           </div>
           
           <div style="padding: 28px 24px; color: #f1f5f9;">
             <p style="font-size: 15px; line-height: 1.6; margin-top: 0;">Hi Kedar,</p>
-            <p style="font-size: 15px; line-height: 1.6; color: #cbd5e1;">MindSpace iOS <strong>v2.3.0 (Build 10)</strong> has been compiled, verified, and released with the new <strong>Cinematic Hybrid</strong> celestial visual architecture and polished App Icon.</p>
+            <p style="font-size: 15px; line-height: 1.6; color: #cbd5e1;">MindSpace iOS <strong>v2.4.0 (Build 11)</strong> has been compiled, verified, and released with photorealistic AI celestial artworks, authenticated private GitHub streaming fallback, and Singles category downloads.</p>
             
             <!-- Features Card -->
             <div style="background: #1a1e38; border-left: 4px solid #7c3aed; padding: 18px; border-radius: 12px; margin: 22px 0;">
-              <h4 style="margin: 0 0 10px 0; color: #c4b5fd; font-size: 15px;">✨ What Was Upgraded in v2.3.0:</h4>
+              <h4 style="margin: 0 0 10px 0; color: #c4b5fd; font-size: 15px;">✨ What Was Upgraded in v2.4.0:</h4>
               <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #e2e8f0; line-height: 1.7;">
-                <li><strong>Cinematic Hybrid Celestial Bodies:</strong> 100% transparent alpha blending on all 9 planet artworks. Completely eliminates square box boundaries across Player, Library, Progress, and Celebration views.</li>
-                <li><strong>Atmospheric Coronas & Specular Rims:</strong> Multi-stop radial backlighting matching category hues with delicate specular rim lighting.</li>
-                <li><strong>Mindful Breathing Physics:</strong> Hypnotic 4-second synchronized visual respiration guide during playback.</li>
-                <li><strong>Polished iOS App Icon:</strong> Deep space cosmic gradients, radiant nebula backlighting, and high-contrast celestial focus.</li>
-                <li><strong>Private GitHub Content Sync:</strong> Secure Keychain-stored PAT credentials and on-demand selective downloads.</li>
+                <li><strong>Photorealistic AI Celestial Artworks:</strong> Rendered all 9 celestial planet bodies with 100% native RGBA alpha transparency. Zero square layout artifacts across all views.</li>
+                <li><strong>Serene Photorealistic App Icon:</strong> Rendered non-cartoonish deep cosmic sphere with crystalline rings and limb backlighting.</li>
+                <li><strong>On-Demand GitHub Streaming:</strong> Intelligent AVURLAsset fallback allows streaming un-downloaded tracks directly from your private repository.</li>
+                <li><strong>Singles Category Downloads:</strong> 1-tap download buttons for all Singles categories with live progress indicators.</li>
+                <li><strong>Zero-Drift Version Engine:</strong> Single Source of Truth pipeline eliminating SideStore version mismatch errors permanently.</li>
               </ul>
             </div>
 
@@ -109,7 +109,7 @@ MindSpace AI Assistant
             </div>
 
             <div style="text-align: center; margin: 28px 0;">
-              <a href="{direct_ipa_url}" style="background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #ffffff; padding: 15px 32px; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 15px; display: inline-block; box-shadow: 0 6px 20px rgba(124, 58, 237, 0.45);">Download MindSpace.ipa v2.3.0</a>
+              <a href="{direct_ipa_url}" style="background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #ffffff; padding: 15px 32px; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 15px; display: inline-block; box-shadow: 0 6px 20px rgba(124, 58, 237, 0.45);">Download MindSpace.ipa v2.4.0</a>
             </div>
           </div>
           
