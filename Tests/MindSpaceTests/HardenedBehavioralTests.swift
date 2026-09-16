@@ -318,7 +318,8 @@ final class HardenedBehavioralTests: XCTestCase {
             compassionPassesAvailable: 3,
             compassionPassUsedCount: 0,
             activeDates: [],
-            dailyMinutes: [:]
+            dailyMinutes: [:],
+            passProtectedDayKeys: []
         )
         
         // 2. Export

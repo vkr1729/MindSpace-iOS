@@ -23,9 +23,20 @@ public struct ProgressDashboardView: View {
     
     private var orbitStats: OrbitStats {
         let passes = settingsList.first?.compassionPassCount ?? 0
+        let lastPassDate = settingsList.first?.lastUsedCompassionPassDate
         return OrbitCalculator().calculateStats(
             events: completionEvents,
-            existingCompassionPasses: passes
+            existingCompassionPasses: passes,
+            lastUsedPassDate: lastPassDate
+        )
+    }
+
+    private func reconcilePassConsumption() {
+        guard let settings = settingsList.first else { return }
+        CompassionPassStore.reconcile(
+            stats: orbitStats,
+            settings: settings,
+            modelContext: modelContext
         )
     }
     
@@ -195,6 +206,12 @@ public struct ProgressDashboardView: View {
                 }
             }
             .navigationBarHidden(true)
+            .onAppear {
+                reconcilePassConsumption()
+            }
+            .onChange(of: completionEvents) { _, _ in
+                reconcilePassConsumption()
+            }
         }
     }
     

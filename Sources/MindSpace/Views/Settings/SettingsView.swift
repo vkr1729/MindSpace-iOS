@@ -706,17 +706,17 @@ public struct SettingsView: View {
                         .padding(.horizontal, 20)
                     }
                     
-                    // MARK: - Privacy & Zero Network Guarantee
+                    // MARK: - Privacy & Optional Sync
                     CosmicCard(padding: 16) {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 8) {
                                 Image(systemName: "lock.shield.fill")
                                     .foregroundColor(CosmosTheme.auroraTeal)
-                                Text("Zero Network & 100% Private")
+                                Text("Private by Design")
                                     .font(.system(size: 15, weight: .bold, design: .rounded))
                                     .foregroundColor(CosmosTheme.textPrimary)
                             }
-                            Text("MindSpace has no accounts, telemetry, ads, or network access. Your mindful practice never leaves this iPhone.")
+                            Text("MindSpace has no accounts, telemetry, or ads. Everything stays on this iPhone except the optional GitHub sync: when you configure your own private repo + token, the app talks only to api.github.com and raw.githubusercontent.com to download or stream your library.")
                                 .font(.system(size: 13, weight: .regular, design: .rounded))
                                 .foregroundColor(CosmosTheme.textSecondary)
                         }

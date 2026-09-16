@@ -14,6 +14,51 @@ public struct SyncProgressState: Sendable, Equatable {
     public let successMessage: String?
 }
 
+/// One file's outcome inside a download queue, for the per-file error list.
+public struct SyncFileResult: Sendable, Equatable, Identifiable {
+    public var id: String { relativePath }
+    public let relativePath: String
+    public let title: String
+    public let succeeded: Bool
+    public let attempts: Int
+    public let errorMessage: String?
+}
+
+/// Classifies a download failure so the queue can decide retry vs report.
+public enum SyncDownloadFailure: Sendable, Equatable {
+    case httpStatus(Int)
+    case network(Error)
+    case verification(String)
+    case cancelled
+
+    public static func == (lhs: SyncDownloadFailure, rhs: SyncDownloadFailure) -> Bool {
+        switch (lhs, rhs) {
+        case (.httpStatus(let a), .httpStatus(let b)): return a == b
+        case (.network, .network): return true
+        case (.verification(let a), .verification(let b)): return a == b
+        case (.cancelled, .cancelled): return true
+        default: return false
+        }
+    }
+
+    public var isRetryable: Bool {
+        switch self {
+        case .cancelled, .verification: return false
+        case .httpStatus(let code): return code == 408 || code == 429 || code >= 500
+        case .network: return true
+        }
+    }
+
+    public var message: String {
+        switch self {
+        case .httpStatus(let code): return "HTTP \(code)"
+        case .network(let error): return error.localizedDescription
+        case .verification(let reason): return reason
+        case .cancelled: return "cancelled"
+        }
+    }
+}
+
 /// Service managing authenticated content synchronization and selective downloads
 /// from a private GitHub repository into Documents/MindSpaceLibrary/
 @MainActor
@@ -39,6 +84,10 @@ public final class GitHubSyncService: ObservableObject {
     @Published public private(set) var progressFraction: Double = 0.0
     @Published public private(set) var lastErrorMessage: String? = nil
     @Published public private(set) var lastSuccessMessage: String? = nil
+    @Published public private(set) var fileResults: [SyncFileResult] = []
+    @Published public private(set) var failedFiles: [SyncFileResult] = []
+
+    public static let maxAttemptsPerFile = 3
     
     private var syncTask: Task<Void, Never>?
     private var isCancelled = false
@@ -345,32 +394,34 @@ public final class GitHubSyncService: ObservableObject {
                 }
             }
             var successCount = 0
-            var errorEncountered: String? = nil
+            var processedCount = 0
+            var results: [SyncFileResult] = []
 
             for item in items {
                 if Task.isCancelled { break }
 
-                let ok = await Self.downloadSingleFile(
+                let outcome = await Self.downloadSingleFileWithRetry(
                     relativePath: item.relativePath,
                     expectedSHA256: item.sha256,
+                    title: item.title,
                     repo: repo,
                     token: token,
                     session: session
                 )
-
-                if ok {
+                processedCount += 1
+                if outcome.succeeded {
                     successCount += 1
-                } else {
-                    errorEncountered = "Failed to download \(item.title)"
                 }
+                results.append(outcome)
 
-                let currentCompleted = successCount
+                let done = processedCount
                 let total = items.count
-                let fraction = Double(currentCompleted) / Double(total)
+                let fraction = total > 0 ? Double(done) / Double(total) : 1.0
 
                 await MainActor.run {
                     guard let self = self else { return }
-                    self.completedTracks = currentCompleted
+                    self.completedTracks = successCount
+                    self.totalTracks = total
                     self.progressFraction = fraction
                 }
             }
@@ -380,16 +431,22 @@ public final class GitHubSyncService: ObservableObject {
 
             let finishedTaskID = backgroundTaskID
             let finalSuccessCount = successCount
-            let finalError = errorEncountered
+            let finalTotalCount = items.count
+            let finalResults = results
             await MainActor.run { [weak self] in
                 if let self = self {
                     self.isSyncing = false
                     self.activeCourseId = nil
+                    self.fileResults = finalResults
+                    self.failedFiles = finalResults.filter { !$0.succeeded }
 
                     if self.isCancelled {
                         self.lastSuccessMessage = "Sync stopped (\(finalSuccessCount) downloaded)."
-                    } else if let err = finalError, finalSuccessCount < items.count {
-                        self.lastErrorMessage = "\(err) (\(finalSuccessCount)/\(items.count) succeeded)."
+                    } else if finalSuccessCount < finalTotalCount {
+                        let failed = finalResults.filter { !$0.succeeded }
+                        let names = failed.prefix(3).map { $0.title }.joined(separator: ", ")
+                        let more = failed.count > 3 ? " (+\(failed.count - 3) more)" : ""
+                        self.lastErrorMessage = "\(finalSuccessCount)/\(finalTotalCount) downloaded. Failed: \(names)\(more)."
                     } else {
                         self.lastSuccessMessage = "Successfully downloaded \(finalSuccessCount) tracks!"
                     }
@@ -401,13 +458,70 @@ public final class GitHubSyncService: ObservableObject {
         }
     }
     
-    private static func downloadSingleFile(
+    // MARK: - Download Queue Engine
+
+    /// Downloads one file with bounded retries and exponential backoff.
+    /// Retryable failures (flaky network, 408/429/5xx) retry up to
+    /// `maxAttemptsPerFile`; verification failures and cancels do not.
+    static func downloadSingleFileWithRetry(
+        relativePath: String,
+        expectedSHA256: String,
+        title: String,
+        repo: String,
+        token: String,
+        session: URLSession
+    ) async -> SyncFileResult {
+        var attempts = 0
+        var lastFailure: SyncDownloadFailure = .network(URLError(.unknown))
+        while attempts < maxAttemptsPerFile {
+            if Task.isCancelled {
+                return SyncFileResult(
+                    relativePath: relativePath,
+                    title: title,
+                    succeeded: false,
+                    attempts: max(attempts, 1),
+                    errorMessage: SyncDownloadFailure.cancelled.message
+                )
+            }
+            attempts += 1
+            let failure = await downloadSingleFileAttempt(
+                relativePath: relativePath,
+                expectedSHA256: expectedSHA256,
+                repo: repo,
+                token: token,
+                session: session
+            )
+            guard let failure else {
+                return SyncFileResult(
+                    relativePath: relativePath,
+                    title: title,
+                    succeeded: true,
+                    attempts: attempts,
+                    errorMessage: nil
+                )
+            }
+            lastFailure = failure
+            guard failure.isRetryable, attempts < maxAttemptsPerFile else { break }
+            let backoffNanoseconds = UInt64(500_000_000 * (1 << (attempts - 1)))
+            try? await Task.sleep(nanoseconds: backoffNanoseconds)
+        }
+        return SyncFileResult(
+            relativePath: relativePath,
+            title: title,
+            succeeded: false,
+            attempts: attempts,
+            errorMessage: lastFailure.message
+        )
+    }
+
+    /// One attempt: raw host first, Contents API fallback. Returns nil on success.
+    private static func downloadSingleFileAttempt(
         relativePath: String,
         expectedSHA256: String,
         repo: String,
         token: String,
         session: URLSession
-    ) async -> Bool {
+    ) async -> SyncDownloadFailure? {
         // Encode path components safely for URL
         let pathParts = relativePath.split(separator: "/")
         let encodedParts = pathParts.compactMap { $0.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) }
@@ -415,19 +529,23 @@ public final class GitHubSyncService: ObservableObject {
         
         // Priority 1: raw.githubusercontent.com with Authorization
         let rawURLString = "https://raw.githubusercontent.com/\(repo)/main/\(encodedRelativePath)"
-        guard let url = URL(string: rawURLString) else { return false }
-        
+        guard let url = URL(string: rawURLString) else {
+            return .verification("invalid download URL")
+        }
+
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("MindSpace-iOS", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 60
-        
+
         do {
             let (tempURL, response) = try await session.download(for: request)
-            guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
-                // Priority 2: Fallback to GitHub API Contents endpoint
-                return await downloadViaContentsAPI(
+            if let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) {
+                return verifyAndMoveFailure(tempURL: tempURL, relativePath: relativePath, expectedSHA256: expectedSHA256)
+            }
+            if let httpResponse = response as? HTTPURLResponse {
+                let fallback = await downloadViaContentsAPI(
                     relativePath: relativePath,
                     encodedRelativePath: encodedRelativePath,
                     expectedSHA256: expectedSHA256,
@@ -435,10 +553,8 @@ public final class GitHubSyncService: ObservableObject {
                     token: token,
                     session: session
                 )
+                return fallback ?? .httpStatus(httpResponse.statusCode)
             }
-            
-            return try verifyAndMoveFile(tempURL: tempURL, relativePath: relativePath, expectedSHA256: expectedSHA256)
-        } catch {
             return await downloadViaContentsAPI(
                 relativePath: relativePath,
                 encodedRelativePath: encodedRelativePath,
@@ -447,6 +563,30 @@ public final class GitHubSyncService: ObservableObject {
                 token: token,
                 session: session
             )
+        } catch {
+            if Task.isCancelled {
+                return .cancelled
+            }
+            if let urlError = error as? URLError {
+                let fallback = await downloadViaContentsAPI(
+                    relativePath: relativePath,
+                    encodedRelativePath: encodedRelativePath,
+                    expectedSHA256: expectedSHA256,
+                    repo: repo,
+                    token: token,
+                    session: session
+                )
+                return fallback ?? .network(urlError)
+            }
+            let fallback = await downloadViaContentsAPI(
+                relativePath: relativePath,
+                encodedRelativePath: encodedRelativePath,
+                expectedSHA256: expectedSHA256,
+                repo: repo,
+                token: token,
+                session: session
+            )
+            return fallback ?? .network(error)
         }
     }
     
@@ -457,34 +597,47 @@ public final class GitHubSyncService: ObservableObject {
         repo: String,
         token: String,
         session: URLSession
-    ) async -> Bool {
+    ) async -> SyncDownloadFailure? {
         let apiURLString = "https://api.github.com/repos/\(repo)/contents/\(encodedRelativePath)"
-        guard let url = URL(string: apiURLString) else { return false }
-        
+        guard let url = URL(string: apiURLString) else {
+            return .verification("invalid Contents API URL")
+        }
+
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/vnd.github.raw", forHTTPHeaderField: "Accept")
         request.setValue("MindSpace-iOS", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 60
-        
+
         do {
             let (tempURL, response) = try await session.download(for: request)
             guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
-                return false
+                if let httpResponse = response as? HTTPURLResponse {
+                    return .httpStatus(httpResponse.statusCode)
+                }
+                return .network(URLError(.badServerResponse))
             }
-            return try verifyAndMoveFile(tempURL: tempURL, relativePath: relativePath, expectedSHA256: expectedSHA256)
+            return verifyAndMoveFailure(tempURL: tempURL, relativePath: relativePath, expectedSHA256: expectedSHA256)
         } catch {
-            return false
+            if Task.isCancelled {
+                return .cancelled
+            }
+            return .network(error)
         }
     }
-    
-    private static func verifyAndMoveFile(
+
+    /// Installs a downloaded file after mandatory hash verification.
+    /// Returns nil on success; callers surface the failure for the error list.
+    private static func verifyAndMoveFailure(
         tempURL: URL,
         relativePath: String,
         expectedSHA256: String
-    ) throws -> Bool {
-        guard LibraryPathResolver.isSafeRelativePath(relativePath) else { return false }
+    ) -> SyncDownloadFailure? {
+        guard LibraryPathResolver.isSafeRelativePath(relativePath) else {
+            try? FileManager.default.removeItem(at: tempURL)
+            return .verification("unsafe relative path")
+        }
         let fileManager = FileManager.default
         let destinationURL = LibraryPathResolver.shared.libraryDirectoryURL.appendingPathComponent(relativePath)
 
@@ -494,27 +647,32 @@ public final class GitHubSyncService: ObservableObject {
             guard let hashString = LibraryPathResolver.streamSHA256Hex(of: tempURL),
                   hashString.lowercased() == expectedSHA256.lowercased() else {
                 try? fileManager.removeItem(at: tempURL)
-                return false
+                return .verification("SHA-256 mismatch for \(relativePath)")
             }
         } else {
             try? fileManager.removeItem(at: tempURL)
-            return false
+            return .verification("missing expected SHA-256 for \(relativePath)")
         }
 
-        // Create directory structure
-        let parentDir = destinationURL.deletingLastPathComponent()
-        if !fileManager.fileExists(atPath: parentDir.path) {
-            try fileManager.createDirectory(at: parentDir, withIntermediateDirectories: true)
-        }
+        do {
+            // Create directory structure
+            let parentDir = destinationURL.deletingLastPathComponent()
+            if !fileManager.fileExists(atPath: parentDir.path) {
+                try fileManager.createDirectory(at: parentDir, withIntermediateDirectories: true)
+            }
 
-        if fileManager.fileExists(atPath: destinationURL.path) {
-            _ = try fileManager.replaceItemAt(destinationURL, withItemAt: tempURL, backupItemName: nil, options: .usingNewMetadataOnly)
-        } else {
-            try fileManager.moveItem(at: tempURL, to: destinationURL)
+            if fileManager.fileExists(atPath: destinationURL.path) {
+                _ = try fileManager.replaceItemAt(destinationURL, withItemAt: tempURL, backupItemName: nil, options: .usingNewMetadataOnly)
+            } else {
+                try fileManager.moveItem(at: tempURL, to: destinationURL)
+            }
+            return nil
+        } catch {
+            try? fileManager.removeItem(at: tempURL)
+            return .verification("install failed for \(relativePath): \(error.localizedDescription)")
         }
-        return true
     }
-    
+
     public func cancelSync() {
         self.isCancelled = true
         self.syncTask?.cancel()

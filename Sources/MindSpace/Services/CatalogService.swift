@@ -4,6 +4,7 @@ import CryptoKit
 public enum CatalogLoadError: Error, Sendable, Equatable {
     case notFound
     case decodeFailed(String)
+    case schemaMismatch(found: Int, expected: Int)
 
     public var message: String {
         switch self {
@@ -11,6 +12,8 @@ public enum CatalogLoadError: Error, Sendable, Equatable {
             return "Catalog manifest not found in Library or Bundle."
         case .decodeFailed(let detail):
             return "Failed to decode catalog: \(detail)"
+        case .schemaMismatch(let found, let expected):
+            return "Catalog schema v\(found) isn't supported by this app (expects v\(expected)). Update the app to read this library."
         }
     }
 }
@@ -87,6 +90,12 @@ public final class CatalogService: ObservableObject {
 
         do {
             let decodedManifest = try JSONDecoder().decode(CatalogManifest.self, from: data)
+            guard decodedManifest.schemaVersion == ProgressTransferManager.supportedCatalogSchemaVersion else {
+                return .failure(.schemaMismatch(
+                    found: decodedManifest.schemaVersion,
+                    expected: ProgressTransferManager.supportedCatalogSchemaVersion
+                ))
+            }
             var warning: String?
             if catalogSource == "bundle",
                FileManager.default.fileExists(atPath: libraryURL.path),

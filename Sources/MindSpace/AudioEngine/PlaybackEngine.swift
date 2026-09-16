@@ -126,6 +126,7 @@ public final class PlaybackEngine: ObservableObject {
     private var playerItemObserverTokens: [NSObjectProtocol] = []
     private var statusObservation: NSKeyValueObservation?
     private var observedItem: AVPlayerItem?
+    private var pendingInitialSeekSeconds: Double?
     private var sleepTimerTask: Task<Void, Never>?
     private var wasPlayingBeforeInterruption = false
     private var lastSavedResumePosition: Double = 0.0
@@ -258,16 +259,29 @@ public final class PlaybackEngine: ObservableObject {
         let avPlayer = AVPlayer(playerItem: playerItem)
         avPlayer.automaticallyWaitsToMinimizeStalling = false
         self.player = avPlayer
-        
+
         setupTimeObserver()
         setupItemObservers(for: playerItem)
-        
+
+        // Defer the initial seek until the item reports readyToPlay: a
+        // pre-ready seek can be silently ignored and resume would start at 0.
         if startPosition > 0.0 {
-            let cmTime = CMTime(seconds: startPosition, preferredTimescale: 600)
-            avPlayer.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
+            pendingInitialSeekSeconds = startPosition
+        } else {
+            pendingInitialSeekSeconds = nil
         }
-        
+
         avPlayer.playImmediately(atRate: speed.rawValue)
+        updateNowPlayingCenter()
+    }
+
+    private func applyPendingInitialSeekIfNeeded() {
+        guard let target = pendingInitialSeekSeconds else { return }
+        pendingInitialSeekSeconds = nil
+        let cmTime = CMTime(seconds: target, preferredTimescale: 600)
+        player?.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
+        currentTime = target
+        lastSavedResumePosition = target
         updateNowPlayingCenter()
     }
 
@@ -489,6 +503,7 @@ public final class PlaybackEngine: ObservableObject {
                 switch observed.status {
                 case .readyToPlay:
                     if self.player?.currentItem === observed {
+                        self.applyPendingInitialSeekIfNeeded()
                         self.state = .playing
                     }
                 case .failed:
@@ -533,6 +548,7 @@ public final class PlaybackEngine: ObservableObject {
         statusObservation?.invalidate()
         statusObservation = nil
         observedItem = nil
+        pendingInitialSeekSeconds = nil
         for token in playerItemObserverTokens {
             NotificationCenter.default.removeObserver(token)
         }
