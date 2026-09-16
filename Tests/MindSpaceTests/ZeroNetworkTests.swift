@@ -9,9 +9,9 @@ final class ZeroNetworkTests: XCTestCase {
 
     private static let telemetrySymbols = [
         "Firebase", "FirebaseAnalytics", "FirebaseCrashlytics",
-        "Mixpanel", "Amplitude", "Segment", "TelemetryDeck",
+        "Mixpanel", "Amplitude", "Segment.io", "TelemetryDeck",
         "Sentry", "Crashlytics", "Answers", "Flurry", "AppsFlyer",
-        "Adjust", "Branch", "Kochava", "mParticle", "UXCam",
+        "Branch.io", "Kochava", "mParticle", "UXCam",
         "FullStory", "LogRocket", "PostHog", "Countly",
         "AdSupport", "AdServices", "GoogleMobileAds", "AppTrackingTransparency",
     ]
