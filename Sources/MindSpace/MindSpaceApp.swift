@@ -13,7 +13,6 @@ struct MindSpaceApp: App {
     let persistenceState: PersistenceState
 
     init() {
-
         LibraryPathResolver.shared.applyHardeningAndProtection()
 
         AudioSessionManager.shared.configureAudioSession()
@@ -84,7 +83,7 @@ struct MindSpaceApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(persistenceState: persistenceState)
+            ContentView(persistenceIssue: persistenceIssueMessage)
                 .modelContainer(container)
                 .preferredColorScheme(.dark)
                 .onAppear {
@@ -93,9 +92,19 @@ struct MindSpaceApp: App {
         }
     }
 
+    private var persistenceIssueMessage: String? {
+        switch persistenceState {
+        case .healthy:
+            return nil
+        case .recoveredFromBackup:
+            return "MindSpace could not open the existing progress store. Your stored data was preserved."
+        case .inMemory:
+            return "MindSpace could not prepare progress storage."
+        }
+    }
+
     @MainActor
     private func ensureInitialSettings() {
-
         _ = SettingsStore.fetchOrCreate(in: container.mainContext)
     }
 }
