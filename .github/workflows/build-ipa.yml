@@ -6,10 +6,18 @@ on:
 permissions:
   contents: write
 
+# Minute-saver: a new dispatch on the same branch cancels the stale in-flight
+# run instead of paying for both (macOS minutes bill at 10x).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build, Test & Release IPA
     runs-on: macos-14
+    # Cost guard: never let a hung simulator/build burn the 6h default (at 10x).
+    timeout-minutes: 60
 
     steps:
       - name: Checkout Repository
@@ -20,9 +28,12 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_16.1.app || sudo xcode-select -s /Applications/Xcode_16.0.app || sudo xcode-select -s /Applications/Xcode_16.app || sudo xcode-select -s /Applications/Xcode_15.4.app || sudo xcode-select -s /Applications/Xcode.app
           xcodebuild -version
 
-      - name: Install XcodeGen
+      - name: Install XcodeGen (if missing)
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
-          brew install xcodegen
+          command -v xcodegen >/dev/null || brew install xcodegen
+          xcodegen --version
 
       - name: Synchronize Canonical Version Across Codebase
         run: |
@@ -67,7 +78,8 @@ jobs:
 
       - name: Compile Unsigned iOS Binary
         run: |
-          xcodebuild clean build \
+          # Ephemeral runner: DerivedData starts empty, so the 'clean' pass is pure overhead.
+          xcodebuild build \
             -project MindSpace.xcodeproj \
             -scheme MindSpace \
             -sdk iphoneos \
