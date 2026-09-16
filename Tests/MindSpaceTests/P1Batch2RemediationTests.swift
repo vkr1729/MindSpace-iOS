@@ -18,11 +18,7 @@ final class P1Batch2RemediationTests: XCTestCase {
     // MARK: - P1-1: versioned schema + migration plan
 
     func testP1_1_MigrationPlanCoversV1ToV1_1() {
-        XCTAssertEqual(MindSpaceMigrationPlan.schemas.count, 3)
-        XCTAssertEqual(
-            MindSpaceSchemaV1.versionIdentifier,
-            Schema.Version(1, 0, 0)
-        )
+        XCTAssertEqual(MindSpaceMigrationPlan.schemas.count, 2)
         XCTAssertEqual(
             MindSpaceSchemaV1_1.versionIdentifier,
             Schema.Version(1, 1, 0)
@@ -31,10 +27,9 @@ final class P1Batch2RemediationTests: XCTestCase {
             MindSpaceSchemaV1_2.versionIdentifier,
             Schema.Version(1, 2, 0)
         )
-        XCTAssertEqual(MindSpaceMigrationPlan.stages.count, 2, "Plan must define v1 -> v1.1 and v1.1 -> v1.2 stages.")
-        let v1ModelNames = MindSpaceSchemaV1.models.map { String(describing: $0) }
-        XCTAssertEqual(v1ModelNames.count, 4)
+        XCTAssertEqual(MindSpaceMigrationPlan.stages.count, 1, "Plan must define the v1.1 -> v1.2 stage.")
         let v11ModelNames = MindSpaceSchemaV1_1.models.map { String(describing: $0) }
+        XCTAssertEqual(v11ModelNames.count, 5)
         XCTAssertTrue(
             v11ModelNames.contains { $0.contains("PendingCompletion") },
             "v1.1 must carry the outbox entity."
