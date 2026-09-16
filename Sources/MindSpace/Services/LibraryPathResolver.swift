@@ -105,7 +105,7 @@ public struct LibraryPathResolver: Sendable {
             return nil
         }
 
-        let repo = (UserDefaults.standard.string(forKey: "github_sync_repo") ?? "vkr1729/MindSpace-Content")
+        let repo = (UserDefaults.standard.string(forKey: "github_sync_repo") ?? "")
             .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard !repo.isEmpty else {
             return nil
