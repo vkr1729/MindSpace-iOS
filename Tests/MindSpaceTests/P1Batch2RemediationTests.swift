@@ -69,13 +69,17 @@ final class P1Batch2RemediationTests: XCTestCase {
             timeZoneIdentifier: "UTC",
             gmtOffsetSeconds: 0
         )
-        XCTAssertEqual(try await actor.pendingCompletionCount(), 1)
-        XCTAssertFalse(try await actor.hasCompletion(id: queuedId))
+        let queuedCount = try await actor.pendingCompletionCount()
+        XCTAssertEqual(queuedCount, 1)
+        let hasBeforeFlush = try await actor.hasCompletion(id: queuedId)
+        XCTAssertFalse(hasBeforeFlush)
 
         let remaining = try await actor.flushPendingCompletions()
         XCTAssertEqual(remaining, 0)
-        XCTAssertEqual(try await actor.pendingCompletionCount(), 0)
-        XCTAssertTrue(try await actor.hasCompletion(id: queuedId))
+        let drainedCount = try await actor.pendingCompletionCount()
+        XCTAssertEqual(drainedCount, 0)
+        let hasAfterFlush = try await actor.hasCompletion(id: queuedId)
+        XCTAssertTrue(hasAfterFlush)
 
         let events = try await actor.fetchAllCompletionEvents()
         XCTAssertEqual(events.count, 1)
