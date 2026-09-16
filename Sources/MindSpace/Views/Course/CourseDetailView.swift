@@ -1,8 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// Screen 3: Elevated Course View with Cinematic Celestial Hero & Living Constellation
-/// Reference: Mock Screen Codex.png (Screen 3: Managing Anxiety)
+/// Course detail with plain progress, availability, and a clear next session.
 public struct CourseDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -32,81 +31,32 @@ public struct CourseDetailView: View {
     }
     
     private var nextSession: CatalogSession? {
-        course.sessions.first(where: { !completedSessionIDs.contains($0.id) })
+        course.sessions.first(where: { !completedSessionIDs.contains($0.id) }) ?? course.sessions.first
     }
     
     private var ambientColor: Color {
-        CosmosTheme.ambientColor(for: course.name)
+        MindSpaceTheme.accent(for: course.name)
     }
     
     private var isCourseFavorited: Bool {
         favorites.contains(where: { $0.sessionStableId == course.id })
     }
     
-    private var constellationNodes: [ConstellationNode] {
-        let nextId = nextSession?.id
-        var nodes: [ConstellationNode] = []
-        
-        if course.hasGapWaiver {
-            // Pregnancy Course: Days 1-26, Bridge of Reflection (27-29), Day 30
-            for session in course.sessions {
-                let isDone = completedSessionIDs.contains(session.id)
-                let isAct = (session.id == nextId)
-                
-                if session.dayNumber == 30 {
-                    // Insert distinct Bridge of Reflection node between Day 26 and Day 30
-                    let day26Done = course.sessions.first(where: { $0.dayNumber == 26 }).map { completedSessionIDs.contains($0.id) } ?? false
-                    nodes.append(ConstellationNode(
-                        id: "bridge_reflection_27_29",
-                        dayNumber: 27,
-                        title: "Bridge of Reflection",
-                        isCompleted: day26Done,
-                        isActive: false,
-                        isBridgeOfReflection: true
-                    ))
-                }
-                
-                nodes.append(ConstellationNode(
-                    id: session.id,
-                    dayNumber: session.dayNumber,
-                    title: session.title,
-                    isCompleted: isDone,
-                    isActive: isAct,
-                    isBridgeOfReflection: false
-                ))
-            }
-        } else {
-            for session in course.sessions {
-                let isDone = completedSessionIDs.contains(session.id)
-                let isAct = (session.id == nextId)
-                nodes.append(ConstellationNode(
-                    id: session.id,
-                    dayNumber: session.dayNumber,
-                    title: session.title,
-                    isCompleted: isDone,
-                    isActive: isAct,
-                    isBridgeOfReflection: false
-                ))
-            }
-        }
-        
-        return nodes
-    }
-    
     public var body: some View {
         ZStack {
-            CosmosTheme.spaceBackground.ignoresSafeArea()
+            MindSpaceTheme.background.ignoresSafeArea()
             
-            // Atmospheric Category Glow
+            // Restrained category tint; it is decorative and non-interactive.
             VStack {
                 RadialGradient(
-                    colors: [ambientColor.opacity(0.20), Color.clear],
+                    colors: [ambientColor.opacity(0.08), Color.clear],
                     center: .top,
                     startRadius: 20,
                     endRadius: 300
                 )
                 .frame(height: 280)
                 .ignoresSafeArea()
+                .accessibilityHidden(true)
                 Spacer()
             }
             
@@ -119,25 +69,28 @@ public struct CourseDetailView: View {
                             dismiss()
                         }) {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 17, weight: .bold))
-                                .foregroundColor(CosmosTheme.textPrimary)
-                                .frame(width: 42, height: 42)
-                                .background(CosmosTheme.spaceCard)
+                                .font(.body.weight(.bold))
+                                .foregroundStyle(MindSpaceTheme.textPrimary)
+                                .frame(width: 44, height: 44)
+                                .background(MindSpaceTheme.surface)
                                 .clipShape(Circle())
-                                .overlay(Circle().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                                .overlay(Circle().stroke(MindSpaceTheme.divider, lineWidth: 1))
                         }
-                        .buttonStyle(.cosmicPressable)
+                        .buttonStyle(.mindSpacePressable)
+                        .accessibilityLabel("Back")
                         
                         Spacer()
                         
                         VStack(spacing: 2) {
                             Text(course.name)
-                                .font(.system(size: 18, weight: .bold, design: .rounded))
-                                .foregroundColor(CosmosTheme.textPrimary)
+                                .font(.headline)
+                                .foregroundStyle(MindSpaceTheme.textPrimary)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.center)
                             
                             Text("\(course.totalSessions) sessions • \(completedCount) completed")
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
-                                .foregroundColor(CosmosTheme.textSecondary)
+                                .font(.caption)
+                                .foregroundStyle(MindSpaceTheme.textSecondary)
                         }
                         
                         Spacer()
@@ -151,48 +104,47 @@ public struct CourseDetailView: View {
                             }
                         } label: {
                             Image(systemName: "ellipsis")
-                                .font(.system(size: 17, weight: .bold))
-                                .foregroundColor(CosmosTheme.textPrimary)
-                                .frame(width: 42, height: 42)
-                                .background(CosmosTheme.spaceCard)
+                                .font(.body.weight(.bold))
+                                .foregroundStyle(MindSpaceTheme.textPrimary)
+                                .frame(width: 44, height: 44)
+                                .background(MindSpaceTheme.surface)
                                 .clipShape(Circle())
-                                .overlay(Circle().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                                .overlay(Circle().stroke(MindSpaceTheme.divider, lineWidth: 1))
                         }
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 12)
                     
-                    // MARK: - Course Spotlight Hero Card
+                    // MARK: - Course summary
                     HStack(spacing: 16) {
-                        CelestialPlanetView(style: planetStyle(for: course.name), size: 68, hasRings: true)
+                        MindSpaceCourseBadge(name: course.name, size: 56)
                         
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack(spacing: 6) {
-                                Text("GUIDED PATHWAY")
-                                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                                    .foregroundColor(ambientColor)
-                                    .tracking(0.8)
-                                
-                                if course.hasGapWaiver {
-                                    Text("Bridge Included ✨")
-                                        .font(.system(size: 10, weight: .semibold, design: .rounded))
-                                        .foregroundColor(CosmosTheme.starlightGold)
-                                }
-                            }
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Guided course")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(ambientColor)
+                                .textCase(.uppercase)
+                                .tracking(0.8)
                             
                             Text(course.name)
-                                .font(.system(size: 20, weight: .bold, design: .rounded))
-                                .foregroundColor(CosmosTheme.textPrimary)
+                                .font(.title2.weight(.bold))
+                                .foregroundStyle(MindSpaceTheme.textPrimary)
+                                .fixedSize(horizontal: false, vertical: true)
                             
                             Text(course.description.isEmpty ? "Deep mindful training for mental clarity and peaceful presence." : course.description)
-                                .font(.system(size: 13, weight: .regular, design: .rounded))
-                                .foregroundColor(CosmosTheme.textSecondary)
-                                .lineLimit(2)
+                                .font(.subheadline)
+                                .foregroundStyle(MindSpaceTheme.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            ProgressView(value: Double(completedCount), total: Double(max(1, course.totalSessions)))
+                                .tint(ambientColor)
+                                .accessibilityLabel("Course progress")
+                                .accessibilityValue("\(completedCount) of \(course.totalSessions) sessions")
                         }
                         
                         Spacer()
                     }
-                    .cosmicHeroStyle(cornerRadius: 22, glowColor: ambientColor, padding: 18)
+                    .mindSpaceEmphasisStyle(cornerRadius: 22, accentColor: ambientColor, padding: 18)
                     .padding(.horizontal, 20)
                     
                     // MARK: - On-Demand Course Download Banner (if not downloaded)
@@ -202,33 +154,33 @@ public struct CourseDetailView: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     HStack {
                                         Image(systemName: "arrow.down.circle.fill")
-                                            .foregroundColor(CosmosTheme.auroraTeal)
+                                            .foregroundColor(MindSpaceTheme.success)
                                         Text("Downloading \(course.name)...")
                                             .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                            .foregroundColor(CosmosTheme.textPrimary)
+                                            .foregroundColor(MindSpaceTheme.textPrimary)
                                         Spacer()
                                         Text("\(syncService.completedTracks)/\(syncService.totalTracks)")
                                             .font(.system(size: 12, weight: .bold, design: .rounded))
-                                            .foregroundColor(CosmosTheme.starlightGold)
+                                            .foregroundColor(MindSpaceTheme.completion)
                                     }
                                     
                                     ProgressView(value: syncService.progressFraction)
-                                        .tint(CosmosTheme.auroraTeal)
+                                        .tint(MindSpaceTheme.success)
                                     
                                     HStack {
                                         Text("\(Int(syncService.progressFraction * 100))% complete")
                                             .font(.system(size: 11, design: .rounded))
-                                            .foregroundColor(CosmosTheme.textSecondary)
+                                            .foregroundColor(MindSpaceTheme.textSecondary)
                                         Spacer()
                                         Button("Cancel") {
                                             syncService.cancelSync()
                                         }
                                         .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                        .foregroundColor(CosmosTheme.solarCoral)
+                                        .foregroundColor(MindSpaceTheme.warning)
                                     }
                                 }
                                 .padding(14)
-                                .cosmicCardStyle(cornerRadius: 16, borderColor: CosmosTheme.auroraTeal.opacity(0.4), padding: 0)
+                                .mindSpaceCardStyle(cornerRadius: 16, borderColor: MindSpaceTheme.success.opacity(0.4), padding: 0)
                             } else {
                                 let totalBytes = LibraryPathResolver.shared.courseTotalSizeBytes(course: course)
                                 let formattedMB = String(format: "%.0f MB", Double(totalBytes) / (1024 * 1024))
@@ -245,20 +197,20 @@ public struct CourseDetailView: View {
                                     HStack(spacing: 12) {
                                         ZStack {
                                             Circle()
-                                                .fill(CosmosTheme.auroraTeal.opacity(0.18))
+                                                .fill(MindSpaceTheme.success.opacity(0.18))
                                                 .frame(width: 38, height: 38)
                                             Image(systemName: "icloud.and.arrow.down.fill")
                                                 .font(.system(size: 17))
-                                                .foregroundColor(CosmosTheme.auroraTeal)
+                                                .foregroundColor(MindSpaceTheme.success)
                                         }
                                         
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text("Download Course for Offline Play")
                                                 .font(.system(size: 14, weight: .bold, design: .rounded))
-                                                .foregroundColor(CosmosTheme.textPrimary)
+                                                .foregroundColor(MindSpaceTheme.textPrimary)
                                             Text("\(course.sessions.count) sessions • \(formattedMB)")
                                                 .font(.system(size: 12, weight: .regular, design: .rounded))
-                                                .foregroundColor(CosmosTheme.textSecondary)
+                                                .foregroundColor(MindSpaceTheme.textSecondary)
                                         }
                                         
                                         Spacer()
@@ -268,64 +220,26 @@ public struct CourseDetailView: View {
                                             .foregroundColor(.white)
                                             .padding(.horizontal, 14)
                                             .padding(.vertical, 7)
-                                            .background(CosmosTheme.auroraTeal)
+                                            .background(MindSpaceTheme.success)
                                             .clipShape(Capsule())
                                     }
                                     .padding(12)
                                 }
-                                .buttonStyle(.cosmicPressable)
-                                .cosmicCardStyle(cornerRadius: 16, borderColor: CosmosTheme.auroraTeal.opacity(0.3), padding: 0)
+                                .buttonStyle(.mindSpacePressable)
+                                .mindSpaceCardStyle(cornerRadius: 16, borderColor: MindSpaceTheme.success.opacity(0.3), padding: 0)
                             }
                         }
                         .padding(.horizontal, 20)
                     }
                     
-                    // MARK: - Interactive Living Constellation Path
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text("Constellation Journey")
-                                .font(.system(size: 17, weight: .bold, design: .rounded))
-                                .foregroundColor(CosmosTheme.textPrimary)
-                            
-                            Spacer()
-                            
-                            Text("Tap node to play")
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
-                                .foregroundColor(CosmosTheme.textSecondary)
-                        }
-                        .padding(.horizontal, 4)
-                        
-                        ConstellationPathView(
-                            nodes: constellationNodes,
-                            onSelectNode: { node in
-                                if node.isBridgeOfReflection {
-                                    HapticService.shared.medium()
-                                    isShowingBridgeSheet = true
-                                } else if let session = course.sessions.first(where: { $0.id == node.id }) {
-                                    playSession(session)
-                                }
-                            }
-                        )
-                    }
-                    .cosmicCardStyle(cornerRadius: 20, padding: 16)
-                    .padding(.horizontal, 20)
-                    
                     // MARK: - Primary Action Button
                     if let next = nextSession {
-                        CosmicPrimaryButton("Continue Day \(next.dayNumber) ▶") {
+                        MindSpacePrimaryButton("Continue Day \(next.dayNumber)", systemImage: "play.fill") {
                             HapticService.shared.medium()
                             playSession(next)
                         }
                         .padding(.horizontal, 20)
-                    } else if completedCount == course.sessions.count, !course.sessions.isEmpty {
-                        HStack {
-                            Image(systemName: "checkmark.seal.fill")
-                                .foregroundColor(CosmosTheme.auroraTeal)
-                            Text("Course complete — every day finished.")
-                                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                .foregroundColor(CosmosTheme.textPrimary)
-                        }
-                        .padding(.horizontal, 20)
+                        .accessibilityIdentifier("course.continue")
                     }
                     
                     // MARK: - Intro Video Button (if available)
@@ -337,45 +251,78 @@ public struct CourseDetailView: View {
                             HStack(spacing: 14) {
                                 ZStack {
                                     Circle()
-                                        .fill(CosmosTheme.auroraTeal.opacity(0.15))
+                                        .fill(MindSpaceTheme.success.opacity(0.15))
                                         .frame(width: 42, height: 42)
                                     Image(systemName: "play.rectangle.fill")
                                         .font(.system(size: 20))
-                                        .foregroundColor(CosmosTheme.auroraTeal)
+                                        .foregroundColor(MindSpaceTheme.success)
                                 }
                                 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Watch Course Intro Video")
                                         .font(.system(size: 15, weight: .semibold, design: .rounded))
-                                        .foregroundColor(CosmosTheme.textPrimary)
+                                        .foregroundColor(MindSpaceTheme.textPrimary)
                                     Text("Video overview & mindfulness principles")
                                         .font(.system(size: 12, weight: .regular, design: .rounded))
-                                        .foregroundColor(CosmosTheme.textSecondary)
+                                        .foregroundColor(MindSpaceTheme.textSecondary)
                                 }
                                 
                                 Spacer()
                                 
                                 Image(systemName: "chevron.right")
                                     .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(CosmosTheme.textSecondary)
+                                    .foregroundColor(MindSpaceTheme.textSecondary)
                             }
                         }
-                        .buttonStyle(.cosmicPressable)
-                        .cosmicCardStyle(cornerRadius: 18, borderColor: CosmosTheme.auroraTeal.opacity(0.3), padding: 14)
+                        .buttonStyle(.mindSpacePressable)
+                        .mindSpaceCardStyle(cornerRadius: 18, borderColor: MindSpaceTheme.success.opacity(0.3), padding: 14)
                         .padding(.horizontal, 20)
                     }
                     
-                    // MARK: - Session List
+                    // MARK: - Course progress
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("All Sessions")
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
-                            .foregroundColor(CosmosTheme.textPrimary)
+                        Text("Course progress")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(MindSpaceTheme.textPrimary)
                             .padding(.horizontal, 20)
                         
                         LazyVStack(spacing: 10) {
                             ForEach(course.sessions) { session in
                                 let isDone = completedSessionIDs.contains(session.id)
-                                let isNext = nextSession.map { $0.id == session.id } ?? false
+                                let isNext = session.id == nextSession?.id
+
+                                if course.hasGapWaiver && session.dayNumber == 30 {
+                                    Button {
+                                        HapticService.shared.medium()
+                                        isShowingBridgeSheet = true
+                                    } label: {
+                                        HStack(spacing: 14) {
+                                            Image(systemName: "pause.circle")
+                                                .font(.title3)
+                                                .foregroundStyle(MindSpaceTheme.secondaryAccent)
+                                                .frame(width: 44, height: 44)
+                                                .accessibilityHidden(true)
+
+                                            VStack(alignment: .leading, spacing: 3) {
+                                                Text("Reflection days")
+                                                    .font(.body.weight(.semibold))
+                                                    .foregroundStyle(MindSpaceTheme.textPrimary)
+                                                Text("Days 27–29 · Prepare for Day 30")
+                                                    .font(.subheadline)
+                                                    .foregroundStyle(MindSpaceTheme.textSecondary)
+                                            }
+
+                                            Spacer()
+                                            Image(systemName: "chevron.right")
+                                                .foregroundStyle(MindSpaceTheme.textSecondary)
+                                                .accessibilityHidden(true)
+                                        }
+                                        .mindSpaceCardStyle(padding: 12)
+                                    }
+                                    .buttonStyle(.mindSpacePressable)
+                                    .padding(.horizontal, 20)
+                                    .accessibilityLabel("Reflection days, Days 27 through 29, prepare for Day 30")
+                                }
                                 
                                 Button(action: {
                                     HapticService.shared.medium()
@@ -383,29 +330,29 @@ public struct CourseDetailView: View {
                                 }) {
                                     HStack(spacing: 14) {
                                         Text("\(session.dayNumber)")
-                                            .font(.system(size: 15, weight: .bold, design: .rounded))
-                                            .foregroundColor(isDone ? CosmosTheme.starlightGold : (isNext ? CosmosTheme.cosmicPurple : CosmosTheme.textSecondary))
-                                            .frame(width: 28, height: 28)
+                                            .font(.subheadline.weight(.bold))
+                                            .foregroundStyle(isDone ? MindSpaceTheme.background : (isNext ? MindSpaceTheme.background : MindSpaceTheme.textSecondary))
+                                            .frame(width: 36, height: 36)
                                             .background(
                                                 Circle()
-                                                    .fill(isDone ? CosmosTheme.starlightGold.opacity(0.2) : (isNext ? CosmosTheme.cosmicPurple.opacity(0.2) : CosmosTheme.spaceCardBorder))
+                                                    .fill(isDone ? MindSpaceTheme.completion : (isNext ? MindSpaceTheme.accent : MindSpaceTheme.elevatedSurface))
                                             )
                                         
                                         VStack(alignment: .leading, spacing: 3) {
                                             Text(session.title)
-                                                .font(.system(size: 15, weight: isNext ? .bold : .medium, design: .rounded))
-                                                .foregroundColor(CosmosTheme.textPrimary)
-                                                .lineLimit(1)
+                                                .font(.body.weight(isNext ? .bold : .medium))
+                                                .foregroundStyle(MindSpaceTheme.textPrimary)
+                                                .fixedSize(horizontal: false, vertical: true)
                                             
                                             HStack(spacing: 6) {
                                                 Text(session.condensedDuration)
-                                                    .font(.system(size: 12, weight: .regular, design: .rounded))
-                                                    .foregroundColor(CosmosTheme.textSecondary)
+                                                    .font(.subheadline)
+                                                    .foregroundStyle(MindSpaceTheme.textSecondary)
                                                 
                                                 if !(session.videoAttachments ?? []).isEmpty {
-                                                    Text("• Video Attached")
-                                                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                                        .foregroundColor(CosmosTheme.auroraTeal)
+                                                    Text("Video included")
+                                                        .font(.caption.weight(.semibold))
+                                                        .foregroundStyle(MindSpaceTheme.success)
                                                 }
                                             }
                                         }
@@ -415,28 +362,25 @@ public struct CourseDetailView: View {
                                         if isDone {
                                             Image(systemName: "checkmark.circle.fill")
                                                 .font(.system(size: 18))
-                                                .foregroundColor(CosmosTheme.starlightGold)
+                                                .foregroundColor(MindSpaceTheme.completion)
                                         } else if isNext {
                                             Image(systemName: "play.circle.fill")
                                                 .font(.system(size: 20))
-                                                .foregroundColor(CosmosTheme.cosmicPurple)
+                                                .foregroundColor(MindSpaceTheme.accent)
                                         }
                                     }
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 12)
-                                    .background(isNext ? CosmosTheme.cosmicPurple.opacity(0.12) : CosmosTheme.spaceCard)
+                                    .background(isNext ? MindSpaceTheme.accent.opacity(0.12) : MindSpaceTheme.surface)
                                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                            .stroke(isNext ? CosmosTheme.cosmicPurple.opacity(0.5) : CosmosTheme.spaceCardBorder, lineWidth: 1)
+                                            .stroke(isNext ? MindSpaceTheme.accent.opacity(0.5) : MindSpaceTheme.divider, lineWidth: 1)
                                     )
                                 }
-                                .buttonStyle(.cosmicPressable)
+                                .buttonStyle(.mindSpacePressable)
                                 .padding(.horizontal, 20)
-                                .accessibilityElement(children: .combine)
-                                .accessibilityLabel("Day \(session.dayNumber), \(session.title)")
-                                .accessibilityValue(isDone ? "Completed" : (isNext ? "Active next session" : "Upcoming"))
-                                .accessibilityAddTraits(isNext ? [.isButton, .isSelected] : [.isButton])
+                                .accessibilityIdentifier("course.session.\(session.id)")
                             }
                         }
                     }
@@ -466,38 +410,38 @@ public struct CourseDetailView: View {
     private var bridgeReflectionSheet: some View {
         NavigationStack {
             ZStack {
-                CosmosTheme.spaceBackground.ignoresSafeArea()
-                StarsBackgroundView()
+                MindSpaceTheme.background.ignoresSafeArea()
                 
                 VStack(spacing: 20) {
                     Spacer()
                     
                     ZStack {
                         Circle()
-                            .fill(CosmosTheme.moonLavender.opacity(0.2))
+                            .fill(MindSpaceTheme.secondaryAccent.opacity(0.12))
                             .frame(width: 80, height: 80)
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 36))
-                            .foregroundColor(CosmosTheme.moonLavender)
+                        Image(systemName: "pause")
+                            .font(.title.weight(.semibold))
+                            .foregroundStyle(MindSpaceTheme.secondaryAccent)
                     }
+                    .accessibilityHidden(true)
                     
-                    Text("Bridge of Reflection")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
-                        .foregroundColor(CosmosTheme.textPrimary)
+                    Text("Reflection days")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(MindSpaceTheme.textPrimary)
                     
-                    Text("Days 27–29: Mindful Transition & Reflection")
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundColor(CosmosTheme.starlightGold)
+                    Text("Days 27–29 · Pause and reflect")
+                        .font(.headline)
+                        .foregroundStyle(MindSpaceTheme.completion)
                     
                     Text("Take a peaceful moment to integrate everything you have practiced across Days 1–26 before stepping into Day 30. Your course progress remains unbroken.")
-                        .font(.system(size: 14, weight: .regular, design: .rounded))
-                        .foregroundColor(CosmosTheme.textSecondary)
+                        .font(.body)
+                        .foregroundStyle(MindSpaceTheme.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
                     
                     Spacer()
                     
-                    CosmicPrimaryButton("Continue to Day 30") {
+                    MindSpacePrimaryButton("Continue to Day 30", systemImage: "play.fill") {
                         isShowingBridgeSheet = false
                         if let day30 = course.sessions.first(where: { $0.dayNumber == 30 }) {
                             playSession(day30)
@@ -513,7 +457,7 @@ public struct CourseDetailView: View {
                     Button("Done") {
                         isShowingBridgeSheet = false
                     }
-                    .foregroundColor(CosmosTheme.moonLavender)
+                    .foregroundStyle(MindSpaceTheme.accent)
                 }
             }
         }
@@ -542,11 +486,10 @@ public struct CourseDetailView: View {
             videoAttachmentPath: videoAttachment?.relativePath,
             dayNumber: session.dayNumber,
             videoDuration: videoAttachment?.duration,
-            contentType: Self.contentType(forCourseNamed: course.name)
+            contentType: "meditation"
         )
-        if playbackEngine.loadAndPlay(track: track) {
-            playbackEngine.isFullPlayerPresented = true
-        }
+        playbackEngine.loadAndPlay(track: track)
+        playbackEngine.isFullPlayerPresented = true
     }
     
     private func playIntroVideo(_ intro: VideoAttachment) {
@@ -572,9 +515,8 @@ public struct CourseDetailView: View {
             videoDuration: intro.duration,
             contentType: "video"
         )
-        if playbackEngine.loadAndPlay(track: track) {
-            playbackEngine.isFullPlayerPresented = true
-        }
+        playbackEngine.loadAndPlay(track: track)
+        playbackEngine.isFullPlayerPresented = true
     }
 
     
@@ -592,19 +534,4 @@ public struct CourseDetailView: View {
         try? modelContext.save()
     }
     
-    private static func contentType(forCourseNamed name: String) -> String {
-        let lower = name.lowercased()
-        if lower.contains("sleep") { return "sleep" }
-        return "meditation"
-    }
-
-    private func planetStyle(for courseName: String) -> CelestialPlanetStyle {
-        switch courseName.lowercased() {
-        case let name where name.contains("basics"): return .purpleRinged
-        case let name where name.contains("anxiety") || name.contains("stress"): return .solarCoral
-        case let name where name.contains("health") || name.contains("pregnancy"): return .auroraTeal
-        case let name where name.contains("focus") || name.contains("work"): return .electricBlue
-        default: return .deepCosmos
-        }
-    }
 }

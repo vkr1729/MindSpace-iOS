@@ -98,7 +98,7 @@ public final class GitHubSyncService: ObservableObject {
     
     public var savedRepo: String {
         get {
-            UserDefaults.standard.string(forKey: repoKey) ?? "vkr1729/MindSpace-Content"
+            UserDefaults.standard.string(forKey: repoKey) ?? ""
         }
         set {
             UserDefaults.standard.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: repoKey)

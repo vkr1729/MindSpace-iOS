@@ -13,6 +13,7 @@ struct MindSpaceApp: App {
     let persistenceState: PersistenceState
 
     init() {
+
         LibraryPathResolver.shared.applyHardeningAndProtection()
 
         AudioSessionManager.shared.configureAudioSession()
@@ -94,6 +95,7 @@ struct MindSpaceApp: App {
 
     @MainActor
     private func ensureInitialSettings() {
+
         _ = SettingsStore.fetchOrCreate(in: container.mainContext)
     }
 }

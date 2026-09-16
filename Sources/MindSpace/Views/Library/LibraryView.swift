@@ -52,7 +52,7 @@ public enum StatusFilter: String, CaseIterable, Identifiable {
     public var id: String { rawValue }
 }
 
-/// Screen 2: Elevated Library & Category Explorer with 8 Pack Categories, 15 Singles Categories & Multi-Dimensional Filters
+/// Searchable course and singles library with explicit availability states.
 public struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @ObservedObject private var catalogService = CatalogService.shared
@@ -67,16 +67,8 @@ public struct LibraryView: View {
     @State private var selectedMedia: MediaFilter = .all
     @State private var selectedStatus: StatusFilter = .all
     @State private var showFilterSheet: Bool = false
-
-    @Binding private var path: NavigationPath
-
-    public init(path: Binding<NavigationPath>? = nil) {
-        if let path {
-            _path = path
-        } else {
-            _path = .constant(NavigationPath())
-        }
-    }
+    
+    public init() {}
     
     private var completedIDs: Set<String> {
         Set(completionEvents.filter { $0.isQualifyingMeditation }.map { $0.sessionStableId })
@@ -95,9 +87,9 @@ public struct LibraryView: View {
     }
     
     public var body: some View {
-        NavigationStack(path: $path) {
+        NavigationStack {
             ZStack {
-                CosmosTheme.spaceBackground.ignoresSafeArea()
+                MindSpaceTheme.background.ignoresSafeArea()
                 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 18) {
@@ -105,11 +97,11 @@ public struct LibraryView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Library")
                                 .font(.system(size: 32, weight: .bold, design: .rounded))
-                                .foregroundColor(CosmosTheme.textPrimary)
+                                .foregroundColor(MindSpaceTheme.textPrimary)
                             
-                            Text("Explore 8 Pack categories, 15 Singles categories & 275+ hours")
-                                .font(.system(size: 14, weight: .regular, design: .rounded))
-                                .foregroundColor(CosmosTheme.textSecondary)
+                            Text("Courses, singles, SOS, sleep, and focus")
+                                .font(.subheadline)
+                                .foregroundColor(MindSpaceTheme.textSecondary)
                         }
                         .padding(.horizontal, 20)
                         .padding(.top, 12)
@@ -118,12 +110,13 @@ public struct LibraryView: View {
                         HStack(spacing: 10) {
                             HStack(spacing: 8) {
                                 Image(systemName: "magnifyingglass")
-                                    .foregroundColor(CosmosTheme.textSecondary)
+                                    .foregroundColor(MindSpaceTheme.textSecondary)
                                 
                                 TextField("Search courses, singles, topics...", text: $searchText)
                                     .font(.system(size: 15, weight: .medium, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textPrimary)
+                                    .foregroundColor(MindSpaceTheme.textPrimary)
                                     .autocorrectionDisabled()
+                                    .accessibilityIdentifier("library.search")
                                 
                                 if isSearching {
                                     Button(action: {
@@ -131,18 +124,20 @@ public struct LibraryView: View {
                                         searchText = ""
                                     }) {
                                         Image(systemName: "xmark.circle.fill")
-                                            .foregroundColor(CosmosTheme.textSecondary)
+                                            .foregroundColor(MindSpaceTheme.textSecondary)
                                     }
                                     .buttonStyle(.plain)
+                                    .frame(minWidth: 44, minHeight: 44)
+                                    .accessibilityLabel("Clear search")
                                 }
                             }
                             .padding(.horizontal, 14)
                             .padding(.vertical, 11)
-                            .background(CosmosTheme.spaceCard)
+                            .background(MindSpaceTheme.surface)
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(isSearching ? CosmosTheme.cosmicPurple.opacity(0.6) : CosmosTheme.spaceCardBorder, lineWidth: 1)
+                                    .stroke(isSearching ? MindSpaceTheme.accent.opacity(0.6) : MindSpaceTheme.divider, lineWidth: 1)
                             )
                             
                             // Secondary Filters Button
@@ -152,19 +147,20 @@ public struct LibraryView: View {
                             }) {
                                 ZStack {
                                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .fill(hasActiveSecondaryFilters ? CosmosTheme.cosmicPurple : CosmosTheme.spaceCard)
+                                        .fill(hasActiveSecondaryFilters ? MindSpaceTheme.accent : MindSpaceTheme.surface)
                                         .frame(width: 44, height: 44)
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                                .stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
+                                                .stroke(MindSpaceTheme.divider, lineWidth: 1)
                                         )
                                     
                                     Image(systemName: "line.3.horizontal.decrease.circle")
                                         .font(.system(size: 20))
-                                        .foregroundColor(hasActiveSecondaryFilters ? .white : CosmosTheme.textPrimary)
+                                        .foregroundColor(hasActiveSecondaryFilters ? .white : MindSpaceTheme.textPrimary)
                                 }
                             }
-                            .buttonStyle(.cosmicPressable)
+                            .buttonStyle(.mindSpacePressable)
+                            .accessibilityLabel(hasActiveSecondaryFilters ? "Filters, active" : "Filters")
                         }
                         .padding(.horizontal, 20)
                         
@@ -198,19 +194,6 @@ public struct LibraryView: View {
                         } else {
                             categoryHierarchyView
                         }
-
-                        // Catalog load problems surface here, not as silent emptiness
-                        if let loadError = catalogService.loadError {
-                            Text(loadError)
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
-                                .foregroundColor(CosmosTheme.solarCoral)
-                                .padding(.horizontal, 20)
-                        } else if let loadWarning = catalogService.loadWarning {
-                            Text(loadWarning)
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
-                                .foregroundColor(CosmosTheme.starlightGold)
-                                .padding(.horizontal, 20)
-                        }
                         
                         Spacer(minLength: 90)
                     }
@@ -226,9 +209,9 @@ public struct LibraryView: View {
     // MARK: - Active Filters Bar
     private var activeFiltersBar: some View {
         HStack(spacing: 8) {
-            Text("Filters:")
+            Text("Filters")
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundColor(CosmosTheme.textSecondary)
+                .foregroundColor(MindSpaceTheme.textSecondary)
             
             if selectedDuration != .all {
                 filterPill(selectedDuration.rawValue) { selectedDuration = .all }
@@ -249,16 +232,18 @@ public struct LibraryView: View {
         HStack(spacing: 4) {
             Text(title)
                 .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundColor(CosmosTheme.starlightGold)
+                .foregroundColor(MindSpaceTheme.warning)
             Button(action: onRemove) {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundColor(CosmosTheme.starlightGold)
+                    .foregroundColor(MindSpaceTheme.warning)
             }
+            .frame(minWidth: 44, minHeight: 44)
+            .accessibilityLabel("Remove \(title) filter")
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(CosmosTheme.cosmicPurple.opacity(0.3))
+        .background(MindSpaceTheme.accent.opacity(0.3))
         .clipShape(Capsule())
     }
     
@@ -281,9 +266,9 @@ public struct LibraryView: View {
                     
                     if !categoriesWithMatches.isEmpty {
                         VStack(alignment: .leading, spacing: 14) {
-                            Text("Course Packs (\(categoriesWithMatches.count) Categories)")
-                                .font(.system(size: 18, weight: .bold, design: .rounded))
-                                .foregroundColor(CosmosTheme.textPrimary)
+                            Text("Courses")
+                                .font(.title3.bold())
+                                .foregroundColor(MindSpaceTheme.textPrimary)
                                 .padding(.horizontal, 20)
                             
                             ForEach(categoriesWithMatches) { category in
@@ -293,11 +278,11 @@ public struct LibraryView: View {
                                         HStack {
                                             Text(category.name)
                                                 .font(.system(size: 15, weight: .bold, design: .rounded))
-                                                .foregroundColor(CosmosTheme.moonLavender)
+                                                .foregroundColor(MindSpaceTheme.secondaryAccent)
                                             Spacer()
                                             Text("\(matchingCourses.count) courses")
                                                 .font(.system(size: 12, weight: .medium, design: .rounded))
-                                                .foregroundColor(CosmosTheme.textSecondary)
+                                                .foregroundColor(MindSpaceTheme.textSecondary)
                                         }
                                         .padding(.horizontal, 20)
                                         
@@ -307,6 +292,7 @@ public struct LibraryView: View {
                                             }
                                             .buttonStyle(.plain)
                                             .padding(.horizontal, 20)
+                                            .accessibilityIdentifier("library.course.\(course.id)")
                                         }
                                     }
                                     .padding(.bottom, 6)
@@ -334,16 +320,13 @@ public struct LibraryView: View {
                     
                     if !categoriesWithMatches.isEmpty {
                         VStack(alignment: .leading, spacing: 14) {
-                            Text("Singles (\(categoriesWithMatches.count) Categories)")
-                                .font(.system(size: 18, weight: .bold, design: .rounded))
-                                .foregroundColor(CosmosTheme.textPrimary)
+                            Text("Singles")
+                                .font(.title3.bold())
+                                .foregroundColor(MindSpaceTheme.textPrimary)
                                 .padding(.horizontal, 20)
                             
                             ForEach(categoriesWithMatches) { cat in
                                 let matchingSessions = cat.sessions.filter { matchesFilters(session: $0) }
-                                let onDiskCount = matchingSessions.filter {
-                                    LibraryPathResolver.shared.isFileAvailable(relativePath: $0.relativePath)
-                                }.count
                                 if !matchingSessions.isEmpty {
                                     NavigationLink(destination: SinglesListView(category: cat, onSelectSession: { single in
                                         HapticService.shared.medium()
@@ -355,14 +338,14 @@ public struct LibraryView: View {
                                             duration: single.duration,
                                             contentType: cat.name.lowercased().contains("sleep") ? "sleep" : "meditation"
                                         )
-                                        if playbackEngine.loadAndPlay(track: track) {
-                                            playbackEngine.isFullPlayerPresented = true
-                                        }
+                                        playbackEngine.loadAndPlay(track: track)
+                                        playbackEngine.isFullPlayerPresented = true
                                     })) {
-                                        singlesCategoryRow(category: cat, count: onDiskCount)
+                                        singlesCategoryRow(category: cat, count: matchingSessions.count)
                                     }
                                     .buttonStyle(.plain)
                                     .padding(.horizontal, 20)
+                                    .accessibilityIdentifier("library.singles.\(cat.id)")
                                 }
                             }
                         }
@@ -373,27 +356,26 @@ public struct LibraryView: View {
     }
     
     private func courseRow(course: CatalogCourse, category: CatalogCategory) -> some View {
-        let counts = LibraryPathResolver.shared.courseAvailableTrackCount(course: course)
-        let isAvailable = counts.total > 0 && counts.found == counts.total
-
-        return CosmicCard(padding: 14) {
+        let isAvailable = course.sessions.allSatisfy { LibraryPathResolver.shared.isFileAvailable(relativePath: $0.relativePath) }
+        
+        return MindSpaceCard(padding: 14) {
             HStack(spacing: 14) {
-                CelestialPlanetView(style: planetStyle(for: category.name), size: 44, hasRings: category.name.contains("Foundation"))
+                MindSpaceCourseBadge(name: category.name, size: 44)
                 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(course.name)
                         .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundColor(CosmosTheme.textPrimary)
+                        .foregroundColor(MindSpaceTheme.textPrimary)
                     
                     HStack(spacing: 6) {
                         Text("\(course.totalSessions) sessions")
                             .font(.system(size: 12, weight: .regular, design: .rounded))
-                            .foregroundColor(CosmosTheme.textSecondary)
+                            .foregroundColor(MindSpaceTheme.textSecondary)
                         
                         if course.introVideo != nil {
                             Text("• Video Intro")
                                 .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                .foregroundColor(CosmosTheme.auroraTeal)
+                                .foregroundColor(MindSpaceTheme.success)
                         }
                     }
                 }
@@ -401,49 +383,49 @@ public struct LibraryView: View {
                 Spacer()
                 
                 if !isAvailable {
-                    Text("\(counts.found)/\(counts.total) ready")
+                    Text("Unavailable")
                         .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .foregroundColor(CosmosTheme.solarCoral)
+                        .foregroundColor(MindSpaceTheme.danger)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 3)
-                        .background(CosmosTheme.solarCoral.opacity(0.15))
+                        .background(MindSpaceTheme.danger.opacity(0.15))
                         .clipShape(Capsule())
                 }
                 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(CosmosTheme.textDisabled)
+                    .foregroundColor(MindSpaceTheme.textDisabled)
             }
         }
     }
     
     private func singlesCategoryRow(category: SinglesCategory, count: Int) -> some View {
-        CosmicCard(padding: 14) {
+        MindSpaceCard(padding: 14) {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(CosmosTheme.cosmicPurple.opacity(0.25))
+                        .fill(MindSpaceTheme.accent.opacity(0.25))
                         .frame(width: 44, height: 44)
                     Image(systemName: category.iconName.isEmpty ? "sparkles" : category.iconName)
                         .font(.system(size: 18))
-                        .foregroundColor(CosmosTheme.moonLavender)
+                        .foregroundColor(MindSpaceTheme.secondaryAccent)
                 }
                 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(category.name)
                         .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundColor(CosmosTheme.textPrimary)
+                        .foregroundColor(MindSpaceTheme.textPrimary)
                     
-                    Text("\(count) sessions on disk")
+                    Text("\(count) sessions available")
                         .font(.system(size: 12, weight: .regular, design: .rounded))
-                        .foregroundColor(CosmosTheme.textSecondary)
+                        .foregroundColor(MindSpaceTheme.textSecondary)
                 }
                 
                 Spacer()
                 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(CosmosTheme.textDisabled)
+                    .foregroundColor(MindSpaceTheme.textDisabled)
             }
         }
     }
@@ -455,17 +437,17 @@ public struct LibraryView: View {
         return VStack(alignment: .leading, spacing: 14) {
             Text("Search Results")
                 .font(.system(size: 17, weight: .bold, design: .rounded))
-                .foregroundColor(CosmosTheme.textPrimary)
+                .foregroundColor(MindSpaceTheme.textPrimary)
                 .padding(.horizontal, 20)
             
             if results.courses.isEmpty && results.sessions.isEmpty && results.singles.isEmpty {
                 VStack(spacing: 8) {
                     Text("No results found for \"\(searchText)\"")
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundColor(CosmosTheme.textSecondary)
+                        .foregroundColor(MindSpaceTheme.textSecondary)
                     Text("Try searching for Basics, Stress, Sleep, Focus, or Anxiety.")
                         .font(.system(size: 13, weight: .regular, design: .rounded))
-                        .foregroundColor(CosmosTheme.textDisabled)
+                        .foregroundColor(MindSpaceTheme.textDisabled)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 30)
@@ -474,17 +456,17 @@ public struct LibraryView: View {
             // Courses
             ForEach(results.courses) { course in
                 NavigationLink(destination: CourseDetailView(course: course)) {
-                    CosmicCard(padding: 14) {
+                    MindSpaceCard(padding: 14) {
                         HStack(spacing: 12) {
                             Image(systemName: "book.fill")
-                                .foregroundColor(CosmosTheme.cosmicPurple)
+                                .foregroundColor(MindSpaceTheme.accent)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(course.name)
                                     .font(.system(size: 15, weight: .bold, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textPrimary)
+                                    .foregroundColor(MindSpaceTheme.textPrimary)
                                 Text("Course • \(course.totalSessions) sessions")
                                     .font(.system(size: 12, weight: .regular, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textSecondary)
+                                    .foregroundColor(MindSpaceTheme.textSecondary)
                             }
                             Spacer()
                         }
@@ -492,54 +474,9 @@ public struct LibraryView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 20)
+                .accessibilityIdentifier("library.course.\(course.id)")
             }
             
-            // Sessions
-            ForEach(results.sessions) { session in
-                Button(action: {
-                    HapticService.shared.medium()
-                    let track = PlayableTrack(
-                        id: session.id,
-                        title: session.title,
-                        courseName: nil,
-                        relativePath: session.relativePath,
-                        duration: session.duration,
-                        videoAttachmentPath: session.videoAttachments?.first?.relativePath,
-                        dayNumber: session.dayNumber,
-                        videoDuration: session.videoAttachments?.first?.duration,
-                        contentType: "meditation"
-                    )
-                    if playbackEngine.loadAndPlay(track: track) {
-                        playbackEngine.isFullPlayerPresented = true
-                    }
-                }) {
-                    CosmicCard(padding: 14) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "circle.grid.cross.fill")
-                                .foregroundColor(CosmosTheme.celestialBlue)
-                                .font(.system(size: 20))
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(session.title)
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textPrimary)
-                                Text("Day \(session.dayNumber) • \(session.condensedDuration)")
-                                    .font(.system(size: 12, weight: .regular, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textSecondary)
-                            }
-                            Spacer()
-                            if !LibraryPathResolver.shared.isFileAvailable(relativePath: session.relativePath) {
-                                Text("Unavailable")
-                                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                                    .foregroundColor(CosmosTheme.solarCoral)
-                            }
-                        }
-                    }
-                }
-                .buttonStyle(.cosmicPressable)
-                .padding(.horizontal, 20)
-            }
-
             // Singles
             ForEach(results.singles) { single in
                 let isAvail = LibraryPathResolver.shared.isFileAvailable(relativePath: single.relativePath)
@@ -552,34 +489,33 @@ public struct LibraryView: View {
                         relativePath: single.relativePath,
                         duration: single.duration
                     )
-                    if playbackEngine.loadAndPlay(track: track) {
-                        playbackEngine.isFullPlayerPresented = true
-                    }
+                    playbackEngine.loadAndPlay(track: track)
+                    playbackEngine.isFullPlayerPresented = true
                 }) {
-                    CosmicCard(padding: 14) {
+                    MindSpaceCard(padding: 14) {
                         HStack(spacing: 12) {
                             Image(systemName: "play.circle.fill")
-                                .foregroundColor(CosmosTheme.starlightGold)
+                                .foregroundColor(MindSpaceTheme.warning)
                                 .font(.system(size: 20))
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(single.title)
                                     .font(.system(size: 14, weight: .bold, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textPrimary)
+                                    .foregroundColor(MindSpaceTheme.textPrimary)
                                 Text("\(single.category) • \(single.condensedDuration)")
                                     .font(.system(size: 12, weight: .regular, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textSecondary)
+                                    .foregroundColor(MindSpaceTheme.textSecondary)
                             }
                             Spacer()
                             if !isAvail {
                                 Text("Unavailable")
                                     .font(.system(size: 10, weight: .bold, design: .rounded))
-                                    .foregroundColor(CosmosTheme.solarCoral)
+                                    .foregroundColor(MindSpaceTheme.danger)
                             }
                         }
                     }
                 }
-                .buttonStyle(.cosmicPressable)
+                .buttonStyle(.mindSpacePressable)
                 .padding(.horizontal, 20)
             }
         }
@@ -589,7 +525,7 @@ public struct LibraryView: View {
     private var secondaryFiltersSheet: some View {
         NavigationStack {
             ZStack {
-                CosmosTheme.spaceBackground.ignoresSafeArea()
+                MindSpaceTheme.background.ignoresSafeArea()
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
@@ -597,7 +533,7 @@ public struct LibraryView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Duration")
                                 .font(.system(size: 15, weight: .bold, design: .rounded))
-                                .foregroundColor(CosmosTheme.textPrimary)
+                                .foregroundColor(MindSpaceTheme.textPrimary)
                             
                             ForEach(DurationFilter.allCases) { opt in
                                 filterRow(title: opt.rawValue, isSelected: selectedDuration == opt) {
@@ -606,13 +542,13 @@ public struct LibraryView: View {
                             }
                         }
                         
-                        Divider().background(CosmosTheme.spaceCardBorder)
+                        Divider().background(MindSpaceTheme.divider)
                         
                         // Media
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Media Type")
                                 .font(.system(size: 15, weight: .bold, design: .rounded))
-                                .foregroundColor(CosmosTheme.textPrimary)
+                                .foregroundColor(MindSpaceTheme.textPrimary)
                             
                             ForEach(MediaFilter.allCases) { opt in
                                 filterRow(title: opt.rawValue, isSelected: selectedMedia == opt) {
@@ -621,13 +557,13 @@ public struct LibraryView: View {
                             }
                         }
                         
-                        Divider().background(CosmosTheme.spaceCardBorder)
+                        Divider().background(MindSpaceTheme.divider)
                         
                         // Status
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Status & Favorites")
                                 .font(.system(size: 15, weight: .bold, design: .rounded))
-                                .foregroundColor(CosmosTheme.textPrimary)
+                                .foregroundColor(MindSpaceTheme.textPrimary)
                             
                             ForEach(StatusFilter.allCases) { opt in
                                 filterRow(title: opt.rawValue, isSelected: selectedStatus == opt) {
@@ -648,13 +584,13 @@ public struct LibraryView: View {
                         selectedMedia = .all
                         selectedStatus = .all
                     }
-                    .foregroundColor(CosmosTheme.solarCoral)
+                    .foregroundColor(MindSpaceTheme.danger)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
                         showFilterSheet = false
                     }
-                    .foregroundColor(CosmosTheme.moonLavender)
+                    .foregroundColor(MindSpaceTheme.secondaryAccent)
                     .fontWeight(.bold)
                 }
             }
@@ -669,12 +605,12 @@ public struct LibraryView: View {
             HStack {
                 Text(title)
                     .font(.system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded))
-                    .foregroundColor(isSelected ? CosmosTheme.starlightGold : CosmosTheme.textPrimary)
+                    .foregroundColor(isSelected ? MindSpaceTheme.warning : MindSpaceTheme.textPrimary)
                 Spacer()
                 if isSelected {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(CosmosTheme.starlightGold)
+                        .foregroundColor(MindSpaceTheme.warning)
                 }
             }
             .padding(.vertical, 8)
@@ -683,10 +619,6 @@ public struct LibraryView: View {
     
     private func matchesFilters(course: CatalogCourse) -> Bool {
         if selectedFilter == .available && !LibraryPathResolver.shared.isCourseAvailable(course: course) {
-            return false
-        }
-        if selectedDuration != .all,
-           !course.sessions.contains(where: { selectedDuration.matches(seconds: $0.duration) }) {
             return false
         }
         if selectedMedia == .video && course.introVideo == nil && !course.sessions.contains(where: { !($0.videoAttachments ?? []).isEmpty }) {
@@ -712,22 +644,10 @@ public struct LibraryView: View {
             return false
         }
         if selectedMedia == .video { return false } // Single sessions are all audio
-        if selectedMedia == .audio && !LibraryPathResolver.shared.isFileAvailable(relativePath: session.relativePath) {
-            return false
-        }
         if selectedStatus == .completed && !completedIDs.contains(session.id) { return false }
         if selectedStatus == .unplayed && completedIDs.contains(session.id) { return false }
         if selectedStatus == .favorites && !favoriteIDs.contains(session.id) { return false }
         return true
     }
     
-    private func planetStyle(for categoryName: String) -> CelestialPlanetStyle {
-        switch categoryName.lowercased() {
-        case let name where name.contains("foundation"): return .purpleRinged
-        case let name where name.contains("health"): return .auroraTeal
-        case let name where name.contains("happiness"): return .goldenSun
-        case let name where name.contains("work"): return .electricBlue
-        default: return .deepCosmos
-        }
-    }
 }

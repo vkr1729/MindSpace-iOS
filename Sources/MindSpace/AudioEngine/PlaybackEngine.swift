@@ -178,6 +178,7 @@ public final class PlaybackEngine: ObservableObject {
         self.hasCompletedCurrentSession = false
         self.hasFinalizedCurrentSession = false
         self.isMiniPlayerVisible = true
+
         
         // 4. Check if there is an attached day-video to play first
         if let videoRel = track.videoAttachmentPath,
@@ -603,12 +604,12 @@ public final class PlaybackEngine: ObservableObject {
         
         hasCompletedCurrentSession = true
         onSessionCompleted?(track, listenedSeconds, isQualifying, completionId)
-        
+
         if isQualifying {
             onClearResume?(track.id)
         }
     }
-    
+
     // MARK: - Callbacks Setup
     
     private func setupAudioSessionCallbacks() {

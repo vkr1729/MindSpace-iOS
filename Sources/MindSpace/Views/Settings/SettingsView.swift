@@ -4,8 +4,8 @@ import UserNotifications
 
 /// Settings & Library Management Screen
 public struct SettingsView: View {
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var catalogService = CatalogService.shared
     
     @Query(sort: \CompletionEvent.timestamp, order: .reverse) private var completionEvents: [CompletionEvent]
@@ -15,7 +15,9 @@ public struct SettingsView: View {
     @ObservedObject private var syncService = GitHubSyncService.shared
     
     @State private var exportURL: URL?
-    @State private var activeSheet: ActiveSheet?
+    @State private var isShowingShareSheet = false
+    @State private var isShowingDocumentPicker = false
+    @State private var isShowingDisclaimerSheet = false
     @State private var pendingImportDocument: MindSpaceBackupDocument?
     @State private var importStatusMessage: String?
     @State private var isScanningLibrary = false
@@ -23,29 +25,6 @@ public struct SettingsView: View {
     @State private var verificationReport: LibraryVerificationReport?
     @State private var reminderDate: Date = Date()
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
-    @State private var cachedStorageSizeBytes: Int64?
-    @State private var reminderToggleTask: Task<Void, Never>?
-
-    private enum ActiveSheet: Identifiable {
-        case share
-        case documentPicker
-        case disclaimer
-        case importPreview(IdentifiableBackup)
-
-        var id: String {
-            switch self {
-            case .share: return "share"
-            case .documentPicker: return "documentPicker"
-            case .disclaimer: return "disclaimer"
-            case .importPreview(let wrapper): return "import-\(wrapper.id)"
-            }
-        }
-    }
-
-    private struct IdentifiableBackup: Identifiable {
-        let id = UUID()
-        let doc: MindSpaceBackupDocument
-    }
     
     // GitHub Sync State
     @State private var githubRepoInput: String = ""
@@ -53,19 +32,17 @@ public struct SettingsView: View {
     @State private var isPATVisible: Bool = false
     @State private var isTestingConnection: Bool = false
     @State private var connectionTestResult: (success: Bool, message: String)?
-
-    @Binding private var path: NavigationPath
-
-    public init(path: Binding<NavigationPath>? = nil) {
-        if let path {
-            _path = path
-        } else {
-            _path = .constant(NavigationPath())
-        }
-    }
+    
+    public init() {}
     
     private func getOrCreateSettings() -> UserSettings {
-        SettingsStore.fetchOrCreate(in: modelContext)
+        if let existing = settingsList.first {
+            return existing
+        }
+        let newSettings = UserSettings()
+        modelContext.insert(newSettings)
+        try? modelContext.save()
+        return newSettings
     }
     
     private var orbitStats: OrbitStats {
@@ -79,61 +56,76 @@ public struct SettingsView: View {
     }
     
     private var storageSizeBytes: Int64 {
-        cachedStorageSizeBytes ?? 0
-    }
-
-    private func refreshStorageSize() {
-        cachedStorageSizeBytes = LibraryPathResolver.shared.getLibraryStorageSizeBytes()
+        LibraryPathResolver.shared.getLibraryStorageSizeBytes()
     }
     
     public var body: some View {
         ZStack {
-            CosmosTheme.spaceBackground.ignoresSafeArea()
+            MindSpaceTheme.background.ignoresSafeArea()
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     // MARK: - Navigation Bar / Header
-                    // Settings is a tab root (always mounted); there is no
-                    // navigation stack to dismiss from, so no Back button here.
+                    HStack {
+                        Button(action: {
+                            HapticService.shared.light()
+                            dismiss()
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 16, weight: .bold))
+                                Text("Back")
+                                    .font(.system(size: 16, weight: .medium, design: .rounded))
+                            }
+                            .foregroundColor(MindSpaceTheme.secondaryAccent)
+                            .padding(.vertical, 8)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                    
                     Text("Settings")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundColor(CosmosTheme.textPrimary)
+                        .foregroundColor(MindSpaceTheme.textPrimary)
                         .padding(.horizontal, 20)
                     
                     // MARK: - Media Library Status Card
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Media Library")
                             .font(.system(size: 16, weight: .bold, design: .rounded))
-                            .foregroundColor(CosmosTheme.textSecondary)
+                            .foregroundColor(MindSpaceTheme.textSecondary)
                             .padding(.horizontal, 20)
                         
-                        CosmicCard(padding: 16) {
+                        MindSpaceCard(padding: 16) {
                             VStack(spacing: 14) {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("Catalog Index")
                                             .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                            .foregroundColor(CosmosTheme.textPrimary)
+                                            .foregroundColor(MindSpaceTheme.textPrimary)
                                         Text("\(catalogService.manifest?.totalFiles ?? 0) media files (275.99 hrs)")
                                             .font(.system(size: 13, weight: .regular, design: .rounded))
-                                            .foregroundColor(CosmosTheme.textSecondary)
+                                            .foregroundColor(MindSpaceTheme.textSecondary)
                                     }
                                     Spacer()
                                     Circle()
-                                        .fill(storageSizeBytes > 0 ? CosmosTheme.auroraTeal : CosmosTheme.solarCoral)
+                                        .fill(storageSizeBytes > 0 ? MindSpaceTheme.success : MindSpaceTheme.danger)
                                         .frame(width: 10, height: 10)
                                 }
                                 
-                                Divider().background(CosmosTheme.spaceCardBorder)
+                                Divider().background(MindSpaceTheme.divider)
                                 
                                 HStack {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("Storage Location")
                                             .font(.system(size: 14, weight: .medium, design: .rounded))
-                                            .foregroundColor(CosmosTheme.textPrimary)
+                                            .foregroundColor(MindSpaceTheme.textPrimary)
                                         Text("Documents/MindSpaceLibrary (iCloud backup excluded)")
                                             .font(.system(size: 12, weight: .regular, design: .rounded))
-                                            .foregroundColor(CosmosTheme.textSecondary)
+                                            .foregroundColor(MindSpaceTheme.textSecondary)
                                     }
                                     Spacer()
                                 }
@@ -152,16 +144,16 @@ public struct SettingsView: View {
                                             }
                                         }
                                         .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                        .foregroundColor(CosmosTheme.textPrimary)
+                                        .foregroundColor(MindSpaceTheme.textPrimary)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 11)
-                                        .background(CosmosTheme.spacePill)
+                                        .background(MindSpaceTheme.elevatedSurface)
                                         .clipShape(RoundedRectangle(cornerRadius: 12))
                                         .overlay(
-                                            RoundedRectangle(cornerRadius: 12).stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
+                                            RoundedRectangle(cornerRadius: 12).stroke(MindSpaceTheme.divider, lineWidth: 1)
                                         )
                                     }
-                                    .buttonStyle(.cosmicPressable)
+                                    .buttonStyle(.mindSpacePressable)
                                     .disabled(isScanningLibrary)
                                     
                                     Button(action: {
@@ -177,16 +169,16 @@ public struct SettingsView: View {
                                             }
                                         }
                                         .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                        .foregroundColor(CosmosTheme.starlightGold)
+                                        .foregroundColor(MindSpaceTheme.warning)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 11)
-                                        .background(CosmosTheme.spacePill)
+                                        .background(MindSpaceTheme.elevatedSurface)
                                         .clipShape(RoundedRectangle(cornerRadius: 12))
                                         .overlay(
-                                            RoundedRectangle(cornerRadius: 12).stroke(CosmosTheme.starlightGold.opacity(0.4), lineWidth: 1)
+                                            RoundedRectangle(cornerRadius: 12).stroke(MindSpaceTheme.warning.opacity(0.4), lineWidth: 1)
                                         )
                                     }
-                                    .buttonStyle(.cosmicPressable)
+                                    .buttonStyle(.mindSpacePressable)
                                     .disabled(isScanningLibrary)
                                 }
                                 
@@ -195,74 +187,74 @@ public struct SettingsView: View {
                                     VStack(alignment: .leading, spacing: 8) {
                                         HStack(spacing: 6) {
                                             Image(systemName: report.isFullyVerified ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
-                                                .foregroundColor(report.isFullyVerified ? CosmosTheme.auroraTeal : CosmosTheme.solarCoral)
+                                                .foregroundColor(report.isFullyVerified ? MindSpaceTheme.success : MindSpaceTheme.danger)
                                             Text(report.isFullyVerified ? "Library 100% Verified & Offline Ready" : "Library Verification Incomplete")
                                                 .font(.system(size: 13, weight: .bold, design: .rounded))
-                                                .foregroundColor(report.isFullyVerified ? CosmosTheme.auroraTeal : CosmosTheme.solarCoral)
+                                                .foregroundColor(report.isFullyVerified ? MindSpaceTheme.success : MindSpaceTheme.danger)
                                         }
                                         
                                         VStack(alignment: .leading, spacing: 4) {
                                             HStack {
                                                 Text("• Total Catalog Tracks:")
-                                                    .foregroundColor(CosmosTheme.textSecondary)
+                                                    .foregroundColor(MindSpaceTheme.textSecondary)
                                                 Spacer()
                                                 Text("\(report.totalTracks) tracks")
-                                                    .foregroundColor(CosmosTheme.textPrimary)
+                                                    .foregroundColor(MindSpaceTheme.textPrimary)
                                                     .fontWeight(.semibold)
                                             }
                                             HStack {
                                                 Text("• Verified On Disk:")
-                                                    .foregroundColor(CosmosTheme.textSecondary)
+                                                    .foregroundColor(MindSpaceTheme.textSecondary)
                                                 Spacer()
                                                 Text("\(report.foundCount)")
-                                                    .foregroundColor(report.foundCount == report.totalTracks ? CosmosTheme.auroraTeal : CosmosTheme.starlightGold)
+                                                    .foregroundColor(report.foundCount == report.totalTracks ? MindSpaceTheme.success : MindSpaceTheme.warning)
                                                     .fontWeight(.semibold)
                                             }
                                             HStack {
                                                 Text("• Missing Files:")
-                                                    .foregroundColor(CosmosTheme.textSecondary)
+                                                    .foregroundColor(MindSpaceTheme.textSecondary)
                                                 Spacer()
                                                 Text("\(report.missingCount)")
-                                                    .foregroundColor(report.missingCount == 0 ? CosmosTheme.auroraTeal : CosmosTheme.solarCoral)
+                                                    .foregroundColor(report.missingCount == 0 ? MindSpaceTheme.success : MindSpaceTheme.danger)
                                                     .fontWeight(.semibold)
                                             }
                                             if report.sizeMismatchedCount > 0 {
                                                 HStack {
                                                     Text("• Size Mismatches:")
-                                                        .foregroundColor(CosmosTheme.textSecondary)
+                                                        .foregroundColor(MindSpaceTheme.textSecondary)
                                                     Spacer()
                                                     Text("\(report.sizeMismatchedCount)")
-                                                        .foregroundColor(CosmosTheme.solarCoral)
+                                                        .foregroundColor(MindSpaceTheme.danger)
                                                         .fontWeight(.semibold)
                                                 }
                                             }
                                             if report.checksumMismatchedCount > 0 {
                                                 HStack {
                                                     Text("• Checksum Mismatches:")
-                                                        .foregroundColor(CosmosTheme.textSecondary)
+                                                        .foregroundColor(MindSpaceTheme.textSecondary)
                                                     Spacer()
                                                     Text("\(report.checksumMismatchedCount)")
-                                                        .foregroundColor(CosmosTheme.solarCoral)
+                                                        .foregroundColor(MindSpaceTheme.danger)
                                                         .fontWeight(.semibold)
                                                 }
                                             }
                                             HStack {
                                                 Text("• Offline Storage Hardening:")
-                                                    .foregroundColor(CosmosTheme.textSecondary)
+                                                    .foregroundColor(MindSpaceTheme.textSecondary)
                                                 Spacer()
                                                 Text(report.isHardened ? "Protected (iCloud excluded & secure)" : "Not hardened")
-                                                    .foregroundColor(report.isHardened ? CosmosTheme.starlightGold : CosmosTheme.solarCoral)
+                                                    .foregroundColor(report.isHardened ? MindSpaceTheme.warning : MindSpaceTheme.danger)
                                                     .fontWeight(.semibold)
                                             }
                                         }
                                         .font(.system(size: 12, design: .rounded))
                                     }
                                     .padding(12)
-                                    .background(CosmosTheme.spaceCard)
+                                    .background(MindSpaceTheme.surface)
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 10).stroke(
-                                            report.isFullyVerified ? CosmosTheme.auroraTeal.opacity(0.4) : CosmosTheme.solarCoral.opacity(0.4),
+                                            report.isFullyVerified ? MindSpaceTheme.success.opacity(0.4) : MindSpaceTheme.danger.opacity(0.4),
                                             lineWidth: 1
                                         )
                                     )
@@ -277,70 +269,75 @@ public struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Private GitHub Content Sync")
                             .font(.system(size: 16, weight: .bold, design: .rounded))
-                            .foregroundColor(CosmosTheme.textSecondary)
+                            .foregroundColor(MindSpaceTheme.textSecondary)
                             .padding(.horizontal, 20)
                         
-                        CosmicCard(padding: 16) {
+                        MindSpaceCard(padding: 16) {
                             VStack(alignment: .leading, spacing: 14) {
                                 Text("Download and sync offline meditation courses directly from your private GitHub repository.")
                                     .font(.system(size: 13, weight: .regular, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textSecondary)
+                                    .foregroundColor(MindSpaceTheme.textSecondary)
                                 
                                 // Repository Input
                                 VStack(alignment: .leading, spacing: 6) {
                                     Text("GitHub Repository (owner/repo)")
                                         .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                        .foregroundColor(CosmosTheme.textPrimary)
+                                        .foregroundColor(MindSpaceTheme.textPrimary)
                                     
                                     HStack {
                                         Image(systemName: "folder.badge.gearshape")
-                                            .foregroundColor(CosmosTheme.moonLavender)
-                                        TextField("e.g. vkr1729/MindSpace-Content", text: $githubRepoInput)
+                                            .foregroundColor(MindSpaceTheme.secondaryAccent)
+                                        TextField("owner/private-content-repo", text: $githubRepoInput)
                                             .font(.system(size: 14, design: .monospaced))
-                                            .foregroundColor(CosmosTheme.textPrimary)
+                                            .foregroundColor(MindSpaceTheme.textPrimary)
                                             .autocorrectionDisabled()
                                             .textInputAutocapitalization(.never)
+                                            .accessibilityIdentifier("settings.repository")
                                     }
                                     .padding(10)
-                                    .background(CosmosTheme.spacePill)
+                                    .background(MindSpaceTheme.elevatedSurface)
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
-                                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(MindSpaceTheme.divider, lineWidth: 1))
                                 }
                                 
                                 // PAT Token Input
                                 VStack(alignment: .leading, spacing: 6) {
                                     Text("Personal Access Token (PAT)")
                                         .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                        .foregroundColor(CosmosTheme.textPrimary)
+                                        .foregroundColor(MindSpaceTheme.textPrimary)
                                     
                                     HStack {
                                         Image(systemName: "key.fill")
-                                            .foregroundColor(CosmosTheme.starlightGold)
+                                            .foregroundColor(MindSpaceTheme.warning)
                                         
                                         if isPATVisible {
                                             TextField("ghp_... or github_pat_...", text: $githubPATInput)
                                                 .font(.system(size: 14, design: .monospaced))
-                                                .foregroundColor(CosmosTheme.textPrimary)
+                                                .foregroundColor(MindSpaceTheme.textPrimary)
                                                 .autocorrectionDisabled()
                                                 .textInputAutocapitalization(.never)
+                                                .accessibilityIdentifier("settings.pat.visible")
                                         } else {
                                             SecureField("ghp_... or github_pat_...", text: $githubPATInput)
                                                 .font(.system(size: 14, design: .monospaced))
-                                                .foregroundColor(CosmosTheme.textPrimary)
+                                                .foregroundColor(MindSpaceTheme.textPrimary)
                                                 .autocorrectionDisabled()
                                                 .textInputAutocapitalization(.never)
+                                                .accessibilityIdentifier("settings.pat")
                                         }
                                         
                                         Button(action: { isPATVisible.toggle() }) {
                                             Image(systemName: isPATVisible ? "eye.slash" : "eye")
-                                                .foregroundColor(CosmosTheme.textSecondary)
+                                                .foregroundColor(MindSpaceTheme.textSecondary)
                                         }
                                         .buttonStyle(.plain)
+                                        .frame(minWidth: 44, minHeight: 44)
+                                        .accessibilityLabel(isPATVisible ? "Hide personal access token" : "Show personal access token")
                                     }
                                     .padding(10)
-                                    .background(CosmosTheme.spacePill)
+                                    .background(MindSpaceTheme.elevatedSurface)
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
-                                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(MindSpaceTheme.divider, lineWidth: 1))
                                 }
                                 
                                 // Save & Test Connection Button
@@ -371,34 +368,34 @@ public struct SettingsView: View {
                                     .foregroundColor(.white)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 10)
-                                    .background(CosmosTheme.cosmicPurple)
+                                    .background(MindSpaceTheme.accent)
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
                                 }
-                                .buttonStyle(.cosmicPressable)
+                                .buttonStyle(.mindSpacePressable)
                                 .disabled(isTestingConnection || syncService.isSyncing)
                                 
                                 // Connection Result Alert/Banner
                                 if let result = connectionTestResult {
                                     HStack(spacing: 8) {
                                         Image(systemName: result.success ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                                            .foregroundColor(result.success ? CosmosTheme.auroraTeal : CosmosTheme.solarCoral)
+                                            .foregroundColor(result.success ? MindSpaceTheme.success : MindSpaceTheme.danger)
                                         Text(result.message)
                                             .font(.system(size: 12, weight: .medium, design: .rounded))
-                                            .foregroundColor(result.success ? CosmosTheme.auroraTeal : CosmosTheme.solarCoral)
+                                            .foregroundColor(result.success ? MindSpaceTheme.success : MindSpaceTheme.danger)
                                     }
                                     .padding(10)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(CosmosTheme.spacePill)
+                                    .background(MindSpaceTheme.elevatedSurface)
                                     .clipShape(RoundedRectangle(cornerRadius: 8))
                                 }
                                 
-                                Divider().background(CosmosTheme.spaceCardBorder)
+                                Divider().background(MindSpaceTheme.divider)
                                 
                                 // Content Download Actions
                                 VStack(alignment: .leading, spacing: 10) {
                                     Text("Content Download Actions")
                                         .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                        .foregroundColor(CosmosTheme.textPrimary)
+                                        .foregroundColor(MindSpaceTheme.textPrimary)
                                     
                                     HStack(spacing: 10) {
                                         // Smart Sync Button
@@ -413,19 +410,19 @@ public struct SettingsView: View {
                                                     Text("Smart Sync")
                                                 }
                                                 .font(.system(size: 13, weight: .bold, design: .rounded))
-                                                .foregroundColor(CosmosTheme.starlightGold)
+                                                .foregroundColor(MindSpaceTheme.warning)
                                                 
                                                 Text("Goal packs (~300 MB)")
                                                     .font(.system(size: 10, design: .rounded))
-                                                    .foregroundColor(CosmosTheme.textSecondary)
+                                                    .foregroundColor(MindSpaceTheme.textSecondary)
                                             }
                                             .frame(maxWidth: .infinity)
                                             .padding(.vertical, 10)
-                                            .background(CosmosTheme.spacePill)
+                                            .background(MindSpaceTheme.elevatedSurface)
                                             .clipShape(RoundedRectangle(cornerRadius: 10))
-                                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(CosmosTheme.starlightGold.opacity(0.4), lineWidth: 1))
+                                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(MindSpaceTheme.warning.opacity(0.4), lineWidth: 1))
                                         }
-                                        .buttonStyle(.cosmicPressable)
+                                        .buttonStyle(.mindSpacePressable)
                                         .disabled(syncService.isSyncing || !syncService.isConfigured)
                                         
                                         // Download All Button
@@ -439,19 +436,19 @@ public struct SettingsView: View {
                                                     Text("Download All")
                                                 }
                                                 .font(.system(size: 13, weight: .bold, design: .rounded))
-                                                .foregroundColor(CosmosTheme.auroraTeal)
+                                                .foregroundColor(MindSpaceTheme.success)
                                                 
                                                 Text("Full library (15 GB)")
                                                     .font(.system(size: 10, design: .rounded))
-                                                    .foregroundColor(CosmosTheme.textSecondary)
+                                                    .foregroundColor(MindSpaceTheme.textSecondary)
                                             }
                                             .frame(maxWidth: .infinity)
                                             .padding(.vertical, 10)
-                                            .background(CosmosTheme.spacePill)
+                                            .background(MindSpaceTheme.elevatedSurface)
                                             .clipShape(RoundedRectangle(cornerRadius: 10))
-                                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(CosmosTheme.auroraTeal.opacity(0.4), lineWidth: 1))
+                                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(MindSpaceTheme.success.opacity(0.4), lineWidth: 1))
                                         }
-                                        .buttonStyle(.cosmicPressable)
+                                        .buttonStyle(.mindSpacePressable)
                                         .disabled(syncService.isSyncing || !syncService.isConfigured)
                                     }
                                 }
@@ -461,43 +458,43 @@ public struct SettingsView: View {
                                     VStack(alignment: .leading, spacing: 8) {
                                         HStack {
                                             Image(systemName: "arrow.triangle.2.circlepath")
-                                                .foregroundColor(CosmosTheme.auroraTeal)
+                                                .foregroundColor(MindSpaceTheme.success)
                                             Text(syncService.currentTaskTitle)
                                                 .font(.system(size: 13, weight: .bold, design: .rounded))
-                                                .foregroundColor(CosmosTheme.textPrimary)
+                                                .foregroundColor(MindSpaceTheme.textPrimary)
                                             Spacer()
                                             Text("\(syncService.completedTracks)/\(syncService.totalTracks)")
                                                 .font(.system(size: 12, weight: .bold, design: .rounded))
-                                                .foregroundColor(CosmosTheme.starlightGold)
+                                                .foregroundColor(MindSpaceTheme.warning)
                                         }
                                         
                                         ProgressView(value: syncService.progressFraction)
-                                            .tint(CosmosTheme.auroraTeal)
+                                            .tint(MindSpaceTheme.success)
                                         
                                         HStack {
                                             Text("\(Int(syncService.progressFraction * 100))% complete")
                                                 .font(.system(size: 11, design: .rounded))
-                                                .foregroundColor(CosmosTheme.textSecondary)
+                                                .foregroundColor(MindSpaceTheme.textSecondary)
                                             Spacer()
                                             Button("Cancel") {
                                                 syncService.cancelSync()
                                             }
                                             .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                            .foregroundColor(CosmosTheme.solarCoral)
+                                            .foregroundColor(MindSpaceTheme.danger)
                                         }
                                     }
                                     .padding(12)
-                                    .background(CosmosTheme.spacePill)
+                                    .background(MindSpaceTheme.elevatedSurface)
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
-                                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(CosmosTheme.auroraTeal.opacity(0.4), lineWidth: 1))
+                                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(MindSpaceTheme.success.opacity(0.4), lineWidth: 1))
                                 } else if let successMsg = syncService.lastSuccessMessage {
                                     Text(successMsg)
                                         .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                        .foregroundColor(CosmosTheme.auroraTeal)
+                                        .foregroundColor(MindSpaceTheme.success)
                                 } else if let errorMsg = syncService.lastErrorMessage {
                                     Text(errorMsg)
                                         .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                        .foregroundColor(CosmosTheme.solarCoral)
+                                        .foregroundColor(MindSpaceTheme.danger)
                                 }
                             }
                         }
@@ -508,14 +505,14 @@ public struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Progress Backup & Portability")
                             .font(.system(size: 16, weight: .bold, design: .rounded))
-                            .foregroundColor(CosmosTheme.textSecondary)
+                            .foregroundColor(MindSpaceTheme.textSecondary)
                             .padding(.horizontal, 20)
                         
-                        CosmicCard(padding: 16) {
+                        MindSpaceCard(padding: 16) {
                             VStack(spacing: 12) {
                                 Text("Seamlessly backup your completion history and streak to a .mindspace JSON file without accounts.")
                                     .font(.system(size: 13, weight: .regular, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textSecondary)
+                                    .foregroundColor(MindSpaceTheme.textSecondary)
                                 
                                 HStack(spacing: 12) {
                                     Button(action: {
@@ -527,39 +524,39 @@ public struct SettingsView: View {
                                             Text("Export (.mindspace)")
                                         }
                                         .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                        .foregroundColor(CosmosTheme.textPrimary)
+                                        .foregroundColor(MindSpaceTheme.textPrimary)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 12)
-                                        .background(CosmosTheme.cosmicPurple)
+                                        .background(MindSpaceTheme.accent)
                                         .clipShape(RoundedRectangle(cornerRadius: 12))
                                     }
-                                    .buttonStyle(.cosmicPressable)
+                                    .buttonStyle(.mindSpacePressable)
                                     
                                     Button(action: {
                                         HapticService.shared.medium()
-                                        activeSheet = .documentPicker
+                                        isShowingDocumentPicker = true
                                     }) {
                                         HStack(spacing: 6) {
                                             Image(systemName: "square.and.arrow.down")
                                             Text("Import Progress")
                                         }
                                         .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                        .foregroundColor(CosmosTheme.textPrimary)
+                                        .foregroundColor(MindSpaceTheme.textPrimary)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 12)
-                                        .background(CosmosTheme.spacePill)
+                                        .background(MindSpaceTheme.elevatedSurface)
                                         .clipShape(RoundedRectangle(cornerRadius: 12))
                                         .overlay(
-                                            RoundedRectangle(cornerRadius: 12).stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
+                                            RoundedRectangle(cornerRadius: 12).stroke(MindSpaceTheme.divider, lineWidth: 1)
                                         )
                                     }
-                                    .buttonStyle(.cosmicPressable)
+                                    .buttonStyle(.mindSpacePressable)
                                 }
                                 
                                 if let msg = importStatusMessage {
                                     Text(msg)
                                         .font(.system(size: 12, weight: .medium, design: .rounded))
-                                        .foregroundColor(CosmosTheme.starlightGold)
+                                        .foregroundColor(MindSpaceTheme.warning)
                                 }
                             }
                         }
@@ -570,12 +567,12 @@ public struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Preferences")
                             .font(.system(size: 16, weight: .bold, design: .rounded))
-                            .foregroundColor(CosmosTheme.textSecondary)
+                            .foregroundColor(MindSpaceTheme.textSecondary)
                             .padding(.horizontal, 20)
                         
-                        CosmicCard(padding: 16) {
+                        MindSpaceCard(padding: 16) {
                             VStack(spacing: 16) {
-                                // Daily Orbit Reminder Toggle
+                                // Daily Practice Reminder Toggle
                                 Toggle(isOn: Binding(
                                     get: { settingsList.first?.reminderEnabled ?? false },
                                     set: { val in
@@ -583,21 +580,21 @@ public struct SettingsView: View {
                                     }
                                 )) {
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text("Daily Orbit Reminder")
+                                        Text("Daily Practice Reminder")
                                             .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                            .foregroundColor(CosmosTheme.textPrimary)
+                                            .foregroundColor(MindSpaceTheme.textPrimary)
                                         Text("Local notification on this iPhone")
                                             .font(.system(size: 13, weight: .regular, design: .rounded))
-                                            .foregroundColor(CosmosTheme.textSecondary)
+                                            .foregroundColor(MindSpaceTheme.textSecondary)
                                     }
                                 }
-                                .tint(CosmosTheme.cosmicPurple)
+                                .tint(MindSpaceTheme.accent)
                                 
                                 if notificationStatus == .denied {
                                     HStack {
                                         Text("Notifications are disabled in iOS Settings.")
                                             .font(.system(size: 12, weight: .regular, design: .rounded))
-                                            .foregroundColor(CosmosTheme.solarCoral)
+                                            .foregroundColor(MindSpaceTheme.danger)
                                         Spacer()
                                         Button("Open Settings") {
                                             if let url = URL(string: UIApplication.openSettingsURLString) {
@@ -605,13 +602,13 @@ public struct SettingsView: View {
                                             }
                                         }
                                         .font(.system(size: 12, weight: .bold, design: .rounded))
-                                        .foregroundColor(CosmosTheme.starlightGold)
+                                        .foregroundColor(MindSpaceTheme.warning)
                                     }
                                     .padding(.top, 4)
                                 }
                                 
                                 if settingsList.first?.reminderEnabled == true {
-                                    Divider().background(CosmosTheme.spaceCardBorder)
+                                    Divider().background(MindSpaceTheme.divider)
                                     
                                     DatePicker(
                                         "Reminder Time",
@@ -630,10 +627,10 @@ public struct SettingsView: View {
                                         displayedComponents: .hourAndMinute
                                     )
                                     .datePickerStyle(.compact)
-                                    .foregroundColor(CosmosTheme.textPrimary)
+                                    .foregroundColor(MindSpaceTheme.textPrimary)
                                 }
                                 
-                                Divider().background(CosmosTheme.spaceCardBorder)
+                                Divider().background(MindSpaceTheme.divider)
                                 
                                 // Hide Streaks Toggle
                                 Toggle(isOn: Binding(
@@ -646,15 +643,15 @@ public struct SettingsView: View {
                                     }
                                 )) {
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text("Hide Streaks & Orbit Counts")
+                                        Text("Hide Practice Streaks")
                                             .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                            .foregroundColor(CosmosTheme.textPrimary)
+                                            .foregroundColor(MindSpaceTheme.textPrimary)
                                         Text("Focus purely on presence without numbers")
                                             .font(.system(size: 13, weight: .regular, design: .rounded))
-                                            .foregroundColor(CosmosTheme.textSecondary)
+                                            .foregroundColor(MindSpaceTheme.textSecondary)
                                     }
                                 }
-                                .tint(CosmosTheme.cosmicPurple)
+                                .tint(MindSpaceTheme.accent)
                             }
                         }
                         .padding(.horizontal, 20)
@@ -664,27 +661,27 @@ public struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Legal & Safety")
                             .font(.system(size: 16, weight: .bold, design: .rounded))
-                            .foregroundColor(CosmosTheme.textSecondary)
+                            .foregroundColor(MindSpaceTheme.textSecondary)
                             .padding(.horizontal, 20)
                         
-                        CosmicCard(padding: 16) {
+                        MindSpaceCard(padding: 16) {
                             Button(action: {
                                 HapticService.shared.light()
-                                activeSheet = .disclaimer
+                                isShowingDisclaimerSheet = true
                             }) {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("Medical & Wellness Disclaimer")
                                             .font(.system(size: 15, weight: .semibold, design: .rounded))
-                                            .foregroundColor(CosmosTheme.textPrimary)
+                                            .foregroundColor(MindSpaceTheme.textPrimary)
                                         Text("Health notices, non-clinical scope & safe usage")
                                             .font(.system(size: 12, weight: .regular, design: .rounded))
-                                            .foregroundColor(CosmosTheme.textSecondary)
+                                            .foregroundColor(MindSpaceTheme.textSecondary)
                                     }
                                     Spacer()
                                     Image(systemName: "chevron.right")
                                         .font(.system(size: 13, weight: .semibold))
-                                        .foregroundColor(CosmosTheme.textSecondary)
+                                        .foregroundColor(MindSpaceTheme.textSecondary)
                                 }
                             }
                             .buttonStyle(.plain)
@@ -692,23 +689,23 @@ public struct SettingsView: View {
                         .padding(.horizontal, 20)
                     }
                     
-                    // MARK: - Privacy & Optional Sync
-                    CosmicCard(padding: 16) {
+                    // MARK: - Privacy
+                    MindSpaceCard(padding: 16) {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 8) {
                                 Image(systemName: "lock.shield.fill")
-                                    .foregroundColor(CosmosTheme.auroraTeal)
-                                Text("Private by Design")
+                                    .foregroundColor(MindSpaceTheme.success)
+                                Text("Private by design")
                                     .font(.system(size: 15, weight: .bold, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textPrimary)
+                                    .foregroundColor(MindSpaceTheme.textPrimary)
                             }
-                            Text("MindSpace has no accounts, telemetry, or ads. Everything stays on this iPhone except the optional GitHub sync: when you configure your own private repo + token, the app talks only to api.github.com and raw.githubusercontent.com to download or stream your library.")
+                            Text("MindSpace has no accounts, telemetry, or ads. Network access is limited to the private GitHub content source you configure; practice data stays on this iPhone unless you export it.")
                                 .font(.system(size: 13, weight: .regular, design: .rounded))
-                                .foregroundColor(CosmosTheme.textSecondary)
+                                .foregroundColor(MindSpaceTheme.textSecondary)
                         }
                     }
                     .padding(.horizontal, 20)
-
+                    
                     Spacer(minLength: 80)
                 }
             }
@@ -720,65 +717,57 @@ public struct SettingsView: View {
             checkNotificationAuth()
             githubRepoInput = syncService.savedRepo
             githubPATInput = syncService.savedPAT
-            refreshStorageSize()
-        }
-        .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .active {
-                checkNotificationAuth()
-                refreshStorageSize()
-            }
         }
         #if os(iOS)
-        .sheet(item: $activeSheet) { sheet in
-            switch sheet {
-            case .share:
-                if let url = exportURL {
-                    ShareSheetView(items: [url])
-                }
-            case .documentPicker:
-                DocumentPickerView { url in
-                    activeSheet = nil
-                    handlePickedDocument(url: url)
-                }
-            case .disclaimer:
-                wellnessDisclaimerSheet
-            case .importPreview(let wrapper):
-                ImportPreviewDialogView(
-                    document: wrapper.doc,
-                    onMerge: {
-                        applyImport(document: wrapper.doc, isClean: false)
-                        pendingImportDocument = nil
-                        activeSheet = nil
-                    },
-                    onCleanRestore: {
-                        applyImport(document: wrapper.doc, isClean: true)
-                        pendingImportDocument = nil
-                        activeSheet = nil
-                    },
-                    onCancel: {
-                        pendingImportDocument = nil
-                        activeSheet = nil
-                    }
-                )
+        .sheet(isPresented: $isShowingShareSheet) {
+            if let url = exportURL {
+                ShareSheetView(items: [url])
             }
         }
+        .sheet(isPresented: $isShowingDocumentPicker) {
+            DocumentPickerView { url in
+                handlePickedDocument(url: url)
+            }
+        }
+        .sheet(isPresented: $isShowingDisclaimerSheet) {
+            wellnessDisclaimerSheet
+        }
         #endif
+        .sheet(item: Binding(
+            get: { pendingImportDocument.map { IdentifiableBackup(doc: $0) } },
+            set: { pendingImportDocument = $0?.doc }
+        )) { wrapper in
+            ImportPreviewDialogView(
+                document: wrapper.doc,
+                onMerge: {
+                    applyImport(document: wrapper.doc, isClean: false)
+                    pendingImportDocument = nil
+                },
+                onCleanRestore: {
+                    applyImport(document: wrapper.doc, isClean: true)
+                    pendingImportDocument = nil
+                },
+                onCancel: {
+                    pendingImportDocument = nil
+                }
+            )
+        }
     }
     
     private var wellnessDisclaimerSheet: some View {
         NavigationStack {
             ZStack {
-                CosmosTheme.spaceBackground.ignoresSafeArea()
+                MindSpaceTheme.background.ignoresSafeArea()
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Important Health & Safety Notice")
                             .font(.system(size: 18, weight: .bold, design: .rounded))
-                            .foregroundColor(CosmosTheme.starlightGold)
+                            .foregroundColor(MindSpaceTheme.warning)
                         
                         Text("MindSpace provides self-guided mindfulness meditation, breathing exercises, and relaxation audio for general wellbeing and stress management. MindSpace is NOT a medical device, diagnosis, clinical therapy, or healthcare provider.\n\nMeditation and mindfulness are complementary wellness practices and are not intended to diagnose, treat, cure, or prevent any mental or physical illness, psychiatric condition, or clinical disorder. If you are experiencing severe depression, anxiety, panic disorder, trauma, or psychiatric distress, please consult a licensed healthcare professional.\n\nNever listen to meditation tracks or sleep sounds while driving, operating machinery, or performing any activity requiring active attention.")
                             .font(.system(size: 14, weight: .regular, design: .rounded))
-                            .foregroundColor(CosmosTheme.textSecondary)
+                            .foregroundColor(MindSpaceTheme.textSecondary)
                             .lineSpacing(6)
                         
                         Spacer()
@@ -791,12 +780,17 @@ public struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
-                        activeSheet = nil
+                        isShowingDisclaimerSheet = false
                     }
-                    .foregroundColor(CosmosTheme.moonLavender)
+                    .foregroundColor(MindSpaceTheme.secondaryAccent)
                 }
             }
         }
+    }
+    
+    private struct IdentifiableBackup: Identifiable {
+        let id = UUID()
+        let doc: MindSpaceBackupDocument
     }
     
     private func checkNotificationAuth() {
@@ -816,9 +810,8 @@ public struct SettingsView: View {
     }
     
     private func handleReminderToggle(_ val: Bool) {
-        reminderToggleTask?.cancel()
         if val {
-            reminderToggleTask = Task {
+            Task {
                 let notifSettings = await UNUserNotificationCenter.current().notificationSettings()
                 if notifSettings.authorizationStatus == .denied {
                     await MainActor.run {
@@ -880,7 +873,7 @@ public struct SettingsView: View {
         )
         if let fileURL = try? ProgressTransferManager.shared.exportToFile(document: doc) {
             self.exportURL = fileURL
-            self.activeSheet = .share
+            self.isShowingShareSheet = true
         }
     }
     
@@ -888,7 +881,6 @@ public struct SettingsView: View {
         do {
             let doc = try ProgressTransferManager.shared.parseBackupDocument(gainingAccessTo: url)
             self.pendingImportDocument = doc
-            self.activeSheet = .importPreview(IdentifiableBackup(doc: doc))
         } catch {
             self.importStatusMessage = "Couldn't read that .mindspace file: \(error.localizedDescription)"
         }
@@ -911,11 +903,11 @@ public struct SettingsView: View {
         isScanningLibrary = true
         isVerifyingChecksums = validateChecksums
         HapticService.shared.medium()
-
+        
         LibraryPathResolver.shared.applyHardeningAndProtection()
-
+        catalogService.loadCatalog()
+        
         Task {
-            _ = await catalogService.reloadCatalog()
             let report = await LibraryPathResolver.shared.verifyAllCatalogEntries(
                 manifest: catalogService.manifest,
                 validateChecksums: validateChecksums
@@ -927,7 +919,6 @@ public struct SettingsView: View {
                     self.isScanningLibrary = false
                     self.isVerifyingChecksums = false
                 }
-                self.refreshStorageSize()
                 
                 if report.isFullyVerified {
                     HapticService.shared.success()

@@ -1,71 +1,69 @@
 import SwiftUI
 import SwiftData
 
-/// Screen 4: Elevated Minimalist Meditation Player with Celestial Breathing Aura & Luminous Scrubber
-/// Reference: Mock Screen Codex.png & UI/UX Pro Max Design Intelligence
+/// Focused meditation player with playback state, time, and controls first.
 public struct MeditationPlayerView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playbackEngine = PlaybackEngine.shared
-    
+
     @Query private var favorites: [FavoriteItem]
-    
+
     @State private var isShowingCompletionSheet = false
     @State private var isFullScreenVideoPresented = false
     @State private var isScrubbing = false
     @State private var scrubbedTime: Double = 0.0
     @State private var isZenMode = false
-    
+
     public init() {}
-    
+
     private var track: PlayableTrack? {
         playbackEngine.currentTrack
     }
-    
+
     private var isFavorite: Bool {
         guard let track = track else { return false }
         return favorites.contains(where: { $0.sessionStableId == track.id })
     }
-    
+
     private var isPlaying: Bool {
         playbackEngine.state == .playing
     }
-    
+
     private var displayCurrentTime: Double {
         isScrubbing ? scrubbedTime : playbackEngine.currentTime
     }
-    
+
     private var duration: Double {
         playbackEngine.duration > 0 ? playbackEngine.duration : (track?.duration ?? 0.0)
     }
-    
+
     private var ambientColor: Color {
-        CosmosTheme.ambientColor(for: track?.courseName ?? "MindSpace")
+        MindSpaceTheme.accent(for: track?.courseName ?? "MindSpace")
     }
-    
+
     private var isVideoPhase: Bool {
         playbackEngine.currentPhase == .video
     }
-    
+
     public var body: some View {
         ZStack {
-            // Deep cosmic background
-            CosmosTheme.spaceBackground.ignoresSafeArea()
-            
-            // Atmospheric Ambient Spotlight
+            MindSpaceTheme.background.ignoresSafeArea()
+
+            // Subtle state depth, never a decorative illustration.
             RadialGradient(
-                colors: [ambientColor.opacity(isPlaying ? 0.22 : 0.10), Color.clear],
+                colors: [ambientColor.opacity(isPlaying ? 0.10 : 0.04), Color.clear],
                 center: .center,
                 startRadius: 40,
                 endRadius: 360
             )
             .ignoresSafeArea()
-            .animation(reduceMotion ? nil : .easeInOut(duration: 1.5), value: isPlaying)
-            
-            StarsBackgroundView()
-            
-            VStack(spacing: 18) {
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.20), value: isPlaying)
+            .accessibilityHidden(true)
+
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 18) {
                 // MARK: - Navigation Bar
                 HStack {
                     Button(action: {
@@ -73,38 +71,40 @@ public struct MeditationPlayerView: View {
                         playbackEngine.isFullPlayerPresented = false
                     }) {
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(CosmosTheme.textPrimary)
-                            .frame(width: 42, height: 42)
-                            .background(CosmosTheme.spaceCard)
+                            .font(.body.weight(.bold))
+                            .foregroundStyle(MindSpaceTheme.textPrimary)
+                            .frame(width: 44, height: 44)
+                            .background(MindSpaceTheme.surface)
                             .clipShape(Circle())
-                            .overlay(Circle().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                            .overlay(Circle().stroke(MindSpaceTheme.divider, lineWidth: 1))
                     }
-                    .buttonStyle(.cosmicPressable)
+                    .buttonStyle(.mindSpacePressable)
                     .accessibilityLabel("Minimize player")
-                    
+                    .accessibilityIdentifier("player.minimize")
+
                     Spacer()
-                    
+
                     VStack(spacing: 3) {
                         Text(track?.title ?? "Meditation")
-                            .font(.system(size: 17, weight: .bold, design: .rounded))
-                            .foregroundColor(CosmosTheme.textPrimary)
-                            .lineLimit(1)
-                        
+                            .font(.headline)
+                            .foregroundStyle(MindSpaceTheme.textPrimary)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.center)
+
                         HStack(spacing: 5) {
                             Circle()
-                                .fill(playbackEngine.isStreaming ? CosmosTheme.starlightGold : CosmosTheme.auroraTeal)
+                                .fill(playbackEngine.isStreaming ? MindSpaceTheme.completion : MindSpaceTheme.success)
                                 .frame(width: 6, height: 6)
-                            Text(playbackEngine.isStreaming ? "✦ Cosmic Stream" : (isVideoPhase ? "Video Lesson • 100% Offline" : "100% Offline"))
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
-                                .foregroundColor(playbackEngine.isStreaming ? CosmosTheme.starlightGold : CosmosTheme.textSecondary)
+                            Text(playbackEngine.isStreaming ? "Streaming" : (isVideoPhase ? "Video · Offline" : "Offline"))
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(playbackEngine.isStreaming ? MindSpaceTheme.warning : MindSpaceTheme.textSecondary)
                         }
                     }
                     .opacity(isZenMode ? 0.2 : 1.0)
                     .animation(.easeInOut(duration: 0.3), value: isZenMode)
-                    
+
                     Spacer()
-                    
+
                     HStack(spacing: 10) {
                         // Zen / Dim Mode Toggle
                         Button(action: {
@@ -114,44 +114,39 @@ public struct MeditationPlayerView: View {
                             }
                         }) {
                             Image(systemName: isZenMode ? "eye.fill" : "eye.slash")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(isZenMode ? CosmosTheme.starlightGold : CosmosTheme.textSecondary)
-                                .frame(width: 42, height: 42)
-                                .background(CosmosTheme.spaceCard)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(isZenMode ? MindSpaceTheme.accent : MindSpaceTheme.textSecondary)
+                                .frame(width: 44, height: 44)
+                                .background(MindSpaceTheme.surface)
                                 .clipShape(Circle())
-                                .overlay(Circle().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                                .overlay(Circle().stroke(MindSpaceTheme.divider, lineWidth: 1))
                         }
-                        .buttonStyle(.cosmicPressable)
+                        .buttonStyle(.mindSpacePressable)
                         .accessibilityLabel(isZenMode ? "Exit Zen Mode" : "Enter Zen Mode")
-                        
+
                         // Favorite Star Button
                         Button(action: {
                             HapticService.shared.medium()
                             toggleFavorite()
                         }) {
                             Image(systemName: isFavorite ? "star.fill" : "star")
-                                .font(.system(size: 17, weight: .bold))
-                                .foregroundColor(isFavorite ? CosmosTheme.starlightGold : CosmosTheme.textPrimary)
-                                .frame(width: 42, height: 42)
-                                .background(CosmosTheme.spaceCard)
+                                .font(.body.weight(.bold))
+                                .foregroundStyle(isFavorite ? MindSpaceTheme.completion : MindSpaceTheme.textPrimary)
+                                .frame(width: 44, height: 44)
+                                .background(MindSpaceTheme.surface)
                                 .clipShape(Circle())
-                                .overlay(Circle().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                                .overlay(Circle().stroke(MindSpaceTheme.divider, lineWidth: 1))
                         }
-                        .buttonStyle(.cosmicPressable)
+                        .buttonStyle(.mindSpacePressable)
                         .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
-                    }
-                    if let favoriteError {
-                        Text(favoriteError)
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
-                            .foregroundColor(CosmosTheme.solarCoral)
                     }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
-                
+
                 Spacer()
-                
-                // MARK: - Central Visual Anchor (Video Player Layer or Celestial Breathing Aura)
+
+                // MARK: - Video or optional breathing cue
                 ZStack {
                     if isVideoPhase {
                         VStack(spacing: 12) {
@@ -161,21 +156,21 @@ public struct MeditationPlayerView: View {
                                     .cornerRadius(22)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 22)
-                                            .stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
+                                            .stroke(MindSpaceTheme.divider, lineWidth: 1)
                                     )
                                     .shadow(color: ambientColor.opacity(0.35), radius: 20)
                                     .onTapGesture {
                                         isFullScreenVideoPresented = true
                                     }
-                                
+
                                 Button(action: {
                                     isFullScreenVideoPresented = true
                                 }) {
                                     Image(systemName: "arrow.up.left.and.arrow.down.right")
                                         .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(CosmosTheme.textPrimary)
+                                        .foregroundColor(MindSpaceTheme.textPrimary)
                                         .padding(8)
-                                        .background(CosmosTheme.spaceBackground.opacity(0.8))
+                                        .background(MindSpaceTheme.background.opacity(0.8))
                                         .clipShape(Circle())
                                         .padding(12)
                                 }
@@ -183,7 +178,7 @@ public struct MeditationPlayerView: View {
                                 .accessibilityLabel("Full screen video")
                             }
                             .padding(.horizontal, 20)
-                            
+
                             // Option to skip video to audio directly
                             if track?.videoAttachmentPath != nil && track?.relativePath != track?.videoAttachmentPath {
                                 Button(action: {
@@ -196,51 +191,47 @@ public struct MeditationPlayerView: View {
                                         Image(systemName: "forward.end.fill")
                                             .font(.system(size: 10))
                                     }
-                                    .foregroundColor(CosmosTheme.moonLavender)
+                                    .foregroundColor(MindSpaceTheme.secondaryAccent)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 6)
-                                    .background(CosmosTheme.spaceCard)
+                                    .background(MindSpaceTheme.surface)
                                     .clipShape(Capsule())
-                                    .overlay(Capsule().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                                    .overlay(Capsule().stroke(MindSpaceTheme.divider, lineWidth: 1))
                                 }
-                                .buttonStyle(.cosmicPressable)
+                                .buttonStyle(.mindSpacePressable)
                             }
                         }
                     } else {
-                        CelestialBreathingAuraView(
-                            style: planetStyleForTrack,
+                        FocusBreathingView(
                             ambientColor: ambientColor,
                             isPlaying: isPlaying,
                             reduceMotion: reduceMotion
                         )
                     }
                 }
-                
+
                 Spacer()
-                
+
                 // MARK: - Digital Time Readout & Scrubber
                 VStack(spacing: 12) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(formatTime(displayCurrentTime))
                             .font(.system(size: 36, weight: .bold, design: .rounded))
-                            .foregroundColor(CosmosTheme.textPrimary)
+                            .foregroundColor(MindSpaceTheme.textPrimary)
                             .monospacedDigit()
-                            .minimumScaleFactor(0.7)
-                            .lineLimit(1)
-                            .dynamicTypeSize(...DynamicTypeSize.accessibility2)
 
                         Text("/ of \(formatTime(duration))")
                             .font(.system(size: 17, weight: .medium, design: .rounded))
-                            .foregroundColor(CosmosTheme.textSecondary)
+                            .foregroundColor(MindSpaceTheme.textSecondary)
                     }
-                    
-                    // Luminous Touch-Responsive & VoiceOver-Accessible Scrubber
+
+                    // Touch- and VoiceOver-accessible scrubber
                     luminousScrubber
                 }
                 .opacity(isZenMode ? 0.35 : 1.0)
                 .animation(.easeInOut(duration: 0.3), value: isZenMode)
                 .padding(.horizontal, 24)
-                
+
                 // MARK: - Playback Controls
                 HStack(spacing: 36) {
                     // Skip Backward 15s
@@ -251,16 +242,16 @@ public struct MeditationPlayerView: View {
                         VStack(spacing: 2) {
                             Image(systemName: "gobackward.15")
                                 .font(.system(size: 24, weight: .semibold))
-                                .foregroundColor(CosmosTheme.textPrimary)
+                                .foregroundColor(MindSpaceTheme.textPrimary)
                         }
                         .frame(width: 52, height: 52)
-                        .background(CosmosTheme.spaceCard)
+                        .background(MindSpaceTheme.surface)
                         .clipShape(Circle())
-                        .overlay(Circle().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                        .overlay(Circle().stroke(MindSpaceTheme.divider, lineWidth: 1))
                     }
-                    .buttonStyle(.cosmicPressable)
+                    .buttonStyle(.mindSpacePressable)
                     .accessibilityLabel("Skip back 15 seconds")
-                    
+
                     // Primary Play/Pause Button
                     Button(action: {
                         HapticService.shared.medium()
@@ -268,25 +259,19 @@ public struct MeditationPlayerView: View {
                     }) {
                         ZStack {
                             Circle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [CosmosTheme.cosmicPurple, Color(hex: "#6344E0")],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
+                                .fill(MindSpaceTheme.accent)
                                 .frame(width: 78, height: 78)
-                                .shadow(color: CosmosTheme.cosmicPurple.opacity(0.6), radius: 16, x: 0, y: 6)
-                            
+
                             Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                                 .font(.system(size: 28, weight: .bold))
-                                .foregroundColor(.white)
+                                .foregroundStyle(MindSpaceTheme.background)
                                 .offset(x: isPlaying ? 0 : 2)
                         }
                     }
-                    .buttonStyle(.cosmicPressable)
+                    .buttonStyle(.mindSpacePressable)
                     .accessibilityLabel(isPlaying ? "Pause" : "Play")
-                    
+                    .accessibilityIdentifier("player.playPause")
+
                     // Skip Forward 15s
                     Button(action: {
                         HapticService.shared.medium()
@@ -295,20 +280,20 @@ public struct MeditationPlayerView: View {
                         VStack(spacing: 2) {
                             Image(systemName: "goforward.15")
                                 .font(.system(size: 24, weight: .semibold))
-                                .foregroundColor(CosmosTheme.textPrimary)
+                                .foregroundColor(MindSpaceTheme.textPrimary)
                         }
                         .frame(width: 52, height: 52)
-                        .background(CosmosTheme.spaceCard)
+                        .background(MindSpaceTheme.surface)
                         .clipShape(Circle())
-                        .overlay(Circle().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                        .overlay(Circle().stroke(MindSpaceTheme.divider, lineWidth: 1))
                     }
-                    .buttonStyle(.cosmicPressable)
+                    .buttonStyle(.mindSpacePressable)
                     .accessibilityLabel("Skip forward 15 seconds")
                 }
                 .opacity(isZenMode ? 0.35 : 1.0)
                 .animation(.easeInOut(duration: 0.3), value: isZenMode)
                 .padding(.top, 4)
-                
+
                 // MARK: - Speed and Sleep Timer Controls
                 HStack(spacing: 12) {
                     // Speed Control Pill
@@ -333,14 +318,14 @@ public struct MeditationPlayerView: View {
                             Text(playbackEngine.speed.label)
                                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                         }
-                        .foregroundColor(CosmosTheme.textPrimary)
+                        .foregroundColor(MindSpaceTheme.textPrimary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(CosmosTheme.spaceCard)
+                        .background(MindSpaceTheme.surface)
                         .clipShape(Capsule())
-                        .overlay(Capsule().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                        .overlay(Capsule().stroke(MindSpaceTheme.divider, lineWidth: 1))
                     }
-                    
+
                     // Sleep Timer Pill
                     Menu {
                         Button("Off") {
@@ -370,25 +355,28 @@ public struct MeditationPlayerView: View {
                             if let remaining = playbackEngine.sleepTimerMinutesRemaining {
                                 Text("\(remaining)m")
                                     .font(.system(size: 13, weight: .bold, design: .rounded))
-                                    .foregroundColor(CosmosTheme.starlightGold)
+                                    .foregroundColor(MindSpaceTheme.completion)
                             } else {
                                 Text("Timer")
                                     .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textPrimary)
+                                    .foregroundColor(MindSpaceTheme.textPrimary)
                             }
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(CosmosTheme.spaceCard)
+                        .background(MindSpaceTheme.surface)
                         .clipShape(Capsule())
-                        .overlay(Capsule().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                        .overlay(Capsule().stroke(MindSpaceTheme.divider, lineWidth: 1))
                     }
                 }
                 .opacity(isZenMode ? 0.2 : 1.0)
                 .animation(.easeInOut(duration: 0.3), value: isZenMode)
-                .padding(.bottom, 24)
+
+                Spacer(minLength: 24)
+                }
             }
         }
+        .accessibilityIdentifier("player.full")
         .fullScreenCover(isPresented: $isShowingCompletionSheet) {
             if let comp = playbackEngine.lastCompletionInfo {
                 CompletionView(
@@ -396,18 +384,14 @@ public struct MeditationPlayerView: View {
                     sessionTitle: comp.track.title,
                     courseName: comp.track.courseName,
                     durationMinutes: comp.actualMinutes,
-                    isQualifying: comp.isQualifying,
-                    finalizedByStopOrSwitch: comp.finalizedByStopOrSwitch,
-                    isPersisted: comp.isPersisted,
-                    onDismiss: { playbackEngine.acknowledgeLastCompletion() }
+                    isQualifying: comp.isQualifying
                 )
             } else if let trk = track {
                 CompletionView(
                     sessionTitle: trk.title,
                     courseName: trk.courseName,
                     durationMinutes: max(1, Int(round(duration / 60.0))),
-                    isQualifying: true,
-                    onDismiss: { playbackEngine.acknowledgeLastCompletion() }
+                    isQualifying: true
                 )
             }
         }
@@ -420,54 +404,34 @@ public struct MeditationPlayerView: View {
         .onChange(of: playbackEngine.hasCompletedCurrentSession) { _, completed in
             if completed {
                 HapticService.shared.success()
-                if playbackEngine.isFullPlayerPresented {
-                    isShowingCompletionSheet = true
-                }
+                isShowingCompletionSheet = true
             }
-        }
-        .alert("Playback error", isPresented: Binding(
-            get: { playbackEngine.playbackError != nil },
-            set: { if !$0 { playbackEngine.clearPlaybackError() } }
-        )) {
-            Button("Dismiss", role: .cancel) {
-                playbackEngine.clearPlaybackError()
-                playbackEngine.isFullPlayerPresented = false
-            }
-        } message: {
-            Text(playbackEngine.playbackError ?? "An unknown playback error occurred.")
         }
     }
-    
-    // MARK: - Luminous Accessible Scrubber
+
+    // MARK: - Accessible scrubber
     private var luminousScrubber: some View {
         VStack(spacing: 6) {
             GeometryReader { geometry in
                 let totalWidth = geometry.size.width
                 let progress = duration > 0 ? (displayCurrentTime / duration) : 0.0
                 let thumbX = totalWidth * CGFloat(progress)
-                
+
                 ZStack(alignment: .leading) {
                     // Background Track
                     Capsule()
-                        .fill(CosmosTheme.spaceCardBorder)
+                        .fill(MindSpaceTheme.divider)
                         .frame(height: isScrubbing ? 8 : 6)
-                    
-                    // Progress Track
+
+                    // Progress track
                     Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [CosmosTheme.cosmicPurple, CosmosTheme.starlightGold],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                        .fill(MindSpaceTheme.accent)
                         .frame(width: max(6, thumbX), height: isScrubbing ? 8 : 6)
-                    
-                    // Luminous Thumb Dot
+
+                    // Thumb
                     Circle()
-                        .fill(CosmosTheme.starlightGold)
+                        .fill(MindSpaceTheme.accent)
                         .frame(width: isScrubbing ? 18 : 12, height: isScrubbing ? 18 : 12)
-                        .shadow(color: CosmosTheme.starlightGold.opacity(0.8), radius: isScrubbing ? 8 : 4)
                         .offset(x: max(0, min(totalWidth - (isScrubbing ? 18 : 12), thumbX - (isScrubbing ? 9 : 6))))
                 }
                 .frame(height: 24)
@@ -508,8 +472,6 @@ public struct MeditationPlayerView: View {
             }
         }
     }
-    
-    @State private var favoriteError: String?
 
     private func toggleFavorite() {
         guard let track = track else { return }
@@ -523,15 +485,9 @@ public struct MeditationPlayerView: View {
             )
             modelContext.insert(fav)
         }
-        do {
-            try modelContext.save()
-            favoriteError = nil
-        } catch {
-            modelContext.rollback()
-            favoriteError = "Couldn't save that favorite. Please try again."
-        }
+        try? modelContext.save()
     }
-    
+
     private func formatTime(_ seconds: Double) -> String {
         guard !seconds.isNaN && !seconds.isInfinite else { return "0:00" }
         let total = Int(max(0, seconds))
@@ -539,54 +495,56 @@ public struct MeditationPlayerView: View {
         let secs = total % 60
         return String(format: "%02d:%02d", mins, secs)
     }
-    
-    private var planetStyleForTrack: CelestialPlanetStyle {
-        let name = track?.courseName?.lowercased() ?? track?.title.lowercased() ?? ""
-        if name.contains("basics") { return .purpleRinged }
-        if name.contains("anxiety") || name.contains("stress") { return .solarCoral }
-        if name.contains("health") || name.contains("pregnancy") { return .auroraTeal }
-        if name.contains("focus") || name.contains("work") { return .electricBlue }
-        return .deepCosmos
-    }
+
 }
 
-/// Serene floating planet visual anchor with breathing aura
-private struct CelestialBreathingAuraView: View {
-    let style: CelestialPlanetStyle
+/// A functional breathing cue shown only in the audio phase. It communicates
+/// playback state without becoming a decorative hero image.
+private struct FocusBreathingView: View {
     let ambientColor: Color
     let isPlaying: Bool
     let reduceMotion: Bool
-    
+
     @State private var breathScale: CGFloat = 1.0
-    @State private var auraOpacity: Double = 0.4
-    
+
     var body: some View {
-        ZStack {
-            // Soft atmospheric radial aura
-            if !reduceMotion {
+        VStack(spacing: 14) {
+            ZStack {
                 Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [ambientColor.opacity(auraOpacity), Color.clear],
-                            center: .center,
-                            startRadius: 20,
-                            endRadius: 160
-                        )
-                    )
-                    .frame(width: 280, height: 280)
-                    .scaleEffect(breathScale)
+                    .stroke(ambientColor.opacity(0.20), lineWidth: 1)
+                    .frame(width: 184, height: 184)
+                    .scaleEffect(isPlaying && !reduceMotion ? breathScale : 1)
+
+                Circle()
+                    .fill(ambientColor.opacity(0.08))
+                    .frame(width: 150, height: 150)
+
+                Image(systemName: isPlaying ? "waveform" : "pause")
+                    .font(.title.weight(.light))
+                    .foregroundStyle(ambientColor)
+                    .accessibilityHidden(true)
             }
-            
-            // 3D Celestial Planet with Cinematic Alpha & Breathing
-            CelestialPlanetView(style: style, size: 160, hasRings: true, isAnimated: isPlaying)
-                .shadow(color: ambientColor.opacity(isPlaying ? 0.6 : 0.3), radius: isPlaying ? 30 : 15)
+
+            Text(isPlaying ? "Breathe naturally" : "Paused")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(MindSpaceTheme.textSecondary)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(isPlaying ? "Playing. Breathe naturally." : "Playback paused")
         .onAppear {
-            if !reduceMotion {
+            if isPlaying && !reduceMotion {
                 withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
-                    breathScale = 1.18
-                    auraOpacity = 0.75
+                    breathScale = 1.08
                 }
+            }
+        }
+        .onChange(of: isPlaying) { _, playing in
+            if playing && !reduceMotion {
+                withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
+                    breathScale = 1.08
+                }
+            } else {
+                breathScale = 1
             }
         }
     }

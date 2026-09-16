@@ -1,13 +1,9 @@
 import SwiftUI
 import SwiftData
-import Combine
-import UIKit
 
-/// Screen 1: Elevated Today Screen & Cosmic Orbit Hub
-/// Reference: Mock Screen Codex.png & UI/UX Pro Max Design Intelligence
+/// Content-first home for the next practice, resume state, and daily suggestions.
 public struct TodayView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var catalogService = CatalogService.shared
     @ObservedObject private var playbackEngine = PlaybackEngine.shared
     
@@ -17,17 +13,8 @@ public struct TodayView: View {
     
     @State private var dailyJourneyItems: [DailyJourneyItem] = []
     @State private var isShowingReminderSheet = false
-    @State private var cachedStorageSizeBytes: Int64?
-
-    @Binding private var path: NavigationPath
-
-    public init(path: Binding<NavigationPath>? = nil) {
-        if let path {
-            _path = path
-        } else {
-            _path = .constant(NavigationPath())
-        }
-    }
+    
+    public init() {}
     
     private var currentSettings: UserSettings {
         settingsList.first ?? UserSettings()
@@ -107,19 +94,20 @@ public struct TodayView: View {
     }
     
     public var body: some View {
-        NavigationStack(path: $path) {
+        NavigationStack {
             ZStack {
-                CosmosTheme.spaceBackground.ignoresSafeArea()
+                MindSpaceTheme.background.ignoresSafeArea()
                 
-                // Subtle top background aura
+                // A restrained depth cue. It carries no accessibility meaning.
                 VStack {
                     LinearGradient(
-                        colors: [CosmosTheme.cosmicPurple.opacity(0.18), Color.clear],
+                        colors: [MindSpaceTheme.accent.opacity(0.07), Color.clear],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                     .frame(height: 260)
                     .ignoresSafeArea()
+                    .accessibilityHidden(true)
                     Spacer()
                 }
                 
@@ -131,19 +119,9 @@ public struct TodayView: View {
             }
             .onAppear {
                 buildDailyJourney()
-                refreshStorageSize()
             }
             .onChange(of: completionEvents) { _, _ in
                 buildDailyJourney()
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
-                buildDailyJourney()
-            }
-            .onChange(of: scenePhase) { _, newPhase in
-                if newPhase == .active {
-                    buildDailyJourney()
-                    refreshStorageSize()
-                }
             }
         }
     }
@@ -172,20 +150,19 @@ public struct TodayView: View {
     }
     
     private var headerBar: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("MindSpace")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(CosmosTheme.textPrimary)
-                
-                HStack(spacing: 4) {
-                    Image(systemName: timeGreeting.icon)
-                        .font(.system(size: 11))
-                        .foregroundColor(CosmosTheme.starlightGold)
-                    Text("\(timeGreeting.greeting) • \(timeGreeting.prompt)")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundColor(CosmosTheme.textSecondary)
-                }
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(timeGreeting.greeting)
+                    .font(.subheadline)
+                    .foregroundStyle(MindSpaceTheme.textSecondary)
+
+                Text("Take a moment.")
+                    .font(.largeTitle.weight(.bold))
+                    .foregroundStyle(MindSpaceTheme.textPrimary)
+
+                Text(timeGreeting.prompt)
+                    .font(.subheadline)
+                    .foregroundStyle(MindSpaceTheme.textSecondary)
             }
             
             Spacer()
@@ -196,22 +173,23 @@ public struct TodayView: View {
             }) {
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: currentSettings.reminderEnabled ? "bell.fill" : "bell")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(currentSettings.reminderEnabled ? CosmosTheme.starlightGold : CosmosTheme.textSecondary)
-                        .frame(width: 42, height: 42)
-                        .background(CosmosTheme.spaceCard)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(currentSettings.reminderEnabled ? MindSpaceTheme.accent : MindSpaceTheme.textSecondary)
+                        .frame(width: 44, height: 44)
+                        .background(MindSpaceTheme.surface)
                         .clipShape(Circle())
-                        .overlay(Circle().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1))
+                        .overlay(Circle().stroke(MindSpaceTheme.divider, lineWidth: 1))
                     
                     if currentSettings.reminderEnabled {
                         Circle()
-                            .fill(CosmosTheme.starlightGold)
+                            .fill(MindSpaceTheme.completion)
                             .frame(width: 8, height: 8)
                             .offset(x: -2, y: 2)
                     }
                 }
             }
-            .buttonStyle(.cosmicPressable)
+            .buttonStyle(.mindSpacePressable)
+            .accessibilityLabel(currentSettings.reminderEnabled ? "Edit daily reminder, enabled" : "Set a daily reminder")
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
@@ -220,7 +198,7 @@ public struct TodayView: View {
     @ViewBuilder
     private var streakHeroSection: some View {
         if !currentSettings.hideStreak {
-            OrbitArcGaugeView(
+            PracticeSummaryView(
                 currentStreak: orbitStats.currentStreak,
                 milestoneDays: orbitStats.nextMilestoneDays,
                 totalMinutes: orbitStats.totalMindfulMinutes,
@@ -232,20 +210,22 @@ public struct TodayView: View {
     
     @ViewBuilder
     private var storageNoticeCard: some View {
-        if (cachedStorageSizeBytes ?? 0) == 0 {
-            CosmicCard(padding: 14) {
+        if LibraryPathResolver.shared.getLibraryStorageSizeBytes() == 0 {
+            MindSpaceCard(padding: 14) {
                 HStack(spacing: 12) {
                     Image(systemName: "info.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(CosmosTheme.moonLavender)
+                        .font(.title3)
+                        .foregroundStyle(MindSpaceTheme.secondaryAccent)
+                        .accessibilityHidden(true)
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Content Setup Available")
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .foregroundColor(CosmosTheme.textPrimary)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(MindSpaceTheme.textPrimary)
                         Text("Transfer your 15.81 GB library anytime via USB or Files app. Catalog browsing is 100% active.")
-                            .font(.system(size: 12, weight: .regular, design: .rounded))
-                            .foregroundColor(CosmosTheme.textSecondary)
+                            .font(.caption)
+                            .foregroundStyle(MindSpaceTheme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
                 }
@@ -275,7 +255,7 @@ public struct TodayView: View {
             HStack {
                 Text("Recommended for You")
                     .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundColor(CosmosTheme.textPrimary)
+                    .foregroundColor(MindSpaceTheme.textPrimary)
                 Spacer()
             }
             .padding(.horizontal, 20)
@@ -285,36 +265,35 @@ public struct TodayView: View {
                     ForEach(recommendations) { item in
                         Button(action: {
                             HapticService.shared.medium()
-                            if playbackEngine.loadAndPlay(track: item.track) {
-                                playbackEngine.isFullPlayerPresented = true
-                            }
+                            playbackEngine.loadAndPlay(track: item.track)
+                            playbackEngine.isFullPlayerPresented = true
                         }) {
-                            CosmicCard(padding: 14) {
+                            MindSpaceCard(padding: 14) {
                                 VStack(alignment: .leading, spacing: 6) {
                                     HStack {
                                         Text(item.subtitle)
                                             .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                            .foregroundColor(CosmosTheme.moonLavender)
+                                            .foregroundColor(MindSpaceTheme.secondaryAccent)
                                         Spacer()
                                         Text(item.durationLabel)
                                             .font(.system(size: 11, weight: .medium, design: .rounded))
-                                            .foregroundColor(CosmosTheme.textSecondary)
+                                            .foregroundColor(MindSpaceTheme.textSecondary)
                                     }
                                     
                                     Text(item.title)
                                         .font(.system(size: 15, weight: .bold, design: .rounded))
-                                        .foregroundColor(CosmosTheme.textPrimary)
+                                        .foregroundColor(MindSpaceTheme.textPrimary)
                                         .lineLimit(1)
                                     
                                     Text(item.reason)
                                         .font(.system(size: 12, weight: .regular, design: .rounded))
-                                        .foregroundColor(CosmosTheme.textSecondary)
+                                        .foregroundColor(MindSpaceTheme.textSecondary)
                                         .lineLimit(1)
                                 }
                                 .frame(width: 200)
                             }
                         }
-                        .buttonStyle(.cosmicPressable)
+                        .buttonStyle(.mindSpacePressable)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -324,7 +303,7 @@ public struct TodayView: View {
     
     // MARK: - Resume Card
     private func resumeCard(_ resume: PlaybackResume) -> some View {
-        CosmicCard(padding: 14) {
+        MindSpaceCard(padding: 14) {
             HStack(spacing: 12) {
                 Button(action: {
                     HapticService.shared.medium()
@@ -334,23 +313,19 @@ public struct TodayView: View {
                         courseName: resume.courseName,
                         relativePath: resume.relativePath,
                         duration: resume.durationSeconds,
-                        videoAttachmentPath: resume.videoAttachmentPath,
-                        dayNumber: resume.dayNumber,
-                        contentType: resume.contentType
+                        contentType: "meditation"
                     )
-                    let loaded = playbackEngine.loadAndPlay(
+                    playbackEngine.loadAndPlay(
                         track: track,
                         startPosition: resume.lastPositionSeconds,
                         accumulatedListenedSeconds: resume.accumulatedListenedSeconds,
                         startInAudioPhase: true
                     )
-                    if loaded {
-                        playbackEngine.isFullPlayerPresented = true
-                    }
+                    playbackEngine.isFullPlayerPresented = true
                 }) {
                     ZStack {
                         Circle()
-                            .fill(CosmosTheme.cosmicPurple)
+                            .fill(MindSpaceTheme.accent)
                             .frame(width: 44, height: 44)
                         Image(systemName: "play.fill")
                             .font(.system(size: 16))
@@ -362,18 +337,18 @@ public struct TodayView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Resume where you left off")
                         .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundColor(CosmosTheme.moonLavender)
+                        .foregroundColor(MindSpaceTheme.secondaryAccent)
                     
                     Text(resume.sessionTitle)
                         .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundColor(CosmosTheme.textPrimary)
+                        .foregroundColor(MindSpaceTheme.textPrimary)
                         .lineLimit(1)
                     
                     let remSecs = max(0, resume.durationSeconds - resume.lastPositionSeconds)
                     let remMins = max(1, Int(round(remSecs / 60.0)))
                     Text("\(remMins) min remaining")
                         .font(.system(size: 12, weight: .regular, design: .rounded))
-                        .foregroundColor(CosmosTheme.textSecondary)
+                        .foregroundColor(MindSpaceTheme.textSecondary)
                 }
                 
                 Spacer()
@@ -383,25 +358,25 @@ public struct TodayView: View {
     
     // MARK: - Sleep Sound Section
     private func dailySleepSection(title: String, sessions: [SingleSession]) -> some View {
-        CosmicCard(padding: 16) {
+        MindSpaceCard(padding: 16) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     ZStack {
                         Circle()
-                            .fill(CosmosTheme.cosmicPurple.opacity(0.3))
+                            .fill(MindSpaceTheme.accent.opacity(0.3))
                             .frame(width: 36, height: 36)
                         Image(systemName: "moon.stars.fill")
-                            .foregroundColor(CosmosTheme.starlightGold)
+                            .foregroundColor(MindSpaceTheme.completion)
                             .font(.system(size: 16))
                     }
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Tonight's Wind Down")
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundColor(CosmosTheme.moonLavender)
+                            .foregroundColor(MindSpaceTheme.secondaryAccent)
                         Text(title)
                             .font(.system(size: 16, weight: .bold, design: .rounded))
-                            .foregroundColor(CosmosTheme.textPrimary)
+                            .foregroundColor(MindSpaceTheme.textPrimary)
                     }
                     Spacer()
                 }
@@ -419,19 +394,18 @@ public struct TodayView: View {
                                 duration: session.duration,
                                 contentType: "sleep"
                             )
-                            if playbackEngine.loadAndPlay(track: track) {
-                                playbackEngine.isFullPlayerPresented = true
-                            }
+                            playbackEngine.loadAndPlay(track: track)
+                            playbackEngine.isFullPlayerPresented = true
                         }) {
                             Text("\(mins) min")
                                 .font(.system(size: 13, weight: .medium, design: .rounded))
-                                .foregroundColor(CosmosTheme.textPrimary)
+                                .foregroundColor(MindSpaceTheme.textPrimary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
-                                .background(CosmosTheme.spaceCardBorder)
+                                .background(MindSpaceTheme.divider)
                                 .clipShape(Capsule())
                         }
-                        .buttonStyle(.cosmicPressable)
+                        .buttonStyle(.mindSpacePressable)
                     }
                 }
             }
@@ -440,13 +414,8 @@ public struct TodayView: View {
     
     private func handleTrackTap(track: PlayableTrack) {
         HapticService.shared.medium()
-        if playbackEngine.loadAndPlay(track: track) {
-            playbackEngine.isFullPlayerPresented = true
-        }
-    }
-
-    private func refreshStorageSize() {
-        cachedStorageSizeBytes = LibraryPathResolver.shared.getLibraryStorageSizeBytes()
+        playbackEngine.loadAndPlay(track: track)
+        playbackEngine.isFullPlayerPresented = true
     }
     
     private func buildDailyJourney() {
@@ -455,9 +424,9 @@ public struct TodayView: View {
         let activeCourse = catalogService.manifest?.categories.first?.courses.first
         var nextSessionToPlay: CatalogSession?
         if let course = activeCourse {
-            nextSessionToPlay = course.sessions.first(where: { !lifetimeCompletedSessionIDs.contains($0.id) })
+            nextSessionToPlay = course.sessions.first(where: { !lifetimeCompletedSessionIDs.contains($0.id) }) ?? course.sessions.first
         }
-
+        
         if let course = activeCourse, let session = nextSessionToPlay {
             let track = PlayableTrack(
                 id: session.id,
@@ -467,7 +436,7 @@ public struct TodayView: View {
                 duration: session.duration,
                 videoAttachmentPath: session.videoAttachments?.first?.relativePath,
                 dayNumber: session.dayNumber,
-                contentType: course.name.lowercased().contains("sleep") ? "sleep" : "meditation"
+                contentType: "meditation"
             )
             let isDoneToday = todayCompletedSessionIDs.contains(session.id)
             items.append(DailyJourneyItem(
@@ -477,14 +446,6 @@ public struct TodayView: View {
                 isPrimaryAction: true,
                 isCompleted: isDoneToday,
                 playableTrack: track
-            ))
-        } else if activeCourse != nil {
-            items.append(DailyJourneyItem(
-                id: "journey_1",
-                title: "Course complete — pick a new path",
-                durationLabel: "",
-                isPrimaryAction: false,
-                isCompleted: true
             ))
         } else {
             items.append(DailyJourneyItem(

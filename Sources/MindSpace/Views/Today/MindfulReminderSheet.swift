@@ -23,7 +23,7 @@ public struct MindfulReminderSheet: View {
     public var body: some View {
         NavigationStack {
             ZStack {
-                CosmosTheme.spaceBackground.ignoresSafeArea()
+                MindSpaceTheme.background.ignoresSafeArea()
                 
                 ScrollView {
                     VStack(spacing: 24) {
@@ -31,14 +31,14 @@ public struct MindfulReminderSheet: View {
                         VStack(spacing: 12) {
                             ZStack {
                                 Circle()
-                                    .fill(CosmosTheme.cosmicPurple.opacity(0.2))
+                                    .fill(MindSpaceTheme.accent.opacity(0.2))
                                     .frame(width: 80, height: 80)
                                 
                                 Image(systemName: "bell.badge.fill")
                                     .font(.system(size: 36))
                                     .foregroundStyle(
                                         LinearGradient(
-                                            colors: [CosmosTheme.starlightGold, CosmosTheme.moonLavender],
+                                            colors: [MindSpaceTheme.warning, MindSpaceTheme.secondaryAccent],
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
                                         )
@@ -48,32 +48,32 @@ public struct MindfulReminderSheet: View {
                             
                             Text("Daily Mindful Reminder")
                                 .font(.system(size: 22, weight: .bold, design: .rounded))
-                                .foregroundColor(CosmosTheme.textPrimary)
+                                .foregroundColor(MindSpaceTheme.textPrimary)
                             
-                            Text("A gentle, 100% private offline chime to protect your meditation habit each day.")
+                            Text("A gentle local notification to support your meditation habit each day.")
                                 .font(.system(size: 14, weight: .regular, design: .rounded))
-                                .foregroundColor(CosmosTheme.textSecondary)
+                                .foregroundColor(MindSpaceTheme.textSecondary)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 24)
                         }
                         
                         // MARK: - Permission Denied Alert Banner
                         if permissionStatus == .denied {
-                            CosmicCard(padding: 14) {
+                            MindSpaceCard(padding: 14) {
                                 VStack(alignment: .leading, spacing: 10) {
                                     HStack(spacing: 10) {
                                         Image(systemName: "exclamationmark.triangle.fill")
-                                            .foregroundColor(CosmosTheme.solarCoral)
+                                            .foregroundColor(MindSpaceTheme.danger)
                                             .font(.system(size: 18))
                                         
                                         Text("Notifications Disabled in iOS")
                                             .font(.system(size: 14, weight: .bold, design: .rounded))
-                                            .foregroundColor(CosmosTheme.textPrimary)
+                                            .foregroundColor(MindSpaceTheme.textPrimary)
                                     }
                                     
                                     Text("iOS notification permissions are turned off for MindSpace. Enable them in Settings to receive daily mindful reminders.")
                                         .font(.system(size: 12, weight: .regular, design: .rounded))
-                                        .foregroundColor(CosmosTheme.textSecondary)
+                                        .foregroundColor(MindSpaceTheme.textSecondary)
                                     
                                     Button(action: {
                                         HapticService.shared.medium()
@@ -83,10 +83,10 @@ public struct MindfulReminderSheet: View {
                                     }) {
                                         Text("Open iOS Settings")
                                             .font(.system(size: 13, weight: .bold, design: .rounded))
-                                            .foregroundColor(CosmosTheme.spaceBackground)
+                                            .foregroundColor(MindSpaceTheme.background)
                                             .padding(.horizontal, 14)
                                             .padding(.vertical, 8)
-                                            .background(CosmosTheme.starlightGold)
+                                            .background(MindSpaceTheme.warning)
                                             .clipShape(Capsule())
                                     }
                                 }
@@ -95,7 +95,7 @@ public struct MindfulReminderSheet: View {
                         }
                         
                         // MARK: - Main Toggle Card
-                        CosmicCard(padding: 16) {
+                        MindSpaceCard(padding: 16) {
                             VStack(spacing: 16) {
                                 Toggle(isOn: Binding(
                                     get: { isEnabled },
@@ -106,16 +106,16 @@ public struct MindfulReminderSheet: View {
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text("Enable Daily Reminder")
                                             .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                            .foregroundColor(CosmosTheme.textPrimary)
+                                            .foregroundColor(MindSpaceTheme.textPrimary)
                                         Text(isEnabled ? "Active on this iPhone" : "Reminders paused")
                                             .font(.system(size: 13, weight: .regular, design: .rounded))
-                                            .foregroundColor(isEnabled ? CosmosTheme.auroraTeal : CosmosTheme.textSecondary)
+                                            .foregroundColor(isEnabled ? MindSpaceTheme.success : MindSpaceTheme.textSecondary)
                                     }
                                 }
-                                .tint(CosmosTheme.cosmicPurple)
+                                .tint(MindSpaceTheme.accent)
                                 
                                 if isEnabled {
-                                    Divider().background(CosmosTheme.spaceCardBorder)
+                                    Divider().background(MindSpaceTheme.divider)
                                     
                                     // Time Picker
                                     DatePicker(
@@ -131,7 +131,7 @@ public struct MindfulReminderSheet: View {
                                         displayedComponents: .hourAndMinute
                                     )
                                     .datePickerStyle(.compact)
-                                    .foregroundColor(CosmosTheme.textPrimary)
+                                    .foregroundColor(MindSpaceTheme.textPrimary)
                                 }
                             }
                         }
@@ -142,33 +142,33 @@ public struct MindfulReminderSheet: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Suggested Meditation Times")
                                     .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textSecondary)
+                                    .foregroundColor(MindSpaceTheme.textSecondary)
                                     .padding(.horizontal, 22)
                                 
                                 HStack(spacing: 8) {
-                                    presetPill("🌅 08:00 AM", hour: 8, minute: 0)
-                                    presetPill("☀️ 01:00 PM", hour: 13, minute: 0)
-                                    presetPill("🌙 09:00 PM", hour: 21, minute: 0)
-                                    presetPill("🌌 10:30 PM", hour: 22, minute: 30)
+                                    presetPill("8:00 AM", hour: 8, minute: 0)
+                                    presetPill("1:00 PM", hour: 13, minute: 0)
+                                    presetPill("9:00 PM", hour: 21, minute: 0)
+                                    presetPill("10:30 PM", hour: 22, minute: 30)
                                 }
                                 .padding(.horizontal, 20)
                             }
                         }
                         
                         // MARK: - Privacy Guarantee Card
-                        CosmicCard(padding: 14) {
+                        MindSpaceCard(padding: 14) {
                             HStack(spacing: 12) {
                                 Image(systemName: "shield.lefthalf.filled")
-                                    .foregroundColor(CosmosTheme.auroraTeal)
+                                    .foregroundColor(MindSpaceTheme.success)
                                     .font(.system(size: 20))
                                 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("100% Offline Notification")
                                         .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                        .foregroundColor(CosmosTheme.textPrimary)
+                                        .foregroundColor(MindSpaceTheme.textPrimary)
                                     Text("Scheduled locally via iOS system clock. No tracking or servers.")
                                         .font(.system(size: 12, weight: .regular, design: .rounded))
-                                        .foregroundColor(CosmosTheme.textSecondary)
+                                        .foregroundColor(MindSpaceTheme.textSecondary)
                                 }
                             }
                         }
@@ -177,14 +177,14 @@ public struct MindfulReminderSheet: View {
                         if showSavedToast {
                             HStack(spacing: 6) {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(CosmosTheme.auroraTeal)
+                                    .foregroundColor(MindSpaceTheme.success)
                                 Text("Reminder schedule updated")
                                     .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                    .foregroundColor(CosmosTheme.textPrimary)
+                                    .foregroundColor(MindSpaceTheme.textPrimary)
                             }
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
-                            .background(CosmosTheme.spacePill)
+                            .background(MindSpaceTheme.elevatedSurface)
                             .clipShape(Capsule())
                             .transition(.opacity.combined(with: .scale))
                         }
@@ -202,7 +202,7 @@ public struct MindfulReminderSheet: View {
                         dismiss()
                     }
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundColor(CosmosTheme.moonLavender)
+                    .foregroundColor(MindSpaceTheme.secondaryAccent)
                 }
             }
             .onAppear {
@@ -224,16 +224,17 @@ public struct MindfulReminderSheet: View {
         }) {
             Text(label)
                 .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundColor(CosmosTheme.textPrimary)
+                .foregroundColor(MindSpaceTheme.textPrimary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(CosmosTheme.spacePill)
+                .background(MindSpaceTheme.elevatedSurface)
                 .clipShape(Capsule())
                 .overlay(
-                    Capsule().stroke(CosmosTheme.spaceCardBorder, lineWidth: 1)
+                    Capsule().stroke(MindSpaceTheme.divider, lineWidth: 1)
                 )
         }
-        .buttonStyle(.cosmicPressable)
+        .buttonStyle(.mindSpacePressable)
+        .frame(minHeight: 44)
     }
     
     private func loadInitialState() {

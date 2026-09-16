@@ -5,15 +5,15 @@ import SwiftData
 
 final class UATComprehensiveTests: XCTestCase {
     
-    // MARK: - UAT Area 1: Navigation & Cosmic Theming
-    func testCosmosThemeColorTokensAndPalette() {
-        XCTAssertNotNil(CosmosTheme.spaceBackground)
-        XCTAssertNotNil(CosmosTheme.spaceCard)
-        XCTAssertNotNil(CosmosTheme.cosmicPurple)
-        XCTAssertNotNil(CosmosTheme.auroraTeal)
-        XCTAssertNotNil(CosmosTheme.solarCoral)
-        XCTAssertNotNil(CosmosTheme.starlightGold)
-        XCTAssertNotNil(CosmosTheme.moonLavender)
+    // MARK: - UAT Area 1: Navigation & Quiet Native Theming
+    func testMindSpaceThemeColorTokensAndPalette() {
+        XCTAssertNotNil(MindSpaceTheme.background)
+        XCTAssertNotNil(MindSpaceTheme.surface)
+        XCTAssertNotNil(MindSpaceTheme.accent)
+        XCTAssertNotNil(MindSpaceTheme.success)
+        XCTAssertNotNil(MindSpaceTheme.danger)
+        XCTAssertNotNil(MindSpaceTheme.warning)
+        XCTAssertNotNil(MindSpaceTheme.secondaryAccent)
         
         // AppTab Enum verification
         let tabs = AppTab.allCases
@@ -80,8 +80,8 @@ final class UATComprehensiveTests: XCTestCase {
         XCTAssertEqual(manifest.singlesCategories.first?.sessions.count, 1)
     }
     
-    // MARK: - UAT Area 3: Constellation Path Generation
-    func testConstellationPathNodesMapping() {
+    // MARK: - UAT Area 3: Linear Course Progress Mapping
+    func testCourseProgressStateMapping() {
         let sessions = (1...10).map { day in
             CatalogSession(
                 id: "basics_day_\(day)",
@@ -95,24 +95,17 @@ final class UATComprehensiveTests: XCTestCase {
         let completedIDs: Set<String> = ["basics_day_1", "basics_day_2", "basics_day_3"]
         let nextId = "basics_day_4"
         
-        let nodes = sessions.map { session in
-            ConstellationNode(
-                id: session.id,
-                dayNumber: session.dayNumber,
-                title: session.title,
-                isCompleted: completedIDs.contains(session.id),
-                isActive: session.id == nextId,
-                isBridgeOfReflection: false
-            )
+        let progress = sessions.map { session in
+            (session: session, isCompleted: completedIDs.contains(session.id), isActive: session.id == nextId)
         }
         
-        XCTAssertEqual(nodes.count, 10)
-        XCTAssertTrue(nodes[0].isCompleted)
-        XCTAssertTrue(nodes[1].isCompleted)
-        XCTAssertTrue(nodes[2].isCompleted)
-        XCTAssertTrue(nodes[3].isActive)
-        XCTAssertFalse(nodes[4].isCompleted)
-        XCTAssertFalse(nodes[4].isActive)
+        XCTAssertEqual(progress.count, 10)
+        XCTAssertTrue(progress[0].isCompleted)
+        XCTAssertTrue(progress[1].isCompleted)
+        XCTAssertTrue(progress[2].isCompleted)
+        XCTAssertTrue(progress[3].isActive)
+        XCTAssertFalse(progress[4].isCompleted)
+        XCTAssertFalse(progress[4].isActive)
     }
     
     // MARK: - UAT Area 4: Favorites & Progress Persistence

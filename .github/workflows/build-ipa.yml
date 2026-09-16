@@ -1,89 +1,119 @@
-name: Build MindSpace Unsigned IPA & Automated Release
+name: MindSpace v3 UAT and Unsigned IPA
 
 on:
   workflow_dispatch:
+    inputs:
+      build_ipa:
+        description: Build and inspect the unsigned IPA after tests pass
+        required: true
+        default: true
+        type: boolean
 
 permissions:
-  contents: write
+  contents: read
 
-# Minute-saver: a new dispatch on the same branch cancels the stale in-flight
-# run instead of paying for both (macOS minutes bill at 10x).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: mindspace-v3-uat-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build, Test & Release IPA
-    runs-on: macos-14
-    # Cost guard: never let a hung simulator/build burn the 6h default (at 10x).
-    timeout-minutes: 60
+  uat:
+    name: iPhone 16 Simulator UAT
+    runs-on: macos-26
+    timeout-minutes: 45
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout UAT mirror
         uses: actions/checkout@v4
 
-      - name: Select Xcode Version
+      - name: Select Xcode 26
         run: |
-          sudo xcode-select -s /Applications/Xcode_16.1.app || sudo xcode-select -s /Applications/Xcode_16.0.app || sudo xcode-select -s /Applications/Xcode_16.app || sudo xcode-select -s /Applications/Xcode_15.4.app || sudo xcode-select -s /Applications/Xcode.app
+          if [ -d /Applications/Xcode_26.6.app ]; then
+            sudo xcode-select -s /Applications/Xcode_26.6.app
+          elif [ -d /Applications/Xcode_26.5.app ]; then
+            sudo xcode-select -s /Applications/Xcode_26.5.app
+          else
+            sudo xcode-select -s /Applications/Xcode.app
+          fi
           xcodebuild -version
+          xcrun simctl list runtimes
 
-      - name: Install XcodeGen (if missing)
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: "1"
-          # Pinned so CI never silently changes project generation under us.
-          XCODEGEN_VERSION: "2.46.0"
+      - name: Install build tools
         run: |
-          if ! command -v xcodegen >/dev/null; then
-            brew install xcodegen
-          fi
-          xcodegen --version
+          brew install xcodegen
+          python3 -m venv "$RUNNER_TEMP/mindspace-python"
+          "$RUNNER_TEMP/mindspace-python/bin/pip" install pillow
+          echo "$RUNNER_TEMP/mindspace-python/bin" >> "$GITHUB_PATH"
 
-      - name: Synchronize Canonical Version Across Codebase
+      - name: Run privacy, structure, visual, and version gates
+        run: python3 scripts/verify_codebase.py
+
+      - name: Generate Xcode project
         run: |
-          python3 scripts/sync_version.py --sync-all
+          xcodegen generate
+          test "$(plutil -extract CFBundleShortVersionString raw Sources/MindSpace/Info.plist)" = "3.0.0"
+          test "$(plutil -extract CFBundleVersion raw Sources/MindSpace/Info.plist)" = "12"
+          plutil -extract UILaunchScreen xml1 -o - Sources/MindSpace/Info.plist > /dev/null
+          plutil -extract UIApplicationSceneManifest xml1 -o - Sources/MindSpace/Info.plist > /dev/null
 
-      - name: Verify Zero-Network & Privacy Rule (API Scan)
+      - name: Create exact iPhone 16 simulator
         run: |
-          echo "Scanning codebase for forbidden networking symbols..."
-          FORBIDDEN_PATTERNS=("WebKit" "CFNetwork" "Network.framework" "NWPathMonitor")
-          VIOLATIONS=0
-          for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
-            MATCHES=$(grep -rnw "Sources/" -e "$pattern" 2>/dev/null || true)
-            if [ -n "$MATCHES" ]; then
-              echo "❌ Forbidden networking symbol found for '$pattern':"
-              echo "$MATCHES"
-              VIOLATIONS=$((VIOLATIONS + 1))
-            fi
-          done
-          # Ensure URLSession is strictly isolated to GitHubSyncService
-          NON_SYNC_URLSESSION=$(grep -rnw "Sources/" -e "URLSession" --exclude="GitHubSyncService.swift" 2>/dev/null || true)
-          if [ -n "$NON_SYNC_URLSESSION" ]; then
-            echo "❌ URLSession leaked outside GitHubSyncService:"
-            echo "$NON_SYNC_URLSESSION"
-            VIOLATIONS=$((VIOLATIONS + 1))
-          fi
-          if [ $VIOLATIONS -gt 0 ]; then
-            echo "Build failed: Networking/telemetry symbols detected outside authorized sync service."
-            exit 1
-          fi
-          echo "✅ Zero telemetry compliance verified. Networking strictly confined to GitHubSyncService."
+          RUNTIME_ID=$(xcrun simctl list runtimes --json | python3 -c '
+          import json, sys
+          runtimes = [r for r in json.load(sys.stdin)["runtimes"] if r.get("isAvailable") and r.get("identifier", "").startswith("com.apple.CoreSimulator.SimRuntime.iOS-")]
+          if not runtimes:
+              raise SystemExit("No available iOS simulator runtime")
+          print(sorted(runtimes, key=lambda r: tuple(map(int, r["version"].split("."))))[-1]["identifier"])
+          ')
+          DEVICE_TYPE_ID=$(xcrun simctl list devicetypes --json | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devicetypes"]
+          match = next((d for d in devices if d["name"] == "iPhone 16"), None)
+          if match is None:
+              raise SystemExit("The iPhone 16 simulator device type is unavailable")
+          print(match["identifier"])
+          ')
+          SIMULATOR_UDID=$(xcrun simctl create "MindSpace iPhone 16" "$DEVICE_TYPE_ID" "$RUNTIME_ID")
+          xcrun simctl boot "$SIMULATOR_UDID"
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+          echo "SIMULATOR_UDID=$SIMULATOR_UDID" >> "$GITHUB_ENV"
+          echo "Created iPhone 16 simulator $SIMULATOR_UDID on $RUNTIME_ID"
 
-      - name: Generate Xcode Project
-        run: xcodegen generate
-
-      - name: Run Unit & Simulation Tests
+      - name: Run unit and simulator UI tests
         run: |
+          set -o pipefail
           xcodebuild test \
             -project MindSpace.xcodeproj \
             -scheme MindSpace \
-            -destination "platform=iOS Simulator,name=iPhone 16,OS=latest" \
-            -derivedDataPath build
+            -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
+            -derivedDataPath build \
+            -resultBundlePath TestResults/MindSpace.xcresult
 
-      - name: Compile Unsigned iOS Binary
+      - name: Export test attachments and result summary
+        if: always()
         run: |
-          # Ephemeral runner: DerivedData starts empty, so the 'clean' pass is pure overhead.
-          xcodebuild build \
+          mkdir -p TestResults/Attachments
+          xcrun simctl io "$SIMULATOR_UDID" screenshot TestResults/simulator-window.png || true
+          xcodebuild -project MindSpace.xcodeproj -scheme MindSpace -showBuildSettings \
+            > TestResults/build-settings.txt || true
+          PROCESSED_INFO="build/Build/Products/Debug-iphonesimulator/MindSpace.app/Info.plist"
+          if [ -f "$PROCESSED_INFO" ]; then
+            cp "$PROCESSED_INFO" TestResults/ProcessedInfo.plist
+            plutil -p "$PROCESSED_INFO"
+          fi
+          if [ -d TestResults/MindSpace.xcresult ]; then
+            xcrun xcresulttool export attachments \
+              --path TestResults/MindSpace.xcresult \
+              --output-path TestResults/Attachments || true
+            xcrun xcresulttool get test-results summary \
+              --path TestResults/MindSpace.xcresult \
+              > TestResults/summary.json || true
+          fi
+
+      - name: Compile unsigned device app
+        if: inputs.build_ipa
+        run: |
+          xcodebuild clean build \
             -project MindSpace.xcodeproj \
             -scheme MindSpace \
             -sdk iphoneos \
@@ -93,96 +123,35 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY=""
 
-      - name: Enforce & Verify UIBackgroundModes & Version in Compiled App
+      - name: Assemble and verify unsigned IPA
+        if: inputs.build_ipa
         run: |
-          python3 scripts/sync_version.py --inject-plist build/Build/Products/Release-iphoneos/MindSpace.app/Info.plist
-
-      - name: Assemble & Zip IPA Payload
-        run: |
-          rm -rf Payload MindSpace.ipa
-          mkdir -p Payload
-          cp -R build/Build/Products/Release-iphoneos/MindSpace.app Payload/
-          python3 scripts/sync_version.py --inject-plist Payload/MindSpace.app/Info.plist
-          
-          zip -qry MindSpace.ipa Payload
+          rm -rf "$GITHUB_WORKSPACE/Payload"
+          rm -f "$GITHUB_WORKSPACE/MindSpace.ipa" "$GITHUB_WORKSPACE/MindSpace.ipa.sha256"
+          mkdir -p "$GITHUB_WORKSPACE/Payload"
+          cp -R build/Build/Products/Release-iphoneos/MindSpace.app "$GITHUB_WORKSPACE/Payload/"
+          ditto -c -k --sequesterRsrc --keepParent Payload MindSpace.ipa
           shasum -a 256 MindSpace.ipa > MindSpace.ipa.sha256
-          echo "IPA SHA-256 Digest: $(cat MindSpace.ipa.sha256)"
-          
-          # Mandatory Pre-Release Assertion Gate: Inspect binary inside packaged IPA
+          unzip -t MindSpace.ipa
           python3 scripts/sync_version.py --verify-ipa MindSpace.ipa
+          python3 scripts/inspect_release_artifact.py MindSpace.ipa
 
-      - name: Upload IPA Artifact
+      - name: Upload UAT evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: MindSpace-Unsigned-IPA
+          name: MindSpace-v3-UAT-Evidence
+          path: TestResults
+          retention-days: 3
+          if-no-files-found: warn
+
+      - name: Upload tested unsigned IPA
+        if: inputs.build_ipa && success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MindSpace-v3.0.0-build12-Unsigned-IPA
           path: |
             MindSpace.ipa
             MindSpace.ipa.sha256
-
-      - name: Publish Direct GitHub Release to Public Distribution Repo (mindspace-source)
-        if: github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT || secrets.MINDSPACE_SOURCE_PAT || github.token }}
-        run: |
-          echo "Publishing release and syncing SideStore source repository..."
-          VERSION=$(python3 -c 'import json; print(json.load(open("apps.json"))["apps"][0]["version"])')
-          BUILD_NUM=$(python3 -c 'import json; print(json.load(open("apps.json"))["apps"][0].get("build", "10"))')
-          DESC=$(python3 -c 'import json; print(json.load(open("apps.json"))["apps"][0].get("versionDescription", "MindSpace Release"))')
-          IPA_SIZE=$(stat -f%z MindSpace.ipa 2>/dev/null || stat -c%s MindSpace.ipa)
-          
-          echo "Releasing MindSpace v$VERSION (Build $BUILD_NUM) with size $IPA_SIZE bytes to vkr1729/mindspace-source"
-          
-          # Clone public distribution repository
-          rm -rf /tmp/dist_repo
-          git clone "https://x-access-token:${GH_TOKEN}@github.com/vkr1729/mindspace-source.git" /tmp/dist_repo
-          
-          # Update apps.json and source.json in mindspace-source
-          python3 -c "
-          import json
-          with open('/tmp/dist_repo/apps.json', 'r') as f:
-              data = json.load(f)
-          
-          app = data['apps'][0]
-          app['version'] = '$VERSION'
-          app['versionDate'] = '$(date -u +%Y-%m-%d)'
-          app['versionDescription'] = '''$DESC'''
-          app['downloadURL'] = f'https://github.com/vkr1729/mindspace-source/releases/download/v$VERSION/MindSpace.ipa'
-          app['size'] = int('$IPA_SIZE')
-
-          new_version_entry = {
-              'version': '$VERSION',
-              'date': '$(date -u +%Y-%m-%d)',
-              'localizedDescription': '''$DESC''',
-              'downloadURL': f'https://github.com/vkr1729/mindspace-source/releases/download/v$VERSION/MindSpace.ipa',
-              'size': int('$IPA_SIZE')
-          }
-          data['apps'][0]['versions'] = [v for v in data['apps'][0].get('versions', []) if v.get('version') != '$VERSION']
-          data['apps'][0]['versions'].insert(0, new_version_entry)
-          
-          with open('/tmp/dist_repo/apps.json', 'w') as f:
-              json.dump(data, f, indent=2)
-          with open('/tmp/dist_repo/source.json', 'w') as f:
-              json.dump(data, f, indent=2)
-          "
-          
-          # Copy AppIcon-1024.png
-          cp Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png /tmp/dist_repo/AppIcon-1024.png
-          
-          # Commit and push to mindspace-source
-          cd /tmp/dist_repo
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add apps.json source.json AppIcon-1024.png
-          git commit -m "chore(release): automated sync MindSpace v$VERSION ($BUILD_NUM)" || true
-          git push origin main
-          
-          # Recreate or upload GitHub Release on vkr1729/mindspace-source
-          cd $GITHUB_WORKSPACE
-          gh release delete "v$VERSION" --repo vkr1729/mindspace-source -y 2>/dev/null || true
-          gh release create "v$VERSION" MindSpace.ipa MindSpace.ipa.sha256 \
-            --repo vkr1729/mindspace-source \
-            --title "MindSpace v$VERSION" \
-            --notes "$DESC" \
-            --latest
-          
-          echo "✅ Automated release and SideStore sync complete on vkr1729/mindspace-source!"
+          retention-days: 3
+          if-no-files-found: error

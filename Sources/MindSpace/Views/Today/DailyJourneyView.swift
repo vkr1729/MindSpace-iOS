@@ -25,7 +25,7 @@ public struct DailyJourneyItem: Identifiable, Sendable {
     }
 }
 
-/// 3-Item Daily Journey checklist component on the Today screen with tactile interactions.
+/// Three concise daily suggestions with one unmistakable primary action.
 public struct DailyJourneyView: View {
     @Binding public var items: [DailyJourneyItem]
     public let onSelectTrack: (PlayableTrack) -> Void
@@ -39,70 +39,70 @@ public struct DailyJourneyView: View {
     }
     
     public var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Daily Journey")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(CosmosTheme.textPrimary)
+                Text("Daily journey")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(MindSpaceTheme.textPrimary)
                 
                 Spacer()
                 
                 let completedCount = items.filter { $0.isCompleted }.count
-                Text("\(completedCount)/\(items.count) Completed")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundColor(completedCount == items.count ? CosmosTheme.starlightGold : CosmosTheme.moonLavender)
+                Text("\(completedCount) of \(items.count) complete")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(completedCount == items.count ? MindSpaceTheme.completion : MindSpaceTheme.textSecondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(CosmosTheme.spacePill)
+                    .background(MindSpaceTheme.elevatedSurface)
                     .clipShape(Capsule())
             }
             .padding(.horizontal, 4)
             
-            VStack(spacing: 12) {
+            VStack(spacing: 0) {
                 ForEach($items) { $item in
                     journeyRow(for: $item)
+                    if item.id != items.last?.id {
+                        Divider().overlay(MindSpaceTheme.divider)
+                    }
                 }
             }
+            .mindSpaceCardStyle(padding: 0)
         }
     }
     
     @ViewBuilder
     private func journeyRow(for item: Binding<DailyJourneyItem>) -> some View {
         let currentItem = item.wrappedValue
-        HStack(spacing: 14) {
-            // Real Completion Checkmark Indicator
+        HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .stroke(currentItem.isCompleted ? CosmosTheme.starlightGold : CosmosTheme.spaceCardBorder, lineWidth: 1.5)
-                    .frame(width: 28, height: 28)
+                    .stroke(currentItem.isCompleted ? MindSpaceTheme.completion : MindSpaceTheme.divider, lineWidth: 1.5)
+                    .frame(width: 32, height: 32)
                     .background(
                         Circle()
-                            .fill(currentItem.isCompleted ? CosmosTheme.starlightGold : Color.clear)
+                            .fill(currentItem.isCompleted ? MindSpaceTheme.completion : Color.clear)
                     )
-                    .shadow(color: currentItem.isCompleted ? CosmosTheme.starlightGold.opacity(0.4) : Color.clear, radius: 4)
                 
                 if currentItem.isCompleted {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(CosmosTheme.spaceBackground)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(MindSpaceTheme.background)
                 }
             }
             
-            // Text Details
             VStack(alignment: .leading, spacing: 3) {
                 Text(currentItem.title)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundColor(currentItem.isCompleted ? CosmosTheme.textSecondary : CosmosTheme.textPrimary)
-                    .strikethrough(currentItem.isCompleted, color: CosmosTheme.textSecondary)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(currentItem.isCompleted ? MindSpaceTheme.textSecondary : MindSpaceTheme.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
                 
                 Text(currentItem.durationLabel)
-                    .font(.system(size: 13, weight: .regular, design: .rounded))
-                    .foregroundColor(CosmosTheme.textSecondary)
+                    .font(.subheadline)
+                    .foregroundStyle(MindSpaceTheme.textSecondary)
             }
             
             Spacer()
             
-            // Quick Continue Button if Primary Action
             if currentItem.isPrimaryAction && !currentItem.isCompleted {
                 Button(action: {
                     HapticService.shared.medium()
@@ -112,53 +112,37 @@ public struct DailyJourneyView: View {
                 }) {
                     HStack(spacing: 4) {
                         Text("Continue")
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .font(.subheadline.weight(.bold))
                         Image(systemName: "play.fill")
-                            .font(.system(size: 11))
+                            .font(.caption)
+                            .accessibilityHidden(true)
                     }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(
-                        LinearGradient(
-                            colors: [CosmosTheme.cosmicPurple, Color(hex: "#6344E0")],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .clipShape(Capsule())
-                    .shadow(color: CosmosTheme.cosmicPurple.opacity(0.4), radius: 6, x: 0, y: 2)
+                    .foregroundStyle(MindSpaceTheme.background)
+                    .frame(minWidth: 100, minHeight: 44)
+                    .padding(.horizontal, 10)
+                    .background(MindSpaceTheme.accent)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
-                .buttonStyle(.cosmicPressable)
+                .buttonStyle(.mindSpacePrimaryPressable)
+                .accessibilityLabel("Continue \(currentItem.title)")
+                .accessibilityIdentifier("today.continue")
             } else if let track = currentItem.playableTrack {
                 Button(action: {
                     HapticService.shared.medium()
                     onSelectTrack(track)
                 }) {
-                    Image(systemName: currentItem.isCompleted ? "arrow.counterclockwise.circle.fill" : "play.circle.fill")
-                        .font(.system(size: 26))
-                        .foregroundColor(currentItem.isCompleted ? CosmosTheme.textSecondary : CosmosTheme.moonLavender)
+                    Image(systemName: currentItem.isCompleted ? "arrow.counterclockwise" : "play.fill")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(currentItem.isCompleted ? MindSpaceTheme.textSecondary : MindSpaceTheme.accent)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.cosmicPressable)
+                .buttonStyle(.mindSpacePressable)
+                .accessibilityLabel(currentItem.isCompleted ? "Play \(currentItem.title) again" : "Play \(currentItem.title)")
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(
-            ZStack {
-                CosmosTheme.spaceCard
-                if currentItem.isPrimaryAction && !currentItem.isCompleted {
-                    CosmosTheme.cosmicPurple.opacity(0.08)
-                }
-            }
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(
-                    currentItem.isPrimaryAction && !currentItem.isCompleted ? CosmosTheme.cosmicPurple.opacity(0.4) : CosmosTheme.spaceCardBorder,
-                    lineWidth: 1
-                )
-        )
+        .padding(.vertical, 12)
+        .background(currentItem.isPrimaryAction && !currentItem.isCompleted ? MindSpaceTheme.accent.opacity(0.05) : Color.clear)
     }
 }
