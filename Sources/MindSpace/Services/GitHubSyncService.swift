@@ -18,6 +18,13 @@ public struct SyncProgressState: Sendable, Equatable {
 @MainActor
 public final class GitHubSyncService: ObservableObject {
     public static let shared = GitHubSyncService()
+
+    nonisolated(unsafe) private static let backgroundSession: URLSession = {
+        let config = URLSessionConfiguration.background(withIdentifier: "com.mindspace.offline.sync")
+        config.waitsForConnectivity = true
+        config.sessionSendsLaunchEvents = true
+        return URLSession(configuration: config)
+    }()
     
     private let repoKey = "github_sync_repo"
     private let patKey = "github_sync_pat"
@@ -327,7 +334,7 @@ public final class GitHubSyncService: ObservableObject {
         let token = self.savedPAT
         
         self.syncTask = Task.detached(priority: .userInitiated) { [weak self] in
-            let session = URLSession(configuration: .default)
+            let session = Self.backgroundSession
             var successCount = 0
             var errorEncountered: String? = nil
             
@@ -396,7 +403,7 @@ public final class GitHubSyncService: ObservableObject {
         
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.setValue("token \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("MindSpace-iOS", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 60
         
@@ -461,32 +468,34 @@ public final class GitHubSyncService: ObservableObject {
         relativePath: String,
         expectedSHA256: String
     ) throws -> Bool {
+        guard LibraryPathResolver.isSafeRelativePath(relativePath) else { return false }
         let fileManager = FileManager.default
         let destinationURL = LibraryPathResolver.shared.libraryDirectoryURL.appendingPathComponent(relativePath)
-        
-        // Optional SHA-256 verification
+
+        // SHA-256 verification is mandatory when a hash is shipped; an unreadable
+        // or mismatched file must never be installed.
         if !expectedSHA256.isEmpty {
-            if let fileData = try? Data(contentsOf: tempURL, options: .mappedIfSafe) {
-                let digest = SHA256.hash(data: fileData)
-                let hashString = digest.compactMap { String(format: "%02x", $0) }.joined()
-                if hashString.lowercased() != expectedSHA256.lowercased() {
-                    try? fileManager.removeItem(at: tempURL)
-                    return false
-                }
+            guard let hashString = LibraryPathResolver.streamSHA256Hex(of: tempURL),
+                  hashString.lowercased() == expectedSHA256.lowercased() else {
+                try? fileManager.removeItem(at: tempURL)
+                return false
             }
+        } else {
+            try? fileManager.removeItem(at: tempURL)
+            return false
         }
-        
+
         // Create directory structure
         let parentDir = destinationURL.deletingLastPathComponent()
         if !fileManager.fileExists(atPath: parentDir.path) {
             try fileManager.createDirectory(at: parentDir, withIntermediateDirectories: true)
         }
-        
+
         if fileManager.fileExists(atPath: destinationURL.path) {
-            try fileManager.removeItem(at: destinationURL)
+            _ = try fileManager.replaceItemAt(destinationURL, withItemAt: tempURL, backupItemName: nil, options: .usingNewMetadataOnly)
+        } else {
+            try fileManager.moveItem(at: tempURL, to: destinationURL)
         }
-        
-        try fileManager.moveItem(at: tempURL, to: destinationURL)
         return true
     }
     

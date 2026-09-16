@@ -6,6 +6,7 @@ import UserNotifications
 public struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var catalogService = CatalogService.shared
     
     @Query(sort: \CompletionEvent.timestamp, order: .reverse) private var completionEvents: [CompletionEvent]
@@ -15,9 +16,7 @@ public struct SettingsView: View {
     @ObservedObject private var syncService = GitHubSyncService.shared
     
     @State private var exportURL: URL?
-    @State private var isShowingShareSheet = false
-    @State private var isShowingDocumentPicker = false
-    @State private var isShowingDisclaimerSheet = false
+    @State private var activeSheet: ActiveSheet?
     @State private var pendingImportDocument: MindSpaceBackupDocument?
     @State private var importStatusMessage: String?
     @State private var isScanningLibrary = false
@@ -25,6 +24,27 @@ public struct SettingsView: View {
     @State private var verificationReport: LibraryVerificationReport?
     @State private var reminderDate: Date = Date()
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
+
+    private enum ActiveSheet: Identifiable {
+        case share
+        case documentPicker
+        case disclaimer
+        case importPreview(IdentifiableBackup)
+
+        var id: String {
+            switch self {
+            case .share: return "share"
+            case .documentPicker: return "documentPicker"
+            case .disclaimer: return "disclaimer"
+            case .importPreview(let wrapper): return "import-\(wrapper.id)"
+            }
+        }
+    }
+
+    private struct IdentifiableBackup: Identifiable {
+        let id = UUID()
+        let doc: MindSpaceBackupDocument
+    }
     
     // GitHub Sync State
     @State private var githubRepoInput: String = ""
@@ -32,8 +52,16 @@ public struct SettingsView: View {
     @State private var isPATVisible: Bool = false
     @State private var isTestingConnection: Bool = false
     @State private var connectionTestResult: (success: Bool, message: String)?
-    
-    public init() {}
+
+    @Binding private var path: NavigationPath
+
+    public init(path: Binding<NavigationPath>? = nil) {
+        if let path {
+            _path = path
+        } else {
+            _path = .constant(NavigationPath())
+        }
+    }
     
     private func getOrCreateSettings() -> UserSettings {
         if let existing = settingsList.first {
@@ -529,7 +557,7 @@ public struct SettingsView: View {
                                     
                                     Button(action: {
                                         HapticService.shared.medium()
-                                        isShowingDocumentPicker = true
+                                        activeSheet = .documentPicker
                                     }) {
                                         HStack(spacing: 6) {
                                             Image(systemName: "square.and.arrow.down")
@@ -662,7 +690,7 @@ public struct SettingsView: View {
                         CosmicCard(padding: 16) {
                             Button(action: {
                                 HapticService.shared.light()
-                                isShowingDisclaimerSheet = true
+                                activeSheet = .disclaimer
                             }) {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 2) {
@@ -713,40 +741,46 @@ public struct SettingsView: View {
             githubRepoInput = syncService.savedRepo
             githubPATInput = syncService.savedPAT
         }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                checkNotificationAuth()
+            }
+        }
         #if os(iOS)
-        .sheet(isPresented: $isShowingShareSheet) {
-            if let url = exportURL {
-                ShareSheetView(items: [url])
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .share:
+                if let url = exportURL {
+                    ShareSheetView(items: [url])
+                }
+            case .documentPicker:
+                DocumentPickerView { url in
+                    activeSheet = nil
+                    handlePickedDocument(url: url)
+                }
+            case .disclaimer:
+                wellnessDisclaimerSheet
+            case .importPreview(let wrapper):
+                ImportPreviewDialogView(
+                    document: wrapper.doc,
+                    onMerge: {
+                        applyImport(document: wrapper.doc, isClean: false)
+                        pendingImportDocument = nil
+                        activeSheet = nil
+                    },
+                    onCleanRestore: {
+                        applyImport(document: wrapper.doc, isClean: true)
+                        pendingImportDocument = nil
+                        activeSheet = nil
+                    },
+                    onCancel: {
+                        pendingImportDocument = nil
+                        activeSheet = nil
+                    }
+                )
             }
-        }
-        .sheet(isPresented: $isShowingDocumentPicker) {
-            DocumentPickerView { url in
-                handlePickedDocument(url: url)
-            }
-        }
-        .sheet(isPresented: $isShowingDisclaimerSheet) {
-            wellnessDisclaimerSheet
         }
         #endif
-        .sheet(item: Binding(
-            get: { pendingImportDocument.map { IdentifiableBackup(doc: $0) } },
-            set: { pendingImportDocument = $0?.doc }
-        )) { wrapper in
-            ImportPreviewDialogView(
-                document: wrapper.doc,
-                onMerge: {
-                    applyImport(document: wrapper.doc, isClean: false)
-                    pendingImportDocument = nil
-                },
-                onCleanRestore: {
-                    applyImport(document: wrapper.doc, isClean: true)
-                    pendingImportDocument = nil
-                },
-                onCancel: {
-                    pendingImportDocument = nil
-                }
-            )
-        }
     }
     
     private var wellnessDisclaimerSheet: some View {
@@ -775,17 +809,12 @@ public struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
-                        isShowingDisclaimerSheet = false
+                        activeSheet = nil
                     }
                     .foregroundColor(CosmosTheme.moonLavender)
                 }
             }
         }
-    }
-    
-    private struct IdentifiableBackup: Identifiable {
-        let id = UUID()
-        let doc: MindSpaceBackupDocument
     }
     
     private func checkNotificationAuth() {
@@ -868,13 +897,14 @@ public struct SettingsView: View {
         )
         if let fileURL = try? ProgressTransferManager.shared.exportToFile(document: doc) {
             self.exportURL = fileURL
-            self.isShowingShareSheet = true
+            self.activeSheet = .share
         }
     }
     
     private func handlePickedDocument(url: URL) {
         if let doc = try? ProgressTransferManager.shared.parseBackupDocument(from: url) {
             self.pendingImportDocument = doc
+            self.activeSheet = .importPreview(IdentifiableBackup(doc: doc))
         } else {
             self.importStatusMessage = "Failed to parse .mindspace backup file."
         }

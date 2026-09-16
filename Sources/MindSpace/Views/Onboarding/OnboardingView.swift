@@ -38,6 +38,9 @@ public struct OnboardingView: View {
                     }
                 }
                 .padding(.top, 20)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Onboarding progress")
+                .accessibilityValue("Step \(currentStep + 1) of 5")
                 
                 // MARK: - Step Content
                 TabView(selection: $currentStep) {
@@ -372,22 +375,29 @@ public struct OnboardingView: View {
                     Image(systemName: hasAcknowledgedDisclaimer ? "checkmark.square.fill" : "square")
                         .font(.system(size: 20))
                         .foregroundColor(hasAcknowledgedDisclaimer ? CosmosTheme.starlightGold : CosmosTheme.textSecondary)
-                    
+
                     Text("I have read and agree to the wellness disclaimer")
                         .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundColor(CosmosTheme.textPrimary)
-                    
+
                     Spacer()
                 }
                 .padding(.horizontal, 24)
             }
+            .accessibilityAddTraits(hasAcknowledgedDisclaimer ? [.isButton, .isSelected] : [.isButton])
+            .accessibilityLabel("Agree to the wellness disclaimer")
+            .accessibilityValue(hasAcknowledgedDisclaimer ? "Agreed" : "Not agreed")
             
             Spacer()
         }
     }
     
     private func completeOnboarding() {
+        let isNewSettings = settingsList.first == nil
         let settings = settingsList.first ?? UserSettings()
+        if isNewSettings {
+            modelContext.insert(settings)
+        }
         settings.hasCompletedOnboarding = true
         settings.hasAcknowledgedDisclaimer = true
         settings.selectedGoals = Array(selectedGoals)

@@ -66,7 +66,8 @@ public struct MonthlyHeatmapView: View {
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)
-                        
+                        .accessibilityLabel("Previous month")
+
                         Button(action: { changeMonth(by: 1) }) {
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 13, weight: .bold))
@@ -76,6 +77,7 @@ public struct MonthlyHeatmapView: View {
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Next month")
                     }
                 }
                 
@@ -128,7 +130,7 @@ public struct MonthlyHeatmapView: View {
     @ViewBuilder
     private func dayDot(minutes: Int, date: Date) -> some View {
         let isToday = calendar.isDateInToday(date)
-        
+
         ZStack {
             Circle()
                 .fill(dotColor(for: minutes))
@@ -137,11 +139,14 @@ public struct MonthlyHeatmapView: View {
                     Circle()
                         .stroke(isToday ? CosmosTheme.starlightGold : Color.clear, lineWidth: 1.5)
                 )
-            
+
             Text("\(calendar.component(.day, from: date))")
                 .font(.system(size: 11, weight: .medium, design: .rounded))
                 .foregroundColor(minutes > 0 ? CosmosTheme.spaceBackground : CosmosTheme.textSecondary)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(DateFormatterCache.dayKey(from: date))
+        .accessibilityValue(minutes > 0 ? "\(minutes) mindful minutes recorded" : "No practice")
     }
     
     @ViewBuilder

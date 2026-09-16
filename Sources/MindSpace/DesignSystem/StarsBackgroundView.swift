@@ -25,6 +25,7 @@ public struct StarsBackgroundView: View {
         return stars
     }()
     
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isTwinkling = false
     
     public init() {}
@@ -44,7 +45,9 @@ public struct StarsBackgroundView: View {
         }
         .drawingGroup()
         .opacity(isTwinkling ? 0.72 : 1.0)
+        .accessibilityHidden(true)
         .onAppear {
+            guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 2.8).repeatForever(autoreverses: true)) {
                 isTwinkling = true
             }

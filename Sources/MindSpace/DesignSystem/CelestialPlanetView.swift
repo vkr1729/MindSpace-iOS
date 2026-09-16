@@ -144,6 +144,7 @@ public struct CelestialPlanetView: View {
         }
         .scaleEffect(isAnimated && !reduceMotion ? breathingScale : 1.0)
         .offset(y: isAnimated && !reduceMotion ? floatingOffset : 0.0)
+        .accessibilityHidden(true)
         .onAppear {
             if isAnimated && !reduceMotion {
                 withAnimation(.easeInOut(duration: 3.6).repeatForever(autoreverses: true)) {

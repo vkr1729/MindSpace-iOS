@@ -18,3 +18,4 @@ Payload/
 # Temporary test artifacts
 *.tmp
 *.log
+.commandcode/

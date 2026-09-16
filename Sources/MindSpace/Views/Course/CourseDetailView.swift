@@ -32,7 +32,7 @@ public struct CourseDetailView: View {
     }
     
     private var nextSession: CatalogSession? {
-        course.sessions.first(where: { !completedSessionIDs.contains($0.id) }) ?? course.sessions.first
+        course.sessions.first(where: { !completedSessionIDs.contains($0.id) })
     }
     
     private var ambientColor: Color {
@@ -317,6 +317,15 @@ public struct CourseDetailView: View {
                             playSession(next)
                         }
                         .padding(.horizontal, 20)
+                    } else if completedCount == course.sessions.count, !course.sessions.isEmpty {
+                        HStack {
+                            Image(systemName: "checkmark.seal.fill")
+                                .foregroundColor(CosmosTheme.auroraTeal)
+                            Text("Course complete — every day finished.")
+                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                .foregroundColor(CosmosTheme.textPrimary)
+                        }
+                        .padding(.horizontal, 20)
                     }
                     
                     // MARK: - Intro Video Button (if available)
@@ -366,7 +375,7 @@ public struct CourseDetailView: View {
                         LazyVStack(spacing: 10) {
                             ForEach(course.sessions) { session in
                                 let isDone = completedSessionIDs.contains(session.id)
-                                let isNext = session.id == nextSession?.id
+                                let isNext = nextSession.map { $0.id == session.id } ?? false
                                 
                                 Button(action: {
                                     HapticService.shared.medium()
@@ -424,6 +433,10 @@ public struct CourseDetailView: View {
                                 }
                                 .buttonStyle(.cosmicPressable)
                                 .padding(.horizontal, 20)
+                                .accessibilityElement(children: .combine)
+                                .accessibilityLabel("Day \(session.dayNumber), \(session.title)")
+                                .accessibilityValue(isDone ? "Completed" : (isNext ? "Active next session" : "Upcoming"))
+                                .accessibilityAddTraits(isNext ? [.isButton, .isSelected] : [.isButton])
                             }
                         }
                     }
@@ -529,7 +542,7 @@ public struct CourseDetailView: View {
             videoAttachmentPath: videoAttachment?.relativePath,
             dayNumber: session.dayNumber,
             videoDuration: videoAttachment?.duration,
-            contentType: "meditation"
+            contentType: Self.contentType(forCourseNamed: course.name)
         )
         playbackEngine.loadAndPlay(track: track)
         playbackEngine.isFullPlayerPresented = true
@@ -577,6 +590,12 @@ public struct CourseDetailView: View {
         try? modelContext.save()
     }
     
+    private static func contentType(forCourseNamed name: String) -> String {
+        let lower = name.lowercased()
+        if lower.contains("sleep") { return "sleep" }
+        return "meditation"
+    }
+
     private func planetStyle(for courseName: String) -> CelestialPlanetStyle {
         switch courseName.lowercased() {
         case let name where name.contains("basics"): return .purpleRinged

@@ -49,9 +49,22 @@ public struct LibraryPathResolver: Sendable {
     public let libraryFolderName = "MindSpaceLibrary"
     
     private static let _cachedLibraryURL: URL = {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
         return docs.appendingPathComponent("MindSpaceLibrary", isDirectory: true)
     }()
+    
+    /// Rejects catalog-supplied paths that escape the library sandbox.
+    public static func isSafeRelativePath(_ path: String) -> Bool {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              !trimmed.hasPrefix("/"),
+              !trimmed.hasPrefix("~"),
+              !trimmed.contains("\0") else { return false }
+        let parts = trimmed.split(separator: "/").map(String.init)
+        guard !parts.isEmpty else { return false }
+        return !parts.contains("..")
+    }
     
     public init() {}
     
@@ -64,6 +77,7 @@ public struct LibraryPathResolver: Sendable {
     /// Checks Documents/MindSpaceLibrary/ first, then Bundle.main as a fallback.
     /// Returns nil if the file is missing from both locations.
     public func resolveURL(for relativePath: String) -> URL? {
+        guard Self.isSafeRelativePath(relativePath) else { return nil }
         let fileURL = libraryDirectoryURL.appendingPathComponent(relativePath)
         if FileManager.default.fileExists(atPath: fileURL.path) {
             return fileURL
@@ -81,6 +95,7 @@ public struct LibraryPathResolver: Sendable {
     
     /// Resolves an authenticated AVURLAsset for on-demand online streaming from private GitHub repository.
     public func resolveRemoteStreamAsset(for relativePath: String) -> (asset: AVURLAsset, remoteURL: URL)? {
+        guard Self.isSafeRelativePath(relativePath) else { return nil }
         let pat = (KeychainManager.shared.get(key: "github_sync_pat") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !pat.isEmpty else {
             return nil
@@ -102,7 +117,7 @@ public struct LibraryPathResolver: Sendable {
         
         let headers: [String: String] = [
             "Authorization": "Bearer \(pat)",
-            "User-Agent": "MindSpace-iOS/2.4.0"
+            "User-Agent": "MindSpace-iOS"
         ]
         
         let asset = AVURLAsset(
@@ -337,14 +352,11 @@ public struct LibraryPathResolver: Sendable {
                 }
             }
             
-            // Full SHA-256 Checksum validation if requested
+            // Full SHA-256 Checksum validation if requested (streamed, constant memory)
             if validateChecksums && !item.expectedSHA256.isEmpty {
-                if let fileData = try? Data(contentsOf: resolvedURL, options: .mappedIfSafe) {
-                    let hash = SHA256.hash(data: fileData)
-                    let hashString = hash.compactMap { String(format: "%02x", $0) }.joined()
-                    if hashString.lowercased() != item.expectedSHA256.lowercased() {
-                        checksumMismatchCount += 1
-                    }
+                if let hashString = Self.streamSHA256Hex(of: resolvedURL),
+                   hashString.lowercased() == item.expectedSHA256.lowercased() {
+                    // match
                 } else {
                     checksumMismatchCount += 1
                 }
@@ -364,5 +376,18 @@ public struct LibraryPathResolver: Sendable {
             isHardened: isHardened,
             verifiedAt: Date()
         )
+    }
+
+    /// Constant-memory SHA-256 used by both the audit and sync install paths.
+    public static func streamSHA256Hex(of fileURL: URL, bufferSize: Int = 65536) -> String? {
+        guard let handle = try? FileHandle(forReadingFrom: fileURL) else { return nil }
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while true {
+            let chunk = handle.readData(ofLength: bufferSize)
+            if chunk.isEmpty { break }
+            hasher.update(data: chunk)
+        }
+        return hasher.finalize().compactMap { String(format: "%02x", $0) }.joined()
     }
 }

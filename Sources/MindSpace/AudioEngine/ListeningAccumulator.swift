@@ -105,6 +105,7 @@ public final class ListeningAccumulator: ObservableObject {
     
     /// Returns whether the user has satisfied the anti-scrubbing criteria for completion.
     public var hasQualified: Bool {
+        guard duration > 0 else { return false }
         // If duration is under 60 seconds, qualify when >= 80% duration
         if duration < 60.0 {
             return accumulatedSeconds >= (duration * 0.80)

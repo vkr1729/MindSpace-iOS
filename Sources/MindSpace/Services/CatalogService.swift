@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 /// Service responsible for loading, indexing, and querying the immutable offline catalog.
 @MainActor
@@ -26,38 +27,78 @@ public final class CatalogService: ObservableObject {
     public func loadCatalog() {
         isLoading = true
         loadError = nil
-        
-        var catalogData: Data?
-        
-        // 1. Try Documents/MindSpaceLibrary/catalog.json
-        let libraryURL = LibraryPathResolver.shared.libraryDirectoryURL.appendingPathComponent("catalog.json")
-        if let data = try? Data(contentsOf: libraryURL) {
-            catalogData = data
+
+        Task.detached(priority: .userInitiated) { [weak self] in
+            let result = Self.loadCatalogData()
+            await MainActor.run {
+                guard let self = self else { return }
+                switch result {
+                case .success(let (manifest, warning)):
+                    self.manifest = manifest
+                    self.buildIndices(manifest)
+                    self.loadError = warning
+                    self.isLoading = false
+                case .failure(let message):
+                    self.loadError = message
+                    self.isLoading = false
+                }
+            }
         }
-        
-        // 2. Try App Bundle Resources/catalog.json
+    }
+
+    private nonisolated static func loadCatalogData() -> Result<(CatalogManifest, String?), String> {
+        var catalogData: Data?
+        var catalogSource = "bundle"
+
+        // 1. Try Documents/MindSpaceLibrary/catalog.json — only if it matches
+        // the shipped bundle hash. An unverifiable sidecar is never trusted.
+        let libraryURL = LibraryPathResolver.shared.libraryDirectoryURL.appendingPathComponent("catalog.json")
+        if let data = try? Data(contentsOf: libraryURL),
+           Self.isTrustedCatalogData(data) {
+            catalogData = data
+            catalogSource = "documents-verified"
+        }
+
+        // 2. App Bundle Resources/catalog.json
         if catalogData == nil {
             if let bundleURL = Bundle.main.url(forResource: "catalog", withExtension: "json") {
                 catalogData = try? Data(contentsOf: bundleURL)
+                catalogSource = "bundle"
             }
         }
-        
+
         guard let data = catalogData else {
-            self.loadError = "Catalog manifest not found in Library or Bundle."
-            self.isLoading = false
-            return
+            return .failure("Catalog manifest not found in Library or Bundle.")
         }
-        
+
         do {
-            let decoder = JSONDecoder()
-            let decodedManifest = try decoder.decode(CatalogManifest.self, from: data)
-            self.manifest = decodedManifest
-            buildIndices(decodedManifest)
-            self.isLoading = false
+            let decodedManifest = try JSONDecoder().decode(CatalogManifest.self, from: data)
+            var warning: String?
+            if catalogSource == "bundle",
+               FileManager.default.fileExists(atPath: libraryURL.path),
+               let sidecar = try? Data(contentsOf: libraryURL),
+               !Self.isTrustedCatalogData(sidecar) {
+                warning = "Documents catalog.json failed hash verification; using bundled catalog."
+            }
+            return .success((decodedManifest, warning))
         } catch {
-            self.loadError = "Failed to decode catalog: \(error.localizedDescription)"
-            self.isLoading = false
+            return .failure("Failed to decode catalog: \(error.localizedDescription)")
         }
+    }
+
+    /// A Documents sidecar catalog is trusted only when its SHA-256 matches the
+    /// hash shipped with the bundle. Keeps a poisoned sidecar from redirecting
+    /// all downloads.
+    private nonisolated static func isTrustedCatalogData(_ data: Data) -> Bool {
+        guard let hashURL = Bundle.main.url(forResource: "catalog", withExtension: "sha256"),
+              let hashLine = try? String(contentsOf: hashURL, encoding: .utf8) else {
+            return false
+        }
+        let expected = hashLine.split(separator: " ").first.map(String.init)?.lowercased() ?? ""
+        guard !expected.isEmpty else { return false }
+        let digest = SHA256.hash(data: data)
+        let actual = digest.compactMap { String(format: "%02x", $0) }.joined().lowercased()
+        return actual == expected
     }
     
     private func buildIndices(_ manifest: CatalogManifest) {

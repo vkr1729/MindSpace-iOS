@@ -91,72 +91,103 @@ public struct OrbitCalculator: Sendable {
             streakDays.insert(dayKey)
         }
         
-        // Calculate passes earned chronologically from historical active days (1 pass per 7 active days)
-        let chronologicalDays = streakDays.sorted()
-        let earnedFromHistory = chronologicalDays.count / 7
+        // Passes are earned from consecutive practice (1 per 7-day cycle of the
+        // historical best), not from lifetime non-consecutive active days.
+        let historicalBest = computeHistoricalBestStreak(uniqueDays: streakDays, calendar: calendar)
+        let earnedFromHistory = historicalBest / 7
         let initialAvailablePasses = max(existingCompassionPasses, earnedFromHistory)
-        
+
         var passesAvailable = initialAvailablePasses
-        var passesUsed = 0
+        var confirmedPassesUsed = 0
+        var tentativePassesUsed = 0
+        var tentativeDates: [Date] = []
         var recordedUsedDates: [Date] = []
         if let last = lastUsedPassDate {
             recordedUsedDates.append(last)
         }
-        
+
+        // Anchor traversal at the latest practiced day when the device
+        // travelled westward, so future-dated events are not skipped.
+        // Bounded to 3 days: real dateline travel shifts ≤1 day; anything
+        // farther out is a mis-dated event and must not inflate the streak.
+        var startCursor = calendar.startOfDay(for: today)
+        let todayKey = DateFormatterCache.dayKey(from: startCursor)
+        if !streakDays.contains(todayKey) {
+            let latestKey = streakDays.filter { $0 > todayKey }.max()
+            if let latest = latestKey,
+               let latestDate = DateFormatterCache.dateFromDayKey(latest) {
+                let daysAhead = calendar.dateComponents([.day], from: startCursor, to: calendar.startOfDay(for: latestDate)).day ?? 0
+                if daysAhead >= 1, daysAhead <= 3 {
+                    startCursor = calendar.startOfDay(for: latestDate)
+                }
+            }
+        }
+
         // Calculate current streak working backwards from today
-        let checkDate = calendar.startOfDay(for: today)
-        let todayKey = DateFormatterCache.dayKey(from: checkDate)
-        
+        let checkDate = startCursor
+
         var cursor = checkDate
         var consecutiveDays = 0
         var consecutiveMisses = 0
-        
+
         // Check if today was practiced
-        if !streakDays.contains(todayKey) {
+        if !streakDays.contains(DateFormatterCache.dayKey(from: checkDate)) {
             // If today is not practiced yet, allow streak calculation to begin from yesterday without breaking
             if let yesterday = calendar.date(byAdding: .day, value: -1, to: checkDate) {
                 cursor = yesterday
             }
         }
-        
+
         var checkedCount = 0
         var confirmedStreak = 0
-        while checkedCount < 365 {
+        while checkedCount < 3650 {
             let key = DateFormatterCache.dayKey(from: cursor)
             if streakDays.contains(key) {
                 consecutiveDays += 1
                 confirmedStreak = consecutiveDays
                 consecutiveMisses = 0
+                // A practiced day confirms any tentatively protected miss.
+                if tentativePassesUsed > 0 {
+                    confirmedPassesUsed += tentativePassesUsed
+                    passesAvailable -= tentativePassesUsed
+                    recordedUsedDates.append(contentsOf: tentativeDates)
+                    tentativePassesUsed = 0
+                    tentativeDates.removeAll()
+                }
             } else {
                 consecutiveMisses += 1
                 if consecutiveMisses > 1 {
-                    // Cannot cover more than 1 consecutive missed day; rollback unconfirmed pass
+                    // Two misses in a row: roll back the unconfirmed pass.
+                    tentativePassesUsed = 0
+                    tentativeDates.removeAll()
                     break
                 }
-                
+
                 // Check if a pass can be used for this single missed day
-                let canUseInRollingWindow = recordedUsedDates.allSatisfy { prevUsed in
+                let pendingDates = recordedUsedDates + tentativeDates
+                let canUseInRollingWindow = pendingDates.allSatisfy { prevUsed in
                     let diffDays = abs(calendar.dateComponents([.day], from: calendar.startOfDay(for: prevUsed), to: cursor).day ?? 0)
                     return diffDays >= 30
                 }
-                
-                if passesAvailable > 0 && canUseInRollingWindow {
-                    passesAvailable -= 1
-                    passesUsed += 1
-                    recordedUsedDates.append(cursor)
+
+                if passesAvailable - tentativePassesUsed > 0 && canUseInRollingWindow {
+                    tentativePassesUsed += 1
+                    tentativeDates.append(cursor)
                     consecutiveDays += 1 // Tentatively protected by Compassion Pass
                 } else {
+                    tentativePassesUsed = 0
+                    tentativeDates.removeAll()
                     break
                 }
             }
-            
+
             guard let prevDay = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
             cursor = prevDay
             checkedCount += 1
         }
-        
+
         let currentStreak = confirmedStreak
-        let bestStreak = max(currentStreak, computeHistoricalBestStreak(uniqueDays: streakDays, calendar: calendar))
+        let bestStreak = max(currentStreak, historicalBest)
         
         let milestones = [7, 14, 30, 60, 100, 365]
         let nextMilestone = milestones.first(where: { $0 > currentStreak }) ?? (currentStreak + 30)
@@ -168,7 +199,7 @@ public struct OrbitCalculator: Sendable {
             completedSessionsCount: totalCount,
             nextMilestoneDays: nextMilestone,
             compassionPassesAvailable: passesAvailable,
-            compassionPassUsedCount: passesUsed,
+            compassionPassUsedCount: confirmedPassesUsed,
             activeDates: allActiveDays,
             dailyMinutes: dailyMinutes
         )

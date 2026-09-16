@@ -5,11 +5,17 @@ final class ZeroNetworkTests: XCTestCase {
     
     func testZeroNetworkAPIsReferencedInSource() throws {
         let forbiddenSymbols = ["URLSession", "WebKit", "CFNetwork", "Network.framework", "NWPathMonitor"]
-        
-        let currentDir = FileManager.default.currentDirectoryPath
-        let sourcesURL = URL(fileURLWithPath: currentDir).appendingPathComponent("Sources")
-        
+
+        // Anchor at this file's location so the test works regardless of cwd.
+        let thisFilePath = URL(fileURLWithPath: #file)
+        let projectRoot = thisFilePath
+            .deletingLastPathComponent() // MindSpaceTests
+            .deletingLastPathComponent() // Tests
+            .deletingLastPathComponent() // repo root
+        let sourcesURL = projectRoot.appendingPathComponent("Sources")
+
         guard FileManager.default.fileExists(atPath: sourcesURL.path) else {
+            XCTFail("Could not locate Sources/ from \(projectRoot.path)")
             return
         }
         

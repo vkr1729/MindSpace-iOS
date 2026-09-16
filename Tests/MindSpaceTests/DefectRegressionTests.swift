@@ -286,12 +286,9 @@ final class DefectRegressionTests: XCTestCase {
     // MARK: - P2-02: Truthful Storage Hardening Check
     func testP2_02_TruthfulStorageHardeningCheck() {
         let resolver = LibraryPathResolver.shared
-        resolver.applyHardeningAndProtection()
-        // Hardening status returns real filesystem attribute check
-        let isHardened = resolver.checkHardeningStatus()
-        // Directory exists and attributes are checked
         XCTAssertTrue(FileManager.default.fileExists(atPath: resolver.libraryDirectoryURL.path))
-        XCTAssertEqual(isHardened, resolver.checkHardeningStatus())
+        let isHardened = resolver.checkHardeningStatus()
+        XCTAssertTrue(isHardened, "MindSpaceLibrary directory must be hardened with backup exclusion.")
     }
     
     // MARK: - P2-03: Completion Screen Progression & Gap Waiver
@@ -370,5 +367,46 @@ final class DefectRegressionTests: XCTestCase {
         XCTAssertTrue(bridgeNode.isBridgeOfReflection)
         XCTAssertEqual(bridgeNode.dayNumber, 27)
         XCTAssertEqual(bridgeNode.title, "Bridge of Reflection")
+    }
+
+    // MARK: - P0-02: Import Validation Rejects Bad Backups
+    func testP0_02_ImportValidationRejectsBadBackups() {
+        let manager = ProgressTransferManager.shared
+        func doc(version: Int = 1, schema: Int = 1, events: [BackupCompletionEvent] = []) -> MindSpaceBackupDocument {
+            MindSpaceBackupDocument(
+                backupVersion: version,
+                catalogSchemaVersion: schema,
+                stats: BackupStats(totalMindfulMinutes: 0, completedSessionsCount: 0, currentStreak: 0, bestStreak: 0),
+                userSettings: BackupUserSettings(defaultDurationMinutes: 10, reminderTime: "08:00", themeMode: "quiet_cosmos", hideStreak: false, compassionPassCount: 0),
+                completionEvents: events,
+                favorites: [],
+                achievements: []
+            )
+        }
+        XCTAssertThrowsError(try manager.stagedValidation(of: doc(version: 99)))
+        XCTAssertThrowsError(try manager.stagedValidation(of: doc(schema: 99)))
+        XCTAssertThrowsError(try manager.stagedValidation(of: doc(events: [BackupCompletionEvent(
+            id: UUID().uuidString, sessionId: "s", courseId: nil,
+            timestamp: "not-a-date", timeZone: "UTC",
+            playedSeconds: 600, isQualifying: true, contentType: "meditation", reflection: nil
+        )])))
+        XCTAssertNoThrow(try manager.stagedValidation(of: doc()))
+    }
+
+    // MARK: - P0-03: Pass Burn Rolls Back on Double Miss
+    func testP0_03_PassBurnRollsBackOnDoubleMiss() {
+        let calc = OrbitCalculator()
+        let calendar = Calendar.current
+        let today = Date()
+        var events: [CompletionEvent] = []
+        for offset in 3..<17 {
+            let date = calendar.date(byAdding: .day, value: -offset, to: today)!
+            events.append(CompletionEvent(sessionStableId: "sess_\(offset)", actualPlayedSeconds: 600.0, isQualifying: true, timestamp: date))
+        }
+        events.append(CompletionEvent(sessionStableId: "sess_today", actualPlayedSeconds: 600.0, isQualifying: true, timestamp: today))
+        let stats = calc.calculateStats(events: events, calendar: calendar, today: today, existingCompassionPasses: 2)
+        XCTAssertEqual(stats.currentStreak, 1)
+        XCTAssertEqual(stats.compassionPassUsedCount, 0)
+        XCTAssertEqual(stats.compassionPassesAvailable, 2)
     }
 }

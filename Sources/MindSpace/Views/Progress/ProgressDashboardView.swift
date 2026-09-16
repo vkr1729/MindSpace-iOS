@@ -11,7 +11,15 @@ public struct ProgressDashboardView: View {
     @Query(sort: \PlaybackResume.updatedAt, order: .reverse) private var resumes: [PlaybackResume]
     @Query private var settingsList: [UserSettings]
     
-    public init() {}
+    @Binding private var path: NavigationPath
+
+    public init(path: Binding<NavigationPath>? = nil) {
+        if let path {
+            _path = path
+        } else {
+            _path = .constant(NavigationPath())
+        }
+    }
     
     private var orbitStats: OrbitStats {
         let passes = settingsList.first?.compassionPassCount ?? 0
@@ -44,7 +52,7 @@ public struct ProgressDashboardView: View {
     }
     
     public var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ZStack {
                 CosmosTheme.spaceBackground.ignoresSafeArea()
                 

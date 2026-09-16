@@ -67,8 +67,16 @@ public struct LibraryView: View {
     @State private var selectedMedia: MediaFilter = .all
     @State private var selectedStatus: StatusFilter = .all
     @State private var showFilterSheet: Bool = false
-    
-    public init() {}
+
+    @Binding private var path: NavigationPath
+
+    public init(path: Binding<NavigationPath>? = nil) {
+        if let path {
+            _path = path
+        } else {
+            _path = .constant(NavigationPath())
+        }
+    }
     
     private var completedIDs: Set<String> {
         Set(completionEvents.filter { $0.isQualifyingMeditation }.map { $0.sessionStableId })
@@ -87,7 +95,7 @@ public struct LibraryView: View {
     }
     
     public var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ZStack {
                 CosmosTheme.spaceBackground.ignoresSafeArea()
                 
@@ -468,6 +476,51 @@ public struct LibraryView: View {
                 .padding(.horizontal, 20)
             }
             
+            // Sessions
+            ForEach(results.sessions) { session in
+                Button(action: {
+                    HapticService.shared.medium()
+                    let track = PlayableTrack(
+                        id: session.id,
+                        title: session.title,
+                        courseName: nil,
+                        relativePath: session.relativePath,
+                        duration: session.duration,
+                        videoAttachmentPath: session.videoAttachments?.first?.relativePath,
+                        dayNumber: session.dayNumber,
+                        videoDuration: session.videoAttachments?.first?.duration,
+                        contentType: "meditation"
+                    )
+                    playbackEngine.loadAndPlay(track: track)
+                    playbackEngine.isFullPlayerPresented = true
+                }) {
+                    CosmicCard(padding: 14) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "circle.grid.cross.fill")
+                                .foregroundColor(CosmosTheme.celestialBlue)
+                                .font(.system(size: 20))
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(session.title)
+                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .foregroundColor(CosmosTheme.textPrimary)
+                                Text("Day \(session.dayNumber) • \(session.condensedDuration)")
+                                    .font(.system(size: 12, weight: .regular, design: .rounded))
+                                    .foregroundColor(CosmosTheme.textSecondary)
+                            }
+                            Spacer()
+                            if !LibraryPathResolver.shared.isFileAvailable(relativePath: session.relativePath) {
+                                Text("Unavailable")
+                                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                                    .foregroundColor(CosmosTheme.solarCoral)
+                            }
+                        }
+                    }
+                }
+                .buttonStyle(.cosmicPressable)
+                .padding(.horizontal, 20)
+            }
+
             // Singles
             ForEach(results.singles) { single in
                 let isAvail = LibraryPathResolver.shared.isFileAvailable(relativePath: single.relativePath)
@@ -610,6 +663,10 @@ public struct LibraryView: View {
     
     private func matchesFilters(course: CatalogCourse) -> Bool {
         if selectedFilter == .available && !LibraryPathResolver.shared.isCourseAvailable(course: course) {
+            return false
+        }
+        if selectedDuration != .all,
+           !course.sessions.contains(where: { selectedDuration.matches(seconds: $0.duration) }) {
             return false
         }
         if selectedMedia == .video && course.introVideo == nil && !course.sessions.contains(where: { !($0.videoAttachments ?? []).isEmpty }) {

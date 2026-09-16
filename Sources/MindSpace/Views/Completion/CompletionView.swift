@@ -6,6 +6,7 @@ import SwiftData
 public struct CompletionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playbackEngine = PlaybackEngine.shared
     @ObservedObject private var catalogService = CatalogService.shared
     
@@ -22,6 +23,8 @@ public struct CompletionView: View {
     @State private var starScale: CGFloat = 0.8
     @State private var starOpacity: Double = 0.5
     
+    @State private var reflectionSaveError: String?
+
     public init(
         completionId: UUID? = nil,
         sessionTitle: String = "Basics — Day 4",
@@ -196,11 +199,17 @@ public struct CompletionView: View {
                     Text("How are you feeling right now?")
                         .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundColor(CosmosTheme.textSecondary)
-                    
+
                     HStack(spacing: 12) {
                         reflectionPill(title: "✨ Lighter", tag: "lighter")
                         reflectionPill(title: "🌱 Centered", tag: "same")
                         reflectionPill(title: "⚓ Grounded", tag: "heavier")
+                    }
+
+                    if let reflectionSaveError {
+                        Text(reflectionSaveError)
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundColor(CosmosTheme.solarCoral)
                     }
                 }
                 .padding(.top, 4)
@@ -269,6 +278,7 @@ public struct CompletionView: View {
         }
         .onAppear {
             HapticService.shared.success()
+            guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) {
                 starScale = 1.25
                 starOpacity = 0.85
@@ -278,14 +288,27 @@ public struct CompletionView: View {
     
     private func saveReflection() {
         guard let reflection = selectedReflection else { return }
+        reflectionSaveError = nil
         if let completionId = completionId {
-            if let targetEvent = completionEvents.first(where: { $0.id == completionId }) {
-                targetEvent.reflectionNote = reflection
-                try? modelContext.save()
+            guard let targetEvent = completionEvents.first(where: { $0.id == completionId }) else {
+                reflectionSaveError = "Couldn't attach your reflection — the session isn't in the store yet."
+                return
+            }
+            targetEvent.reflectionNote = reflection
+            do {
+                try modelContext.save()
+            } catch {
+                reflectionSaveError = "Couldn't save your reflection. Please try again."
             }
         } else if let latest = completionEvents.first {
             latest.reflectionNote = reflection
-            try? modelContext.save()
+            do {
+                try modelContext.save()
+            } catch {
+                reflectionSaveError = "Couldn't save your reflection. Please try again."
+            }
+        } else {
+            reflectionSaveError = "No session found to attach your reflection to."
         }
     }
     

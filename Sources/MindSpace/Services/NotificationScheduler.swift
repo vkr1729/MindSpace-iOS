@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import UserNotifications
 
 /// Handles scheduling local on-device meditation notifications without network permissions.
@@ -40,5 +41,22 @@ public final class NotificationScheduler: Sendable {
         let request = UNNotificationRequest(identifier: "daily_meditation_reminder", content: content, trigger: trigger)
         
         center.add(request) { _ in }
+    }
+
+    /// Reconciles the in-app reminder toggle with the real iOS authorization
+    /// status (e.g. user revoked permission in Settings). Must be called on
+    /// launch and when returning to foreground.
+    @MainActor
+    public func reconcileReminderSetting(modelContext: ModelContext) {
+        Task {
+            let settings = await UNUserNotificationCenter.current().notificationSettings()
+            guard settings.authorizationStatus != .authorized,
+                  settings.authorizationStatus != .provisional else { return }
+            let descriptor = FetchDescriptor<UserSettings>()
+            if let current = try? modelContext.fetch(descriptor).first, current.reminderEnabled {
+                current.reminderEnabled = false
+                try? modelContext.save()
+            }
+        }
     }
 }

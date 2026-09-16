@@ -74,19 +74,27 @@ public struct OrbitArcGaugeView: View {
                 Text("\(currentStreak) day")
                     .font(.system(size: 26, weight: .bold, design: .rounded))
                     .foregroundColor(CosmosTheme.textPrimary)
-                
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+
                 Text("Orbit")
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundColor(CosmosTheme.starlightGold)
                     .textCase(.uppercase)
                     .tracking(1.2)
-                
+
                 Text("\(currentStreak) / \(milestoneGoal) days")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundColor(CosmosTheme.textSecondary)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
                     .padding(.top, 2)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Orbit streak")
+        .accessibilityValue("\(currentStreak) \(currentStreak == 1 ? "day" : "days"), milestone goal \(milestoneGoal) days")
         .onAppear {
             withAnimation(.spring(response: 1.0, dampingFraction: 0.8)) {
                 animatedProgress = progress

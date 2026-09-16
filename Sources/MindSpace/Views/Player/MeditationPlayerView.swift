@@ -220,7 +220,10 @@ public struct MeditationPlayerView: View {
                             .font(.system(size: 36, weight: .bold, design: .rounded))
                             .foregroundColor(CosmosTheme.textPrimary)
                             .monospacedDigit()
-                        
+                            .minimumScaleFactor(0.7)
+                            .lineLimit(1)
+                            .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+
                         Text("/ of \(formatTime(duration))")
                             .font(.system(size: 17, weight: .medium, design: .rounded))
                             .foregroundColor(CosmosTheme.textSecondary)

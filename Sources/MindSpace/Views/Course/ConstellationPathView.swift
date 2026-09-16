@@ -48,12 +48,15 @@ public struct ConstellationPathView: View {
                 Canvas { context, _ in
                     guard points.count > 1 else { return }
                     
-                    // 1. Draw solid completed paths with starlight gold gradient
+                    // 1. Draw solid completed paths only through the leading
+                    // completed run — never through unplayed gaps.
                     var completedPath = Path()
                     var completedCount = 0
                     for (i, node) in nodes.enumerated() {
                         if node.isCompleted {
                             completedCount = i + 1
+                        } else {
+                            break
                         }
                     }
                     

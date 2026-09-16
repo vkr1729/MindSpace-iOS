@@ -112,12 +112,17 @@ public final class PlaybackEngine: ObservableObject {
     
     private var timeObserverToken: Any?
     private var playerItemObserverTokens: [NSObjectProtocol] = []
+    private var statusObservation: NSKeyValueObservation?
+    private var observedItem: AVPlayerItem?
     private var sleepTimerTask: Task<Void, Never>?
     private var wasPlayingBeforeInterruption = false
     private var lastSavedResumePosition: Double = 0.0
     private var hasFinalizedCurrentSession = false
+    private var clearedResumeTrackIds = Set<String>()
+    public static let sleepDeadlineKey = "mindspace.sleepTimerDeadline"
     
     // MARK: - Persistence Callbacks
+    // Always invoked from @MainActor context (this class is @MainActor).
     public var onSessionCompleted: ((PlayableTrack, Double, Bool, UUID) -> Void)?
     public var onSaveResume: ((PlayableTrack, Double, Double) -> Void)? // (track, position, accumulatedListenedSeconds)
     public var onClearResume: ((String) -> Void)?
@@ -140,6 +145,7 @@ public final class PlaybackEngine: ObservableObject {
         startInAudioPhase: Bool = false
     ) {
         playbackError = nil
+        clearedResumeTrackIds.remove(track.id)
         
         // 1. If previous track was running and has not finalized, evaluate completion or save resume
         if let previousTrack = currentTrack, previousTrack.id != track.id {
@@ -195,12 +201,11 @@ public final class PlaybackEngine: ObservableObject {
         
         setupTimeObserver()
         setupItemObservers(for: playerItem)
-        
+
         avPlayer.playImmediately(atRate: speed.rawValue)
-        self.state = .playing
         updateNowPlayingCenter()
     }
-    
+
     private func startAudioPhase(track: PlayableTrack, startPosition: Double, accumulatedSeconds: Double) {
         self.currentPhase = .audio
         self.duration = track.duration
@@ -248,10 +253,9 @@ public final class PlaybackEngine: ObservableObject {
         }
         
         avPlayer.playImmediately(atRate: speed.rawValue)
-        self.state = .playing
         updateNowPlayingCenter()
     }
-    
+
     public func skipVideoToAudio() {
         guard currentPhase == .video, let track = currentTrack else { return }
         cleanupObservers()
@@ -294,6 +298,7 @@ public final class PlaybackEngine: ObservableObject {
     }
     
     public func stop(preserveMiniPlayer: Bool = false) {
+        cancelSleepTimer()
         cleanupObservers()
         
         if currentTrack != nil && !hasFinalizedCurrentSession && currentPhase == .audio {
@@ -313,6 +318,7 @@ public final class PlaybackEngine: ObservableObject {
             isMiniPlayerVisible = false
         }
         NowPlayingCoordinator.shared.clearNowPlaying()
+        NowPlayingCoordinator.shared.unregisterRemoteCommands()
         AudioSessionManager.shared.deactivateSession()
     }
     
@@ -345,11 +351,17 @@ public final class PlaybackEngine: ObservableObject {
     }
     
     public func setSleepTimer(minutes: Int?) {
-        sleepTimerTask?.cancel()
+        cancelSleepTimer()
         sleepTimerMinutesRemaining = minutes
-        
-        guard let mins = minutes, mins > 0 else { return }
-        
+
+        guard let mins = minutes, mins > 0 else {
+            UserDefaults.standard.removeObject(forKey: Self.sleepDeadlineKey)
+            return
+        }
+
+        let deadline = Date().addingTimeInterval(Double(mins) * 60.0)
+        UserDefaults.standard.set(deadline.timeIntervalSince1970, forKey: Self.sleepDeadlineKey)
+
         sleepTimerTask = Task { [weak self] in
             var remaining = mins
             while remaining > 0 {
@@ -359,15 +371,55 @@ public final class PlaybackEngine: ObservableObject {
                 self?.sleepTimerMinutesRemaining = remaining
             }
             self?.pause()
-            self?.sleepTimerMinutesRemaining = nil
+            self?.cancelSleepTimer()
         }
     }
-    
-    public func saveCurrentResumePosition() {
-        guard let track = currentTrack, currentTime > 0.0, !hasFinalizedCurrentSession, currentPhase == .audio else { return }
+
+    public func cancelSleepTimer() {
+        sleepTimerTask?.cancel()
+        sleepTimerTask = nil
+        sleepTimerMinutesRemaining = nil
+        UserDefaults.standard.removeObject(forKey: Self.sleepDeadlineKey)
+    }
+
+    public func restoreSleepTimerIfNeeded() {
+        let stored = UserDefaults.standard.double(forKey: Self.sleepDeadlineKey)
+        guard stored > 0 else { return }
+        let deadline = Date(timeIntervalSince1970: stored)
+        let remaining = Int(ceil(deadline.timeIntervalSinceNow / 60.0))
+        guard remaining > 0 else {
+            cancelSleepTimer()
+            return
+        }
+        setSleepTimer(minutes: remaining)
+    }
+
+    public func saveCurrentResumePosition(expectedTrackId: String? = nil) {
+        guard let track = currentTrack, currentTime > 0.0, !hasFinalizedCurrentSession else { return }
+        if let expected = expectedTrackId, expected != track.id { return }
+        if clearedResumeTrackIds.contains(track.id) { return }
+        let position: Double
+        if currentPhase == .video {
+            let videoLen = max(1.0, track.videoDuration ?? duration)
+            position = min(track.duration, max(0.0, (currentTime / videoLen) * track.duration))
+        } else {
+            position = currentTime
+        }
         lastSavedResumePosition = currentTime
         let accSeconds = accumulator?.accumulatedSeconds ?? 0.0
-        onSaveResume?(track, currentTime, accSeconds)
+        onSaveResume?(track, position, accSeconds)
+    }
+
+    public func armResumeGuard() {
+        if let id = currentTrack?.id {
+            clearedResumeTrackIds.insert(id)
+        }
+    }
+
+    public func resignResumeGuard() {
+        if let id = currentTrack?.id {
+            clearedResumeTrackIds.remove(id)
+        }
     }
     
     // MARK: - Time & Item Observers
@@ -401,7 +453,27 @@ public final class PlaybackEngine: ObservableObject {
     
     private func setupItemObservers(for item: AVPlayerItem) {
         removePlayerItemObservers()
-        
+        observedItem = item
+        statusObservation = item.observe(\.status, options: [.initial, .new]) { [weak self] observed, _ in
+            Task { @MainActor [weak self] in
+                guard let self = self, self.observedItem === observed else { return }
+                switch observed.status {
+                case .readyToPlay:
+                    if self.player?.currentItem === observed {
+                        self.state = .playing
+                    }
+                case .failed:
+                    self.state = .idle
+                    let err = observed.error?.localizedDescription ?? "Corrupt or unreadable media stream"
+                    self.playbackError = "Playback error: \(err). Please rescan library in Settings."
+                case .unknown:
+                    self.state = .loading
+                @unknown default:
+                    break
+                }
+            }
+        }
+
         let endToken = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: item,
@@ -429,6 +501,9 @@ public final class PlaybackEngine: ObservableObject {
     }
     
     private func removePlayerItemObservers() {
+        statusObservation?.invalidate()
+        statusObservation = nil
+        observedItem = nil
         for token in playerItemObserverTokens {
             NotificationCenter.default.removeObserver(token)
         }
@@ -446,6 +521,7 @@ public final class PlaybackEngine: ObservableObject {
     private func handleTrackEnded() {
         if currentPhase == .video, let track = currentTrack, track.videoAttachmentPath != nil && track.relativePath != track.videoAttachmentPath {
             // Attached day video completed -> smoothly transition to associated audio session
+            saveCurrentResumePosition(expectedTrackId: track.id)
             cleanupObservers()
             player?.pause()
             player = nil
@@ -461,6 +537,7 @@ public final class PlaybackEngine: ObservableObject {
     private func finalizeCurrentSession(trigger: String) {
         guard let track = currentTrack, !hasFinalizedCurrentSession else { return }
         hasFinalizedCurrentSession = true
+        clearedResumeTrackIds.insert(track.id)
         
         let acc = accumulator
         let isQualifying = acc?.hasQualified ?? false

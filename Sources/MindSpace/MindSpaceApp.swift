@@ -1,63 +1,80 @@
 import SwiftUI
 import SwiftData
 
+public enum PersistenceState: Sendable, Equatable {
+    case healthy
+    case recoveredFromBackup
+    case inMemory
+}
+
 @main
 struct MindSpaceApp: App {
     let container: ModelContainer
-    
+    let persistenceState: PersistenceState
+
     init() {
-        // Initialize Library Path Resolver & Sandboxing Hardening
         LibraryPathResolver.shared.applyHardeningAndProtection()
-        
-        // Configure Initial Audio Session
+
         AudioSessionManager.shared.configureAudioSession()
-        
+
         let schema = Schema([
             CompletionEvent.self,
             PlaybackResume.self,
             FavoriteItem.self,
             UserSettings.self
         ])
-        
+        _ = StoreSchema.version
+
         var resolvedContainer: ModelContainer?
-        
-        // 1. Try standard persistent store
+        var resolvedState: PersistenceState = .healthy
+
         do {
             let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
             resolvedContainer = try ModelContainer(for: schema, configurations: [config])
         } catch {
-            print("Warning: Persistent ModelContainer failed: \(error.localizedDescription). Attempting store recovery...")
-            
-            // 2. Attempt store recovery for schema migration from prior builds
-            if let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            let nsError = error as NSError
+            let isMigrationError = nsError.domain == NSCocoaErrorDomain
+                && (nsError.code == 134110 || nsError.code == 134130 || nsError.code == 134140)
+
+            if isMigrationError,
+               let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
                 let storeURL = appSupport.appendingPathComponent("default.store")
                 let shmURL = appSupport.appendingPathComponent("default.store-shm")
                 let walURL = appSupport.appendingPathComponent("default.store-wal")
-                try? FileManager.default.removeItem(at: storeURL)
+                let backupURL = appSupport.appendingPathComponent(
+                    "default.store.corrupt_\(Int(Date().timeIntervalSince1970))"
+                )
+                try? FileManager.default.moveItem(at: storeURL, to: backupURL)
                 try? FileManager.default.removeItem(at: shmURL)
                 try? FileManager.default.removeItem(at: walURL)
-                
+
                 let retryConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-                resolvedContainer = try? ModelContainer(for: schema, configurations: [retryConfig])
+                if let retried = try? ModelContainer(for: schema, configurations: [retryConfig]) {
+                    resolvedContainer = retried
+                    resolvedState = .recoveredFromBackup
+                }
+            } else {
+                print("Warning: Persistent ModelContainer failed with a non-migration error (\(error)). Store left untouched; will retry in-memory only as a last resort.")
             }
         }
-        
-        // 3. Fallback to in-memory container to guarantee app launches under all conditions
+
         if let ready = resolvedContainer {
             self.container = ready
+            self.persistenceState = resolvedState
         } else {
             let memoryConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
             do {
                 self.container = try ModelContainer(for: schema, configurations: [memoryConfig])
+                self.persistenceState = .inMemory
             } catch {
                 fatalError("Critical: Failed to create ModelContainer: \(error.localizedDescription)")
             }
         }
     }
-    
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(persistenceState: persistenceState)
                 .modelContainer(container)
                 .preferredColorScheme(.dark)
                 .onAppear {
@@ -65,7 +82,7 @@ struct MindSpaceApp: App {
                 }
         }
     }
-    
+
     @MainActor
     private func ensureInitialSettings() {
         let context = container.mainContext

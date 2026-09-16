@@ -45,53 +45,47 @@ public final class NowPlayingCoordinator: Sendable {
         // Play
         commandCenter.playCommand.isEnabled = true
         commandCenter.playCommand.addTarget { [weak self] _ in
-            self?.onPlayCommand?()
+            Task { @MainActor [weak self] in self?.onPlayCommand?() }
             return .success
         }
-        
+
         // Pause
         commandCenter.pauseCommand.isEnabled = true
         commandCenter.pauseCommand.addTarget { [weak self] _ in
-            self?.onPauseCommand?()
+            Task { @MainActor [weak self] in self?.onPauseCommand?() }
             return .success
         }
-        
+
         // Toggle Play/Pause (Headphones / Control Center)
         commandCenter.togglePlayPauseCommand.isEnabled = true
         commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
-            self?.onTogglePlayPauseCommand?()
+            Task { @MainActor [weak self] in self?.onTogglePlayPauseCommand?() }
             return .success
         }
-        
+
         // Skip Forward 15s
         commandCenter.skipForwardCommand.isEnabled = true
         commandCenter.skipForwardCommand.preferredIntervals = [15]
         commandCenter.skipForwardCommand.addTarget { [weak self] event in
-            if let skipEvent = event as? MPSkipIntervalCommandEvent {
-                self?.onSkipForwardCommand?(skipEvent.interval)
-            } else {
-                self?.onSkipForwardCommand?(15.0)
-            }
+            let interval = (event as? MPSkipIntervalCommandEvent)?.interval ?? 15.0
+            Task { @MainActor [weak self] in self?.onSkipForwardCommand?(interval) }
             return .success
         }
-        
+
         // Skip Backward 15s
         commandCenter.skipBackwardCommand.isEnabled = true
         commandCenter.skipBackwardCommand.preferredIntervals = [15]
         commandCenter.skipBackwardCommand.addTarget { [weak self] event in
-            if let skipEvent = event as? MPSkipIntervalCommandEvent {
-                self?.onSkipBackwardCommand?(skipEvent.interval)
-            } else {
-                self?.onSkipBackwardCommand?(15.0)
-            }
+            let interval = (event as? MPSkipIntervalCommandEvent)?.interval ?? 15.0
+            Task { @MainActor [weak self] in self?.onSkipBackwardCommand?(interval) }
             return .success
         }
-        
+
         // Scrubber / Change Playback Position
         commandCenter.changePlaybackPositionCommand.isEnabled = true
         commandCenter.changePlaybackPositionCommand.addTarget { [weak self] event in
             if let posEvent = event as? MPChangePlaybackPositionCommandEvent {
-                self?.onSeekCommand?(posEvent.positionTime)
+                Task { @MainActor [weak self] in self?.onSeekCommand?(posEvent.positionTime) }
                 return .success
             }
             return .commandFailed
@@ -152,6 +146,19 @@ public final class NowPlayingCoordinator: Sendable {
         if #available(iOS 13.0, *) {
             MPNowPlayingInfoCenter.default().playbackState = .stopped
         }
+        #endif
+    }
+
+    public func unregisterRemoteCommands() {
+        #if os(iOS)
+        let commandCenter = MPRemoteCommandCenter.shared()
+        commandCenter.playCommand.removeTarget(nil)
+        commandCenter.pauseCommand.removeTarget(nil)
+        commandCenter.togglePlayPauseCommand.removeTarget(nil)
+        commandCenter.skipForwardCommand.removeTarget(nil)
+        commandCenter.skipBackwardCommand.removeTarget(nil)
+        commandCenter.changePlaybackPositionCommand.removeTarget(nil)
+        isRegistered = false
         #endif
     }
 }

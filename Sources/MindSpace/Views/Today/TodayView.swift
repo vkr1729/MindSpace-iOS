@@ -1,10 +1,12 @@
 import SwiftUI
 import SwiftData
+import Combine
 
 /// Screen 1: Elevated Today Screen & Cosmic Orbit Hub
 /// Reference: Mock Screen Codex.png & UI/UX Pro Max Design Intelligence
 public struct TodayView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var catalogService = CatalogService.shared
     @ObservedObject private var playbackEngine = PlaybackEngine.shared
     
@@ -14,8 +16,16 @@ public struct TodayView: View {
     
     @State private var dailyJourneyItems: [DailyJourneyItem] = []
     @State private var isShowingReminderSheet = false
-    
-    public init() {}
+
+    @Binding private var path: NavigationPath
+
+    public init(path: Binding<NavigationPath>? = nil) {
+        if let path {
+            _path = path
+        } else {
+            _path = .constant(NavigationPath())
+        }
+    }
     
     private var currentSettings: UserSettings {
         settingsList.first ?? UserSettings()
@@ -95,7 +105,7 @@ public struct TodayView: View {
     }
     
     public var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ZStack {
                 CosmosTheme.spaceBackground.ignoresSafeArea()
                 
@@ -122,6 +132,14 @@ public struct TodayView: View {
             }
             .onChange(of: completionEvents) { _, _ in
                 buildDailyJourney()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSCalendarDayChanged)) { _ in
+                buildDailyJourney()
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .active {
+                    buildDailyJourney()
+                }
             }
         }
     }
@@ -311,7 +329,7 @@ public struct TodayView: View {
                         courseName: resume.courseName,
                         relativePath: resume.relativePath,
                         duration: resume.durationSeconds,
-                        contentType: "meditation"
+                        contentType: (resume.courseName ?? "").lowercased().contains("sleep") ? "sleep" : "meditation"
                     )
                     playbackEngine.loadAndPlay(
                         track: track,
@@ -422,9 +440,9 @@ public struct TodayView: View {
         let activeCourse = catalogService.manifest?.categories.first?.courses.first
         var nextSessionToPlay: CatalogSession?
         if let course = activeCourse {
-            nextSessionToPlay = course.sessions.first(where: { !lifetimeCompletedSessionIDs.contains($0.id) }) ?? course.sessions.first
+            nextSessionToPlay = course.sessions.first(where: { !lifetimeCompletedSessionIDs.contains($0.id) })
         }
-        
+
         if let course = activeCourse, let session = nextSessionToPlay {
             let track = PlayableTrack(
                 id: session.id,
@@ -434,7 +452,7 @@ public struct TodayView: View {
                 duration: session.duration,
                 videoAttachmentPath: session.videoAttachments?.first?.relativePath,
                 dayNumber: session.dayNumber,
-                contentType: "meditation"
+                contentType: course.name.lowercased().contains("sleep") ? "sleep" : "meditation"
             )
             let isDoneToday = todayCompletedSessionIDs.contains(session.id)
             items.append(DailyJourneyItem(
@@ -444,6 +462,14 @@ public struct TodayView: View {
                 isPrimaryAction: true,
                 isCompleted: isDoneToday,
                 playableTrack: track
+            ))
+        } else if activeCourse != nil {
+            items.append(DailyJourneyItem(
+                id: "journey_1",
+                title: "Course complete — pick a new path",
+                durationLabel: "",
+                isPrimaryAction: false,
+                isCompleted: true
             ))
         } else {
             items.append(DailyJourneyItem(

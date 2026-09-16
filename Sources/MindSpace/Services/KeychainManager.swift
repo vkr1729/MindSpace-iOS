@@ -12,19 +12,28 @@ public final class KeychainManager: Sendable {
     @discardableResult
     public func save(key: String, value: String) -> Bool {
         guard let data = value.data(using: .utf8) else { return false }
-        
-        // Delete existing item first
-        delete(key: key)
-        
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: serviceName,
             kSecAttrAccount as String: key,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        ]
+
+        let attributesToUpdate: [String: Any] = [
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
-        
-        let status = SecItemAdd(query as CFDictionary, nil)
+
+        let updateStatus = SecItemUpdate(query as CFDictionary, attributesToUpdate as CFDictionary)
+        if updateStatus == errSecSuccess {
+            return true
+        }
+        guard updateStatus == errSecItemNotFound else { return false }
+
+        var addQuery = query
+        addQuery[kSecValueData as String] = data
+        let status = SecItemAdd(addQuery as CFDictionary, nil)
         return status == errSecSuccess
     }
     
