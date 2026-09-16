@@ -260,7 +260,7 @@ final class DefectRegressionTests: XCTestCase {
     // MARK: - P2-01: Exact Completion UUID Matching
     func testP2_01_ExactCompletionUUIDMatching() async throws {
         let schema = Schema(versionedSchema: MindSpaceSchemaV1_2.self)
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let actor = ProgressActor(modelContainer: container)
         
