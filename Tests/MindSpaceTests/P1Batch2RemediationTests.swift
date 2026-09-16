@@ -28,15 +28,15 @@ final class P1Batch2RemediationTests: XCTestCase {
             Schema.Version(1, 2, 0)
         )
         XCTAssertEqual(MindSpaceMigrationPlan.stages.count, 1, "Plan must define the v1.1 -> v1.2 stage.")
-        let v11ModelNames = MindSpaceSchemaV1_1.models.map { String(describing: $0) }
-        XCTAssertEqual(v11ModelNames.count, 5)
+        let v12ModelNames = MindSpaceSchemaV1_2.models.map { String(describing: $0) }
+        XCTAssertEqual(v12ModelNames.count, 5)
         XCTAssertTrue(
-            v11ModelNames.contains { $0.contains("PendingCompletion") },
-            "v1.1 must carry the outbox entity."
+            v12ModelNames.contains { $0.contains("PendingCompletion") },
+            "v1.2 must carry the outbox entity."
         )
         XCTAssertTrue(
-            v11ModelNames.contains { $0.contains("CompletionEvent") },
-            "v1.1 must keep the event log."
+            v12ModelNames.contains { $0.contains("CompletionEvent") },
+            "v1.2 must keep the event log."
         )
     }
 
