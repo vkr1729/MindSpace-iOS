@@ -40,61 +40,7 @@ public struct ContentView: View {
     }
 
     public var body: some View {
-        ZStack(alignment: .bottom) {
-            CosmosTheme.spaceBackground.ignoresSafeArea()
-
-            // MARK: - Tab Views (kept alive so tab switches preserve state)
-            Group {
-                TodayView(path: $todayPath)
-                    .opacity(selectedTab == .today ? 1 : 0)
-                    .allowsHitTesting(selectedTab == .today)
-                LibraryView(path: $libraryPath)
-                    .opacity(selectedTab == .library ? 1 : 0)
-                    .allowsHitTesting(selectedTab == .library)
-                ProgressDashboardView(path: $progressPath)
-                    .opacity(selectedTab == .progress ? 1 : 0)
-                    .allowsHitTesting(selectedTab == .progress)
-                SettingsView(path: $settingsPath)
-                    .opacity(selectedTab == .settings ? 1 : 0)
-                    .allowsHitTesting(selectedTab == .settings)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            // MARK: - Floating Mini-Player & Custom Bottom Tab Bar
-            VStack(spacing: 0) {
-                if persistenceState != .healthy || errorRelay.message != nil {
-                    persistenceBanner
-                }
-                // Mini-Player Strip
-                MiniPlayerView()
-
-                // Custom Cosmic Tab Bar
-                customTabBar
-            }
-            .fullScreenCover(isPresented: $playbackEngine.isFullPlayerPresented) {
-                MeditationPlayerView()
-            }
-            .sheet(item: $presentedCompletionItem) { info in
-                CompletionView(
-                    completionId: info.completionId,
-                    sessionTitle: info.track.title,
-                    courseName: info.track.courseName,
-                    durationMinutes: info.actualMinutes,
-                    isQualifying: info.isQualifying,
-                    finalizedByStopOrSwitch: info.finalizedByStopOrSwitch,
-                    isPersisted: info.isPersisted,
-                    onDismiss: {
-                        presentedCompletionItem = nil
-                        playbackEngine.acknowledgeLastCompletion()
-                    }
-                )
-            }
-            .onChange(of: playbackEngine.lastCompletionInfo) { _, info in
-                if info != nil {
-                    presentedCompletionItem = info
-                }
-            }
-        }
+        rootZStack
         .fullScreenCover(isPresented: $showOnboarding) {
             OnboardingView()
         }
@@ -130,6 +76,68 @@ public struct ContentView: View {
                 pendingImportURL = nil
             }
         }
+    }
+
+    private var rootZStack: some View {
+        ZStack(alignment: .bottom) {
+            CosmosTheme.spaceBackground.ignoresSafeArea()
+
+            // MARK: - Tab Views (kept alive so tab switches preserve state)
+            Group {
+                TodayView(path: $todayPath)
+                    .opacity(selectedTab == .today ? 1 : 0)
+                    .allowsHitTesting(selectedTab == .today)
+                LibraryView(path: $libraryPath)
+                    .opacity(selectedTab == .library ? 1 : 0)
+                    .allowsHitTesting(selectedTab == .library)
+                ProgressDashboardView(path: $progressPath)
+                    .opacity(selectedTab == .progress ? 1 : 0)
+                    .allowsHitTesting(selectedTab == .progress)
+                SettingsView(path: $settingsPath)
+                    .opacity(selectedTab == .settings ? 1 : 0)
+                    .allowsHitTesting(selectedTab == .settings)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            // MARK: - Floating Mini-Player & Custom Bottom Tab Bar
+            VStack(spacing: 0) {
+                if persistenceState != .healthy || errorRelay.message != nil {
+                    persistenceBanner
+                }
+                // Mini-Player Strip
+                MiniPlayerView()
+
+                // Custom Cosmic Tab Bar
+                customTabBar
+            }
+            .fullScreenCover(isPresented: $playbackEngine.isFullPlayerPresented) {
+                MeditationPlayerView()
+            }
+            .sheet(item: $presentedCompletionItem) { info in
+                completionSheet(info: info)
+            }
+            .onChange(of: playbackEngine.lastCompletionInfo) { _, info in
+                if info != nil {
+                    presentedCompletionItem = info
+                }
+            }
+        }
+    }
+
+    private func completionSheet(info: PlaybackCompletionInfo) -> some View {
+        CompletionView(
+            completionId: info.completionId,
+            sessionTitle: info.track.title,
+            courseName: info.track.courseName,
+            durationMinutes: info.actualMinutes,
+            isQualifying: info.isQualifying,
+            finalizedByStopOrSwitch: info.finalizedByStopOrSwitch,
+            isPersisted: info.isPersisted,
+            onDismiss: {
+                presentedCompletionItem = nil
+                playbackEngine.acknowledgeLastCompletion()
+            }
+        )
     }
 
     private var persistenceBanner: some View {
