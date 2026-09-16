@@ -13,6 +13,48 @@ import SwiftData
 /// checksums. The lightweight v1.1 -> v1.2 stage is inferred from the
 /// current models, so the plan needs just the two version identifiers.
 
+/// Durable outbox for completion writes that failed to persist.
+/// Flushed on launch/foreground/background; drained when the event lands.
+@Model
+public final class PendingCompletion {
+    @Attribute(.unique) public var id: UUID = UUID()
+    public var sessionStableId: String = ""
+    public var courseId: String? = nil
+    public var playedSeconds: Double = 0.0
+    public var isQualifying: Bool = false
+    public var contentType: String = "meditation"
+    public var timestamp: Date = Date()
+    public var timeZoneIdentifier: String = "UTC"
+    public var gmtOffsetSeconds: Int = 0
+    public var createdAt: Date = Date()
+    public var attempts: Int = 0
+
+    public init(
+        id: UUID = UUID(),
+        sessionStableId: String,
+        courseId: String? = nil,
+        playedSeconds: Double,
+        isQualifying: Bool,
+        contentType: String = "meditation",
+        timestamp: Date = Date(),
+        timeZoneIdentifier: String = TimeZone.current.identifier,
+        gmtOffsetSeconds: Int = TimeZone.current.secondsFromGMT(),
+        attempts: Int = 0
+    ) {
+        self.id = id
+        self.sessionStableId = sessionStableId
+        self.courseId = courseId
+        self.playedSeconds = playedSeconds
+        self.isQualifying = isQualifying
+        self.contentType = contentType
+        self.timestamp = timestamp
+        self.timeZoneIdentifier = timeZoneIdentifier
+        self.gmtOffsetSeconds = gmtOffsetSeconds
+        self.createdAt = Date()
+        self.attempts = attempts
+    }
+}
+
 public enum MindSpaceSchemaV1_1: VersionedSchema {
     public static let versionIdentifier = Schema.Version(1, 1, 0)
     public static var models: [any PersistentModel.Type] { [] }
