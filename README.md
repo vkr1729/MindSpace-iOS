@@ -1,6 +1,6 @@
 # 🧘 MindSpace iOS
 
-> **An intentional, private, offline-first native iOS meditation app.**  
+> **Quiet, privacy-first native iOS meditation app.**  
 > Free from algorithmic feeds, subscription paywalls, third-party analytics, and commercial data harvesting. Built with native SwiftUI, local SwiftData storage, private GitHub companion synchronization, and zero-compromise privacy — **100% free and open forever**.
 
 ---
