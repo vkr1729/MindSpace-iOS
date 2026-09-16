@@ -138,12 +138,13 @@ public final class PlaybackEngine: ObservableObject {
     
     // MARK: - Playback Commands
     
+    @discardableResult
     public func loadAndPlay(
         track: PlayableTrack,
         startPosition: Double = 0.0,
         accumulatedListenedSeconds: Double = 0.0,
         startInAudioPhase: Bool = false
-    ) {
+    ) -> Bool {
         playbackError = nil
         clearedResumeTrackIds.remove(track.id)
         
@@ -175,17 +176,17 @@ public final class PlaybackEngine: ObservableObject {
                 // Play local video
                 self.isStreaming = false
                 playVideoItem(playerItem: AVPlayerItem(url: videoURL), track: track)
-                return
+                return true
             } else if let (streamAsset, _) = LibraryPathResolver.shared.resolveRemoteStreamAsset(for: videoRel) {
                 // Stream video from private GitHub
                 self.isStreaming = true
                 playVideoItem(playerItem: AVPlayerItem(asset: streamAsset), track: track)
-                return
+                return true
             }
         }
-        
+
         // 5. Play audio session
-        startAudioPhase(track: track, startPosition: startPosition, accumulatedSeconds: accumulatedListenedSeconds)
+        return startAudioPhase(track: track, startPosition: startPosition, accumulatedSeconds: accumulatedListenedSeconds)
     }
     
     private func playVideoItem(playerItem: AVPlayerItem, track: PlayableTrack) {
@@ -206,7 +207,8 @@ public final class PlaybackEngine: ObservableObject {
         updateNowPlayingCenter()
     }
 
-    private func startAudioPhase(track: PlayableTrack, startPosition: Double, accumulatedSeconds: Double) {
+    @discardableResult
+    private func startAudioPhase(track: PlayableTrack, startPosition: Double, accumulatedSeconds: Double) -> Bool {
         self.currentPhase = .audio
         self.duration = track.duration
         self.currentTime = startPosition
@@ -221,22 +223,23 @@ public final class PlaybackEngine: ObservableObject {
             self.isStreaming = false
             let playerItem = AVPlayerItem(url: localURL)
             setupAndStartPlayer(playerItem: playerItem, startPosition: startPosition)
-            return
+            return true
         }
-        
+
         // 2. Priority 2: Fallback to On-Demand Streaming from Private GitHub (only if configured)
         if GitHubSyncService.shared.isConfigured,
            let (streamAsset, _) = LibraryPathResolver.shared.resolveRemoteStreamAsset(for: track.relativePath) {
             self.isStreaming = true
             let playerItem = AVPlayerItem(asset: streamAsset)
             setupAndStartPlayer(playerItem: playerItem, startPosition: startPosition)
-            return
+            return true
         }
-        
+
         // 3. Fallback: Not downloaded & PAT not configured
         self.isStreaming = false
         self.state = .idle
         self.playbackError = "Media file not found: \(track.title). Please configure your GitHub Token or download your library in Settings."
+        return false
     }
     
     private func setupAndStartPlayer(playerItem: AVPlayerItem, startPosition: Double) {
@@ -261,7 +264,11 @@ public final class PlaybackEngine: ObservableObject {
         cleanupObservers()
         player?.pause()
         player = nil
-        startAudioPhase(track: track, startPosition: 0.0, accumulatedSeconds: 0.0)
+        _ = startAudioPhase(track: track, startPosition: 0.0, accumulatedSeconds: 0.0)
+    }
+
+    public func clearPlaybackError() {
+        playbackError = nil
     }
     
     public func togglePlayPause() {
@@ -525,7 +532,7 @@ public final class PlaybackEngine: ObservableObject {
             cleanupObservers()
             player?.pause()
             player = nil
-            startAudioPhase(track: track, startPosition: 0.0, accumulatedSeconds: 0.0)
+            _ = startAudioPhase(track: track, startPosition: 0.0, accumulatedSeconds: 0.0)
             return
         }
         

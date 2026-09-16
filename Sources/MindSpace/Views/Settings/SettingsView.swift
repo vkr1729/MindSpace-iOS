@@ -64,13 +64,7 @@ public struct SettingsView: View {
     }
     
     private func getOrCreateSettings() -> UserSettings {
-        if let existing = settingsList.first {
-            return existing
-        }
-        let newSettings = UserSettings()
-        modelContext.insert(newSettings)
-        try? modelContext.save()
-        return newSettings
+        SettingsStore.fetchOrCreate(in: modelContext)
     }
     
     private var orbitStats: OrbitStats {

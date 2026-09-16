@@ -17,13 +17,7 @@ public struct MindfulReminderSheet: View {
     public init() {}
     
     private func getOrCreateSettings() -> UserSettings {
-        if let existing = settingsList.first {
-            return existing
-        }
-        let newSettings = UserSettings()
-        modelContext.insert(newSettings)
-        try? modelContext.save()
-        return newSettings
+        SettingsStore.fetchOrCreate(in: modelContext)
     }
     
     public var body: some View {

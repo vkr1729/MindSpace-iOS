@@ -414,6 +414,17 @@ public struct MeditationPlayerView: View {
                 isShowingCompletionSheet = true
             }
         }
+        .alert("Playback error", isPresented: Binding(
+            get: { playbackEngine.playbackError != nil },
+            set: { if !$0 { playbackEngine.clearPlaybackError() } }
+        )) {
+            Button("Dismiss", role: .cancel) {
+                playbackEngine.clearPlaybackError()
+                playbackEngine.isFullPlayerPresented = false
+            }
+        } message: {
+            Text(playbackEngine.playbackError ?? "An unknown playback error occurred.")
+        }
     }
     
     // MARK: - Luminous Accessible Scrubber

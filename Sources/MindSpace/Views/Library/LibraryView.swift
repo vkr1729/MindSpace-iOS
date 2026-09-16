@@ -339,8 +339,9 @@ public struct LibraryView: View {
                                             duration: single.duration,
                                             contentType: cat.name.lowercased().contains("sleep") ? "sleep" : "meditation"
                                         )
-                                        playbackEngine.loadAndPlay(track: track)
-                                        playbackEngine.isFullPlayerPresented = true
+                                        if playbackEngine.loadAndPlay(track: track) {
+                                            playbackEngine.isFullPlayerPresented = true
+                                        }
                                     })) {
                                         singlesCategoryRow(category: cat, count: matchingSessions.count)
                                     }
@@ -491,8 +492,9 @@ public struct LibraryView: View {
                         videoDuration: session.videoAttachments?.first?.duration,
                         contentType: "meditation"
                     )
-                    playbackEngine.loadAndPlay(track: track)
-                    playbackEngine.isFullPlayerPresented = true
+                    if playbackEngine.loadAndPlay(track: track) {
+                        playbackEngine.isFullPlayerPresented = true
+                    }
                 }) {
                     CosmicCard(padding: 14) {
                         HStack(spacing: 12) {
@@ -533,8 +535,9 @@ public struct LibraryView: View {
                         relativePath: single.relativePath,
                         duration: single.duration
                     )
-                    playbackEngine.loadAndPlay(track: track)
-                    playbackEngine.isFullPlayerPresented = true
+                    if playbackEngine.loadAndPlay(track: track) {
+                        playbackEngine.isFullPlayerPresented = true
+                    }
                 }) {
                     CosmicCard(padding: 14) {
                         HStack(spacing: 12) {

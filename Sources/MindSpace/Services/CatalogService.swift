@@ -1,6 +1,20 @@
 import Foundation
 import CryptoKit
 
+public enum CatalogLoadError: Error, Sendable, Equatable {
+    case notFound
+    case decodeFailed(String)
+
+    public var message: String {
+        switch self {
+        case .notFound:
+            return "Catalog manifest not found in Library or Bundle."
+        case .decodeFailed(let detail):
+            return "Failed to decode catalog: \(detail)"
+        }
+    }
+}
+
 /// Service responsible for loading, indexing, and querying the immutable offline catalog.
 @MainActor
 public final class CatalogService: ObservableObject {
@@ -14,7 +28,7 @@ public final class CatalogService: ObservableObject {
     private var sessionIndex: [String: CatalogSession] = [:]
     private var courseIndex: [String: CatalogCourse] = [:]
     private var singleIndex: [String: SingleSession] = [:]
-    
+
     // Pre-sorted and tokenized search records for 0-overhead query filtering
     private var sortedCourses: [(course: CatalogCourse, searchToken: String)] = []
     private var sortedSessions: [(session: CatalogSession, searchToken: String)] = []
@@ -38,15 +52,15 @@ public final class CatalogService: ObservableObject {
                     self.buildIndices(manifest)
                     self.loadError = warning
                     self.isLoading = false
-                case .failure(let message):
-                    self.loadError = message
+                case .failure(let error):
+                    self.loadError = error.message
                     self.isLoading = false
                 }
             }
         }
     }
 
-    private nonisolated static func loadCatalogData() -> Result<(CatalogManifest, String?), String> {
+    private nonisolated static func loadCatalogData() -> Result<(CatalogManifest, String?), CatalogLoadError> {
         var catalogData: Data?
         var catalogSource = "bundle"
 
@@ -68,7 +82,7 @@ public final class CatalogService: ObservableObject {
         }
 
         guard let data = catalogData else {
-            return .failure("Catalog manifest not found in Library or Bundle.")
+            return .failure(.notFound)
         }
 
         do {
@@ -82,7 +96,7 @@ public final class CatalogService: ObservableObject {
             }
             return .success((decodedManifest, warning))
         } catch {
-            return .failure("Failed to decode catalog: \(error.localizedDescription)")
+            return .failure(.decodeFailed(error.localizedDescription))
         }
     }
 

@@ -1,6 +1,7 @@
 import Foundation
 import CryptoKit
 import Combine
+import UIKit
 
 /// Progress state model for live syncing feedback
 public struct SyncProgressState: Sendable, Equatable {
@@ -19,10 +20,11 @@ public struct SyncProgressState: Sendable, Equatable {
 public final class GitHubSyncService: ObservableObject {
     public static let shared = GitHubSyncService()
 
-    nonisolated(unsafe) private static let backgroundSession: URLSession = {
-        let config = URLSessionConfiguration.background(withIdentifier: "com.mindspace.offline.sync")
+    nonisolated(unsafe) private static let foregroundSession: URLSession = {
+        let config = URLSessionConfiguration.default
         config.waitsForConnectivity = true
-        config.sessionSendsLaunchEvents = true
+        config.timeoutIntervalForRequest = 60
+        config.timeoutIntervalForResource = 60 * 60
         return URLSession(configuration: config)
     }()
     
@@ -334,13 +336,20 @@ public final class GitHubSyncService: ObservableObject {
         let token = self.savedPAT
         
         self.syncTask = Task.detached(priority: .userInitiated) { [weak self] in
-            let session = Self.backgroundSession
+            let session = Self.foregroundSession
+            let backgroundTaskID: UIBackgroundTaskIdentifier = await MainActor.run { [weak self] in
+                UIApplication.shared.beginBackgroundTask(withName: "MindSpaceSync") { [weak self] in
+                    Task { @MainActor [weak self] in
+                        self?.cancelSync()
+                    }
+                }
+            }
             var successCount = 0
             var errorEncountered: String? = nil
-            
+
             for item in items {
                 if Task.isCancelled { break }
-                
+
                 let ok = await Self.downloadSingleFile(
                     relativePath: item.relativePath,
                     expectedSHA256: item.sha256,
@@ -348,38 +357,45 @@ public final class GitHubSyncService: ObservableObject {
                     token: token,
                     session: session
                 )
-                
+
                 if ok {
                     successCount += 1
                 } else {
                     errorEncountered = "Failed to download \(item.title)"
                 }
-                
+
                 let currentCompleted = successCount
                 let total = items.count
                 let fraction = Double(currentCompleted) / Double(total)
-                
+
                 await MainActor.run {
                     guard let self = self else { return }
                     self.completedTracks = currentCompleted
                     self.progressFraction = fraction
                 }
             }
-            
+
             // Hardening library folder after downloads
             LibraryPathResolver.shared.applyHardeningAndProtection()
-            
-            await MainActor.run {
-                guard let self = self else { return }
-                self.isSyncing = false
-                self.activeCourseId = nil
-                
-                if self.isCancelled {
-                    self.lastSuccessMessage = "Sync stopped (\(successCount) downloaded)."
-                } else if let err = errorEncountered, successCount < items.count {
-                    self.lastErrorMessage = "\(err) (\(successCount)/\(items.count) succeeded)."
-                } else {
-                    self.lastSuccessMessage = "Successfully downloaded \(successCount) tracks!"
+
+            let finishedTaskID = backgroundTaskID
+            let finalSuccessCount = successCount
+            let finalError = errorEncountered
+            await MainActor.run { [weak self] in
+                if let self = self {
+                    self.isSyncing = false
+                    self.activeCourseId = nil
+
+                    if self.isCancelled {
+                        self.lastSuccessMessage = "Sync stopped (\(finalSuccessCount) downloaded)."
+                    } else if let err = finalError, finalSuccessCount < items.count {
+                        self.lastErrorMessage = "\(err) (\(finalSuccessCount)/\(items.count) succeeded)."
+                    } else {
+                        self.lastSuccessMessage = "Successfully downloaded \(finalSuccessCount) tracks!"
+                    }
+                }
+                if finishedTaskID != .invalid {
+                    UIApplication.shared.endBackgroundTask(finishedTaskID)
                 }
             }
         }

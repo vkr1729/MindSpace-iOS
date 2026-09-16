@@ -234,8 +234,9 @@ public struct CompletionView: View {
                                 dayNumber: next.session.dayNumber,
                                 contentType: "meditation"
                             )
-                            playbackEngine.loadAndPlay(track: nextTrack)
-                            playbackEngine.isFullPlayerPresented = true
+                            if playbackEngine.loadAndPlay(track: nextTrack) {
+                                playbackEngine.isFullPlayerPresented = true
+                            }
                         }) {
                             HStack {
                                 Text("Next session (Day \(next.session.dayNumber))")
