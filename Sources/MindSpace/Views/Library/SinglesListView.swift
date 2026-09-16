@@ -17,6 +17,11 @@ public struct SinglesListView: View {
     }
     
     private var isCategoryCurrentlySyncing: Bool {
+        #if DEBUG
+        if UITestSupport.isEnabled, UITestSupport.downloadingCategoryID == category.id {
+            return true
+        }
+        #endif
         return syncService.isSyncing && syncService.activeCourseId == category.id
     }
     

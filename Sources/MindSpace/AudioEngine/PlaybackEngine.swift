@@ -179,7 +179,17 @@ public final class PlaybackEngine: ObservableObject {
         self.hasFinalizedCurrentSession = false
         self.isMiniPlayerVisible = true
 
-        
+        #if DEBUG
+        if UITestSupport.isEnabled {
+            self.currentPhase = .audio
+            self.duration = track.duration
+            self.currentTime = startPosition
+            self.accumulator = ListeningAccumulator(duration: track.duration, initialAccumulatedSeconds: accumulatedListenedSeconds)
+            self.isStreaming = UITestSupport.scenario == "streaming"
+            self.state = .playing
+            return true
+        }
+        #endif
         // 4. Check if there is an attached day-video to play first
         if let videoRel = track.videoAttachmentPath,
            !startInAudioPhase && startPosition == 0.0 {
@@ -315,6 +325,12 @@ public final class PlaybackEngine: ObservableObject {
     }
     
     public func play() {
+        #if DEBUG
+        if UITestSupport.isEnabled, currentTrack != nil {
+            state = .playing
+            return
+        }
+        #endif
         guard let player = player else { return }
         AudioSessionManager.shared.activateSession()
 
@@ -332,6 +348,12 @@ public final class PlaybackEngine: ObservableObject {
     }
 
     public func pause() {
+        #if DEBUG
+        if UITestSupport.isEnabled, currentTrack != nil {
+            state = .paused
+            return
+        }
+        #endif
         guard let player = player else { return }
         wantsToPlay = false
         player.pause()
@@ -609,6 +631,26 @@ public final class PlaybackEngine: ObservableObject {
             onClearResume?(track.id)
         }
     }
+
+    #if DEBUG
+    public func completeCurrentSessionForUITest() {
+        guard UITestSupport.isEnabled, let track = currentTrack, !hasFinalizedCurrentSession else { return }
+        hasFinalizedCurrentSession = true
+        clearedResumeTrackIds.insert(track.id)
+        state = .completed
+        currentTime = duration
+        let completionId = UUID()
+        lastCompletionInfo = PlaybackCompletionInfo(
+            track: track,
+            actualMinutes: max(1, Int(round(track.duration / 60))),
+            isQualifying: true,
+            completionId: completionId
+        )
+        hasCompletedCurrentSession = true
+        onSessionCompleted?(track, track.duration, true, completionId)
+        onClearResume?(track.id)
+    }
+    #endif
 
     // MARK: - Callbacks Setup
     

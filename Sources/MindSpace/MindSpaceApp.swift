@@ -13,6 +13,10 @@ struct MindSpaceApp: App {
     let persistenceState: PersistenceState
 
     init() {
+        #if DEBUG
+        UITestSupport.prepareFilesystem()
+        #endif
+
         LibraryPathResolver.shared.applyHardeningAndProtection()
 
         AudioSessionManager.shared.configureAudioSession()
@@ -105,6 +109,13 @@ struct MindSpaceApp: App {
 
     @MainActor
     private func ensureInitialSettings() {
-        _ = SettingsStore.fetchOrCreate(in: container.mainContext)
+        let context = container.mainContext
+        #if DEBUG
+        if UITestSupport.isEnabled {
+            UITestSupport.prepareStore(context)
+            return
+        }
+        #endif
+        _ = SettingsStore.fetchOrCreate(in: context)
     }
 }

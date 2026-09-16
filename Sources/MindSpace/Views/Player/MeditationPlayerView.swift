@@ -372,6 +372,21 @@ public struct MeditationPlayerView: View {
                 .opacity(isZenMode ? 0.2 : 1.0)
                 .animation(.easeInOut(duration: 0.3), value: isZenMode)
 
+                #if DEBUG
+                if UITestSupport.isEnabled {
+                    Button("Complete test session") {
+                        playbackEngine.completeCurrentSessionForUITest()
+                    }
+                    .font(.headline)
+                    .foregroundStyle(MindSpaceTheme.background)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .background(MindSpaceTheme.accent)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .accessibilityIdentifier("player.completeFixture")
+                    .padding(.horizontal, 24)
+                }
+                #endif
+
                 Spacer(minLength: 24)
                 }
             }
