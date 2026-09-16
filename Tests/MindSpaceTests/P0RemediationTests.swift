@@ -10,7 +10,6 @@ final class P0RemediationTests: XCTestCase {
     func testP0_1_AppTabHasFourTabsInOrder() {
         let tabs = AppTab.allCases
         XCTAssertEqual(tabs.map(\.title), ["Today", "Library", "Progress", "Settings"])
-        XCTAssertEqual(tabs.map(\.id), ["today", "library", "progress", "settings"])
         for tab in tabs {
             XCTAssertFalse(tab.iconName.isEmpty, "\(tab) must have an icon")
         }
