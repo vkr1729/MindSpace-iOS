@@ -13,7 +13,7 @@ final class P2SweepRemediationTests: XCTestCase {
 
     func testP2_MigrationV12KeepsResumeLosslessFields() throws {
         XCTAssertEqual(MindSpaceSchemaV1_2.versionIdentifier, Schema.Version(1, 2, 0))
-        XCTAssertEqual(MindSpaceMigrationPlan.stages.count, 2)
+        XCTAssertEqual(MindSpaceMigrationPlan.stages.count, 1)
 
         let schema = v12Schema()
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
