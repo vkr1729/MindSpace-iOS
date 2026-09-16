@@ -27,6 +27,7 @@ public struct ContentView: View {
     @State private var libraryPath = NavigationPath()
     @State private var progressPath = NavigationPath()
     @State private var settingsPath = NavigationPath()
+    @State private var presentedCompletionItem: PlaybackCompletionInfo?
 
     private let persistenceState: PersistenceState
 
@@ -73,10 +74,7 @@ public struct ContentView: View {
             .fullScreenCover(isPresented: $playbackEngine.isFullPlayerPresented) {
                 MeditationPlayerView()
             }
-            .sheet(item: Binding(
-                get: { playbackEngine.lastCompletionInfo },
-                set: { if $0 == nil { playbackEngine.acknowledgeLastCompletion() } }
-            )) { info in
+            .sheet(item: $presentedCompletionItem) { info in
                 CompletionView(
                     completionId: info.completionId,
                     sessionTitle: info.track.title,
@@ -85,8 +83,16 @@ public struct ContentView: View {
                     isQualifying: info.isQualifying,
                     finalizedByStopOrSwitch: info.finalizedByStopOrSwitch,
                     isPersisted: info.isPersisted,
-                    onDismiss: { playbackEngine.acknowledgeLastCompletion() }
+                    onDismiss: {
+                        presentedCompletionItem = nil
+                        playbackEngine.acknowledgeLastCompletion()
+                    }
                 )
+            }
+            .onChange(of: playbackEngine.lastCompletionInfo) { _, info in
+                if info != nil {
+                    presentedCompletionItem = info
+                }
             }
         }
         .fullScreenCover(isPresented: $showOnboarding) {
