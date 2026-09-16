@@ -61,6 +61,8 @@ public enum MindSpaceSchemaV1: VersionedSchema {
         public var isQualifyingMeditation: Bool = false
         public var contentType: String = "meditation"
         public var reflectionNote: String? = nil
+
+        public init() {}
     }
 
     @Model
@@ -73,6 +75,8 @@ public enum MindSpaceSchemaV1: VersionedSchema {
         public var durationSeconds: Double = 0.0
         public var accumulatedListenedSeconds: Double = 0.0
         public var updatedAt: Date = Date()
+
+        public init() {}
     }
 
     @Model
@@ -81,6 +85,8 @@ public enum MindSpaceSchemaV1: VersionedSchema {
         public var title: String = ""
         public var relativePath: String = ""
         public var addedAt: Date = Date()
+
+        public init() {}
     }
 
     @Model
@@ -96,6 +102,8 @@ public enum MindSpaceSchemaV1: VersionedSchema {
         public var hasCompletedOnboarding: Bool = false
         public var selectedGoalsCSV: String = ""
         public var hasAcknowledgedDisclaimer: Bool = false
+
+        public init() {}
     }
 }
 
