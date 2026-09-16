@@ -115,8 +115,25 @@ public enum MindSpaceSchemaV1_1: VersionedSchema {
             MindSpaceSchemaV1.PlaybackResume.self,
             MindSpaceSchemaV1.FavoriteItem.self,
             MindSpaceSchemaV1.UserSettings.self,
-            PendingCompletion.self,
+            MindSpaceSchemaV1_1.PendingCompletion.self,
         ]
+    }
+
+    @Model
+    public final class PendingCompletion {
+        public var id: UUID = UUID()
+        public var sessionStableId: String = ""
+        public var courseId: String? = nil
+        public var playedSeconds: Double = 0.0
+        public var isQualifying: Bool = false
+        public var contentType: String = "meditation"
+        public var timestamp: Date = Date()
+        public var timeZoneIdentifier: String = "UTC"
+        public var gmtOffsetSeconds: Int = 0
+        public var createdAt: Date = Date()
+        public var attempts: Int = 0
+
+        public init() {}
     }
 }
 
@@ -125,11 +142,28 @@ public enum MindSpaceSchemaV1_2: VersionedSchema {
     public static var models: [any PersistentModel.Type] {
         [
             MindSpaceSchemaV1.CompletionEvent.self,
-            PlaybackResume.self,
+            MindSpaceSchemaV1_2.PlaybackResume.self,
             MindSpaceSchemaV1.FavoriteItem.self,
             MindSpaceSchemaV1.UserSettings.self,
-            PendingCompletion.self,
+            MindSpaceSchemaV1_1.PendingCompletion.self,
         ]
+    }
+
+    @Model
+    public final class PlaybackResume {
+        public var sessionStableId: String = ""
+        public var relativePath: String = ""
+        public var sessionTitle: String = ""
+        public var courseName: String? = nil
+        public var lastPositionSeconds: Double = 0.0
+        public var durationSeconds: Double = 0.0
+        public var accumulatedListenedSeconds: Double = 0.0
+        public var updatedAt: Date = Date()
+        public var contentType: String = "meditation"
+        public var dayNumber: Int? = nil
+        public var videoAttachmentPath: String? = nil
+
+        public init() {}
     }
 }
 
