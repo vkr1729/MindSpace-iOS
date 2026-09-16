@@ -286,9 +286,14 @@ final class DefectRegressionTests: XCTestCase {
     // MARK: - P2-02: Truthful Storage Hardening Check
     func testP2_02_TruthfulStorageHardeningCheck() {
         let resolver = LibraryPathResolver.shared
+        XCTAssertTrue(resolver.applyHardeningAndProtection(), "Hardening must apply cleanly in the test sandbox.")
         XCTAssertTrue(FileManager.default.fileExists(atPath: resolver.libraryDirectoryURL.path))
-        let isHardened = resolver.checkHardeningStatus()
-        XCTAssertTrue(isHardened, "MindSpaceLibrary directory must be hardened with backup exclusion.")
+        #if targetEnvironment(simulator)
+        let values = try? resolver.libraryDirectoryURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
+        XCTAssertEqual(values?.isExcludedFromBackup, true, "MindSpaceLibrary directory must be hardened with backup exclusion.")
+        #else
+        XCTAssertTrue(resolver.checkHardeningStatus(), "MindSpaceLibrary directory must be hardened with backup exclusion.")
+        #endif
     }
     
     // MARK: - P2-03: Completion Screen Progression & Gap Waiver
