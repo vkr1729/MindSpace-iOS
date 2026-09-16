@@ -44,14 +44,14 @@ public final class PendingCompletion {
 }
 
 public enum MindSpaceSchemaV1: VersionedSchema {
-    public static var versionIdentifier = Schema.Version(1, 0, 0)
+    public static let versionIdentifier = Schema.Version(1, 0, 0)
     public static var models: [any PersistentModel.Type] {
         [CompletionEvent.self, PlaybackResume.self, FavoriteItem.self, UserSettings.self]
     }
 }
 
 public enum MindSpaceSchemaV1_1: VersionedSchema {
-    public static var versionIdentifier = Schema.Version(1, 1, 0)
+    public static let versionIdentifier = Schema.Version(1, 1, 0)
     public static var models: [any PersistentModel.Type] {
         [CompletionEvent.self, PlaybackResume.self, FavoriteItem.self, UserSettings.self, PendingCompletion.self]
     }

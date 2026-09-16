@@ -19,14 +19,15 @@ struct MindSpaceApp: App {
 
         var resolvedContainer: ModelContainer?
         var resolvedState: PersistenceState = .healthy
+        let versionedSchema = Schema(versionedSchema: MindSpaceSchemaV1_1.self)
 
         do {
             let config = ModelConfiguration(
-                schema: Schema(versionedSchema: MindSpaceSchemaV1_1.self),
+                schema: versionedSchema,
                 isStoredInMemoryOnly: false
             )
             resolvedContainer = try ModelContainer(
-                for: MindSpaceSchemaV1_1.self,
+                for: versionedSchema,
                 migrationPlan: MindSpaceMigrationPlan.self,
                 configurations: config
             )
@@ -50,11 +51,11 @@ struct MindSpaceApp: App {
                 try? FileManager.default.removeItem(at: walURL)
 
                 let retryConfig = ModelConfiguration(
-                    schema: Schema(versionedSchema: MindSpaceSchemaV1_1.self),
+                    schema: versionedSchema,
                     isStoredInMemoryOnly: false
                 )
                 if let retried = try? ModelContainer(
-                    for: MindSpaceSchemaV1_1.self,
+                    for: versionedSchema,
                     migrationPlan: MindSpaceMigrationPlan.self,
                     configurations: retryConfig
                 ) {
@@ -70,10 +71,9 @@ struct MindSpaceApp: App {
             self.container = ready
             self.persistenceState = resolvedState
         } else {
-            let memorySchema = Schema(versionedSchema: MindSpaceSchemaV1_1.self)
-            let memoryConfig = ModelConfiguration(schema: memorySchema, isStoredInMemoryOnly: true)
+            let memoryConfig = ModelConfiguration(schema: versionedSchema, isStoredInMemoryOnly: true)
             do {
-                self.container = try ModelContainer(for: memorySchema, configurations: [memoryConfig])
+                self.container = try ModelContainer(for: versionedSchema, configurations: [memoryConfig])
                 self.persistenceState = .inMemory
             } catch {
                 fatalError("Critical: Failed to create ModelContainer: \(error.localizedDescription)")
