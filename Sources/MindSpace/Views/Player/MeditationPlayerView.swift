@@ -140,6 +140,11 @@ public struct MeditationPlayerView: View {
                         .buttonStyle(.cosmicPressable)
                         .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
                     }
+                    if let favoriteError {
+                        Text(favoriteError)
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(CosmosTheme.solarCoral)
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
@@ -504,6 +509,8 @@ public struct MeditationPlayerView: View {
         }
     }
     
+    @State private var favoriteError: String?
+
     private func toggleFavorite() {
         guard let track = track else { return }
         if let existing = favorites.first(where: { $0.sessionStableId == track.id }) {
@@ -516,7 +523,13 @@ public struct MeditationPlayerView: View {
             )
             modelContext.insert(fav)
         }
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+            favoriteError = nil
+        } catch {
+            modelContext.rollback()
+            favoriteError = "Couldn't save that favorite. Please try again."
+        }
     }
     
     private func formatTime(_ seconds: Double) -> String {

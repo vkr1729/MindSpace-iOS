@@ -4,6 +4,7 @@ import SwiftData
 /// Bridges background persistence callbacks to the ContentView banner.
 /// Single registration site (setupPlaybackCallbacks, onAppear) owns one instance.
 /// Reports always hop to MainActor before touching @Published state.
+/// @unchecked Sendable because every mutation runs on MainActor via report().
 final class PersistenceErrorRelay: ObservableObject, @unchecked Sendable {
     @Published var message: String?
     func report(_ text: String) {
@@ -189,14 +190,10 @@ public struct ContentView: View {
             do {
                 let remaining = try await actor.flushPendingCompletions()
                 if remaining > 0 {
-                    await MainActor.run {
-                        errorRelay.report("Some saved sessions still need to sync to your history — they'll keep retrying.")
-                    }
-                }
-            } catch {
-                await MainActor.run {
                     errorRelay.report("Some saved sessions still need to sync to your history — they'll keep retrying.")
                 }
+            } catch {
+                errorRelay.report("Some saved sessions still need to sync to your history — they'll keep retrying.")
             }
         }
     }
@@ -249,9 +246,7 @@ public struct ContentView: View {
             let stampedAt = Date()
             Task {
                 guard persistenceState == .healthy else {
-                    await MainActor.run {
-                        errorRelay.report("Storage unavailable — this session was NOT saved.")
-                    }
+                    errorRelay.report("Storage unavailable — this session was NOT saved.")
                     return
                 }
                 let actor = ProgressActor(modelContainer: container)
@@ -298,9 +293,7 @@ public struct ContentView: View {
                                 timeZoneIdentifier: TimeZone.current.identifier,
                                 gmtOffsetSeconds: TimeZone.current.secondsFromGMT()
                             )
-                            await MainActor.run {
-                                errorRelay.report("Couldn't save your session yet — it's queued and will retry automatically.")
-                            }
+                            errorRelay.report("Couldn't save your session yet — it's queued and will retry automatically.")
                         } catch {
                             errorRelay.report("Couldn't save your session, and the retry queue is unavailable. Your history for this session was NOT saved.")
                         }
@@ -320,7 +313,10 @@ public struct ContentView: View {
                         courseName: track.courseName,
                         position: position,
                         duration: track.duration,
-                        accumulatedListenedSeconds: accumulatedListenedSeconds
+                        accumulatedListenedSeconds: accumulatedListenedSeconds,
+                        contentType: track.contentType,
+                        dayNumber: track.dayNumber,
+                        videoAttachmentPath: track.videoAttachmentPath
                     )
                 } catch {
                     try? await Task.sleep(nanoseconds: 500_000_000)
@@ -332,7 +328,10 @@ public struct ContentView: View {
                             courseName: track.courseName,
                             position: position,
                             duration: track.duration,
-                            accumulatedListenedSeconds: accumulatedListenedSeconds
+                            accumulatedListenedSeconds: accumulatedListenedSeconds,
+                            contentType: track.contentType,
+                            dayNumber: track.dayNumber,
+                            videoAttachmentPath: track.videoAttachmentPath
                         )
                     } catch {
                         errorRelay.report("Couldn't save resume position. It will retry while this session is open.")

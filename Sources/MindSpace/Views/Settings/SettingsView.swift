@@ -4,7 +4,6 @@ import UserNotifications
 
 /// Settings & Library Management Screen
 public struct SettingsView: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var catalogService = CatalogService.shared
@@ -24,6 +23,8 @@ public struct SettingsView: View {
     @State private var verificationReport: LibraryVerificationReport?
     @State private var reminderDate: Date = Date()
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
+    @State private var cachedStorageSizeBytes: Int64?
+    @State private var reminderToggleTask: Task<Void, Never>?
 
     private enum ActiveSheet: Identifiable {
         case share
@@ -78,7 +79,11 @@ public struct SettingsView: View {
     }
     
     private var storageSizeBytes: Int64 {
-        LibraryPathResolver.shared.getLibraryStorageSizeBytes()
+        cachedStorageSizeBytes ?? 0
+    }
+
+    private func refreshStorageSize() {
+        cachedStorageSizeBytes = LibraryPathResolver.shared.getLibraryStorageSizeBytes()
     }
     
     public var body: some View {
@@ -88,27 +93,8 @@ public struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     // MARK: - Navigation Bar / Header
-                    HStack {
-                        Button(action: {
-                            HapticService.shared.light()
-                            dismiss()
-                        }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 16, weight: .bold))
-                                Text("Back")
-                                    .font(.system(size: 16, weight: .medium, design: .rounded))
-                            }
-                            .foregroundColor(CosmosTheme.moonLavender)
-                            .padding(.vertical, 8)
-                        }
-                        .buttonStyle(.plain)
-                        
-                        Spacer()
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                    
+                    // Settings is a tab root (always mounted); there is no
+                    // navigation stack to dismiss from, so no Back button here.
                     Text("Settings")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundColor(CosmosTheme.textPrimary)
@@ -722,7 +708,7 @@ public struct SettingsView: View {
                         }
                     }
                     .padding(.horizontal, 20)
-                    
+
                     Spacer(minLength: 80)
                 }
             }
@@ -734,10 +720,12 @@ public struct SettingsView: View {
             checkNotificationAuth()
             githubRepoInput = syncService.savedRepo
             githubPATInput = syncService.savedPAT
+            refreshStorageSize()
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 checkNotificationAuth()
+                refreshStorageSize()
             }
         }
         #if os(iOS)
@@ -828,8 +816,9 @@ public struct SettingsView: View {
     }
     
     private func handleReminderToggle(_ val: Bool) {
+        reminderToggleTask?.cancel()
         if val {
-            Task {
+            reminderToggleTask = Task {
                 let notifSettings = await UNUserNotificationCenter.current().notificationSettings()
                 if notifSettings.authorizationStatus == .denied {
                     await MainActor.run {
@@ -922,11 +911,11 @@ public struct SettingsView: View {
         isScanningLibrary = true
         isVerifyingChecksums = validateChecksums
         HapticService.shared.medium()
-        
+
         LibraryPathResolver.shared.applyHardeningAndProtection()
-        catalogService.loadCatalog()
-        
+
         Task {
+            _ = await catalogService.reloadCatalog()
             let report = await LibraryPathResolver.shared.verifyAllCatalogEntries(
                 manifest: catalogService.manifest,
                 validateChecksums: validateChecksums
@@ -938,6 +927,7 @@ public struct SettingsView: View {
                     self.isScanningLibrary = false
                     self.isVerifyingChecksums = false
                 }
+                self.refreshStorageSize()
                 
                 if report.isFullyVerified {
                     HapticService.shared.success()

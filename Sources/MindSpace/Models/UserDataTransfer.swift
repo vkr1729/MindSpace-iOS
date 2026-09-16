@@ -16,7 +16,7 @@ public struct MindSpaceBackupDocument: Codable, Sendable {
     public init(
         backupVersion: Int = 1,
         exportedAt: String = DateFormatterCache.iso8601String(from: Date()),
-        appVersion: String = "2.1.0",
+        appVersion: String = "2.4.0",
         catalogSchemaVersion: Int = 1,
         stats: BackupStats,
         userSettings: BackupUserSettings,
@@ -142,7 +142,10 @@ public struct BackupPlaybackResume: Codable, Sendable {
     public let durationSeconds: Double
     public let accumulatedListenedSeconds: Double?
     public let updatedAt: String
-    
+    public let contentType: String?
+    public let dayNumber: Int?
+    public let videoAttachmentPath: String?
+
     public init(
         sessionStableId: String,
         relativePath: String,
@@ -151,7 +154,10 @@ public struct BackupPlaybackResume: Codable, Sendable {
         lastPositionSeconds: Double,
         durationSeconds: Double,
         accumulatedListenedSeconds: Double? = 0.0,
-        updatedAt: String = DateFormatterCache.iso8601String(from: Date())
+        updatedAt: String = DateFormatterCache.iso8601String(from: Date()),
+        contentType: String? = nil,
+        dayNumber: Int? = nil,
+        videoAttachmentPath: String? = nil
     ) {
         self.sessionStableId = sessionStableId
         self.relativePath = relativePath
@@ -161,6 +167,30 @@ public struct BackupPlaybackResume: Codable, Sendable {
         self.durationSeconds = durationSeconds
         self.accumulatedListenedSeconds = accumulatedListenedSeconds
         self.updatedAt = updatedAt
+        self.contentType = contentType
+        self.dayNumber = dayNumber
+        self.videoAttachmentPath = videoAttachmentPath
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case sessionStableId, relativePath, sessionTitle, courseName
+        case lastPositionSeconds, durationSeconds, accumulatedListenedSeconds
+        case updatedAt, contentType, dayNumber, videoAttachmentPath
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.sessionStableId = try container.decode(String.self, forKey: .sessionStableId)
+        self.relativePath = try container.decode(String.self, forKey: .relativePath)
+        self.sessionTitle = try container.decode(String.self, forKey: .sessionTitle)
+        self.courseName = try container.decodeIfPresent(String.self, forKey: .courseName)
+        self.lastPositionSeconds = try container.decode(Double.self, forKey: .lastPositionSeconds)
+        self.durationSeconds = try container.decode(Double.self, forKey: .durationSeconds)
+        self.accumulatedListenedSeconds = try container.decodeIfPresent(Double.self, forKey: .accumulatedListenedSeconds)
+        self.updatedAt = try container.decode(String.self, forKey: .updatedAt)
+        self.contentType = try container.decodeIfPresent(String.self, forKey: .contentType)
+        self.dayNumber = try container.decodeIfPresent(Int.self, forKey: .dayNumber)
+        self.videoAttachmentPath = try container.decodeIfPresent(String.self, forKey: .videoAttachmentPath)
     }
 }
 

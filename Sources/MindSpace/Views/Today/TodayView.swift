@@ -17,6 +17,7 @@ public struct TodayView: View {
     
     @State private var dailyJourneyItems: [DailyJourneyItem] = []
     @State private var isShowingReminderSheet = false
+    @State private var cachedStorageSizeBytes: Int64?
 
     @Binding private var path: NavigationPath
 
@@ -130,6 +131,7 @@ public struct TodayView: View {
             }
             .onAppear {
                 buildDailyJourney()
+                refreshStorageSize()
             }
             .onChange(of: completionEvents) { _, _ in
                 buildDailyJourney()
@@ -140,6 +142,7 @@ public struct TodayView: View {
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .active {
                     buildDailyJourney()
+                    refreshStorageSize()
                 }
             }
         }
@@ -229,7 +232,7 @@ public struct TodayView: View {
     
     @ViewBuilder
     private var storageNoticeCard: some View {
-        if LibraryPathResolver.shared.getLibraryStorageSizeBytes() == 0 {
+        if (cachedStorageSizeBytes ?? 0) == 0 {
             CosmicCard(padding: 14) {
                 HStack(spacing: 12) {
                     Image(systemName: "info.circle.fill")
@@ -331,7 +334,9 @@ public struct TodayView: View {
                         courseName: resume.courseName,
                         relativePath: resume.relativePath,
                         duration: resume.durationSeconds,
-                        contentType: (resume.courseName ?? "").lowercased().contains("sleep") ? "sleep" : "meditation"
+                        videoAttachmentPath: resume.videoAttachmentPath,
+                        dayNumber: resume.dayNumber,
+                        contentType: resume.contentType
                     )
                     let loaded = playbackEngine.loadAndPlay(
                         track: track,
@@ -438,6 +443,10 @@ public struct TodayView: View {
         if playbackEngine.loadAndPlay(track: track) {
             playbackEngine.isFullPlayerPresented = true
         }
+    }
+
+    private func refreshStorageSize() {
+        cachedStorageSizeBytes = LibraryPathResolver.shared.getLibraryStorageSizeBytes()
     }
     
     private func buildDailyJourney() {

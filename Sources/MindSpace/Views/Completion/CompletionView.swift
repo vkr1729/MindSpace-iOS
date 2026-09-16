@@ -30,9 +30,9 @@ public struct CompletionView: View {
 
     public init(
         completionId: UUID? = nil,
-        sessionTitle: String = "Basics — Day 4",
-        courseName: String? = "Basics",
-        durationMinutes: Int = 12,
+        sessionTitle: String,
+        courseName: String?,
+        durationMinutes: Int,
         isQualifying: Bool = true,
         finalizedByStopOrSwitch: Bool = false,
         isPersisted: Bool = true,
@@ -63,25 +63,19 @@ public struct CompletionView: View {
         return isQualifying ? "Orbit Continued" : "Session Recorded"
     }
     
-    /// Resolves the next session in the active course (including Pregnancy gap waiver from Day 26 -> Day 30)
+    /// Resolves the next session in the active course. Courses with a gap
+    /// waiver (e.g. Pregnancy Day 26 -> Day 30) skip waived days; the waiver
+    /// is implemented by the catalog omitting those sessions.
     private var nextCourseSession: (course: CatalogCourse, session: CatalogSession)? {
         guard let name = courseName,
               let manifest = catalogService.manifest else { return nil }
-        
+
         for category in manifest.categories {
             if let course = category.courses.first(where: { $0.name == name }) {
                 let completedIDs = Set(completionEvents.filter { $0.isQualifyingMeditation }.map { $0.sessionStableId })
-                // If this is Pregnancy course and day 26 just completed, next is day 30
-                if course.hasGapWaiver {
-                    let uncompleted = course.sessions.filter { !completedIDs.contains($0.id) }
-                    if let next = uncompleted.first {
-                        return (course, next)
-                    }
-                } else {
-                    let uncompleted = course.sessions.filter { !completedIDs.contains($0.id) }
-                    if let next = uncompleted.first {
-                        return (course, next)
-                    }
+                let uncompleted = course.sessions.filter { !completedIDs.contains($0.id) }
+                if let next = uncompleted.first {
+                    return (course, next)
                 }
             }
         }

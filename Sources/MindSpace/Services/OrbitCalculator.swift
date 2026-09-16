@@ -143,7 +143,9 @@ public struct OrbitCalculator: Sendable {
 
         var checkedCount = 0
         var confirmedStreak = 0
-        while checkedCount < 3650 {
+        // Bound: ~150 years of daily iteration. Streaks beyond this are
+        // physically implausible; the loop must terminate for corrupt clocks.
+        while checkedCount < 54_750 {
             let key = DateFormatterCache.dayKey(from: cursor)
             if streakDays.contains(key) {
                 consecutiveDays += 1

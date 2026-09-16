@@ -3,6 +3,7 @@ import Foundation
 /// Centralized, high-performance thread-safe DateFormatter cache to eliminate repeated DateFormatter allocations.
 /// Allocating DateFormatter is computationally expensive on Apple platforms; caching these formatters
 /// prevents CPU spikes, main-thread hitches, and battery drain during frequent renders.
+/// @unchecked Sendable because all formatter access is serialized through NSLock.
 public final class DateFormatterCache: @unchecked Sendable {
     public static let shared = DateFormatterCache()
     

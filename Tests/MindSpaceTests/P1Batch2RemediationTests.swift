@@ -6,7 +6,7 @@ import SwiftData
 final class P1Batch2RemediationTests: XCTestCase {
 
     private func batch2Schema() -> Schema {
-        Schema(versionedSchema: MindSpaceSchemaV1_1.self)
+        Schema(versionedSchema: MindSpaceSchemaV1_2.self)
     }
 
     private func inMemoryContainer() throws -> ModelContainer {
@@ -18,7 +18,7 @@ final class P1Batch2RemediationTests: XCTestCase {
     // MARK: - P1-1: versioned schema + migration plan
 
     func testP1_1_MigrationPlanCoversV1ToV1_1() {
-        XCTAssertEqual(MindSpaceMigrationPlan.schemas.count, 2)
+        XCTAssertEqual(MindSpaceMigrationPlan.schemas.count, 3)
         XCTAssertEqual(
             MindSpaceSchemaV1.versionIdentifier,
             Schema.Version(1, 0, 0)
@@ -27,7 +27,11 @@ final class P1Batch2RemediationTests: XCTestCase {
             MindSpaceSchemaV1_1.versionIdentifier,
             Schema.Version(1, 1, 0)
         )
-        XCTAssertFalse(MindSpaceMigrationPlan.stages.isEmpty, "Plan must define the v1 -> v1.1 stage.")
+        XCTAssertEqual(
+            MindSpaceSchemaV1_2.versionIdentifier,
+            Schema.Version(1, 2, 0)
+        )
+        XCTAssertEqual(MindSpaceMigrationPlan.stages.count, 2, "Plan must define v1 -> v1.1 and v1.1 -> v1.2 stages.")
         let v1ModelNames = MindSpaceSchemaV1.models.map { String(describing: $0) }
         XCTAssertEqual(v1ModelNames.count, 4)
         let v11ModelNames = MindSpaceSchemaV1_1.models.map { String(describing: $0) }

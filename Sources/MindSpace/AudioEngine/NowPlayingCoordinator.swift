@@ -125,10 +125,11 @@ public final class NowPlayingCoordinator: Sendable {
             info[MPMediaItemPropertyAlbumTitle] = albumTitle
         }
         
-        // Attach artwork if available
-        if let appIcon = UIImage(named: "AppIcon") ?? UIImage(systemName: "sparkles") {
+        // Attach artwork if available. App icons are not image assets, so
+        // UIImage(named:) always returns nil for them — go straight to SF.
+        if let artworkImage = UIImage(systemName: "sparkles") {
             let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 300, height: 300)) { _ in
-                appIcon
+                artworkImage
             }
             info[MPMediaItemPropertyArtwork] = artwork
         }
@@ -151,6 +152,7 @@ public final class NowPlayingCoordinator: Sendable {
 
     public func unregisterRemoteCommands() {
         #if os(iOS)
+        UIApplication.shared.endReceivingRemoteControlEvents()
         let commandCenter = MPRemoteCommandCenter.shared()
         commandCenter.playCommand.removeTarget(nil)
         commandCenter.pauseCommand.removeTarget(nil)

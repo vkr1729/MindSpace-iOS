@@ -51,7 +51,10 @@ public final class PlaybackResume {
     public var durationSeconds: Double = 0.0
     public var accumulatedListenedSeconds: Double = 0.0
     public var updatedAt: Date = Date()
-    
+    public var contentType: String = "meditation"
+    public var dayNumber: Int? = nil
+    public var videoAttachmentPath: String? = nil
+
     public init(
         sessionStableId: String,
         relativePath: String,
@@ -59,7 +62,10 @@ public final class PlaybackResume {
         courseName: String? = nil,
         position: Double,
         duration: Double,
-        accumulatedListenedSeconds: Double = 0.0
+        accumulatedListenedSeconds: Double = 0.0,
+        contentType: String = "meditation",
+        dayNumber: Int? = nil,
+        videoAttachmentPath: String? = nil
     ) {
         self.sessionStableId = sessionStableId
         self.relativePath = relativePath
@@ -69,6 +75,9 @@ public final class PlaybackResume {
         self.durationSeconds = duration
         self.accumulatedListenedSeconds = accumulatedListenedSeconds
         self.updatedAt = Date()
+        self.contentType = contentType
+        self.dayNumber = dayNumber
+        self.videoAttachmentPath = videoAttachmentPath
     }
 }
 

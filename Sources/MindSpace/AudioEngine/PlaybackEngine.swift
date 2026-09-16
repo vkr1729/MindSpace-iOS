@@ -129,6 +129,7 @@ public final class PlaybackEngine: ObservableObject {
     private var pendingInitialSeekSeconds: Double?
     private var sleepTimerTask: Task<Void, Never>?
     private var wasPlayingBeforeInterruption = false
+    private var wantsToPlay = false
     private var lastSavedResumePosition: Double = 0.0
     private var hasFinalizedCurrentSession = false
     private var clearedResumeTrackIds = Set<String>()
@@ -139,18 +140,14 @@ public final class PlaybackEngine: ObservableObject {
     public var onSessionCompleted: ((PlayableTrack, Double, Bool, UUID) -> Void)?
     public var onSaveResume: ((PlayableTrack, Double, Double) -> Void)? // (track, position, accumulatedListenedSeconds)
     public var onClearResume: ((String) -> Void)?
-    
+
     public init() {
         setupAudioSessionCallbacks()
         setupNowPlayingCallbacks()
     }
-    
-    deinit {
-        // Observers are cleaned up during stop() and track switches.
-    }
-    
+
     // MARK: - Playback Commands
-    
+
     @discardableResult
     public func loadAndPlay(
         track: PlayableTrack,
@@ -272,6 +269,7 @@ public final class PlaybackEngine: ObservableObject {
         }
 
         avPlayer.playImmediately(atRate: speed.rawValue)
+        wantsToPlay = true
         updateNowPlayingCenter()
     }
 
@@ -318,21 +316,23 @@ public final class PlaybackEngine: ObservableObject {
     public func play() {
         guard let player = player else { return }
         AudioSessionManager.shared.activateSession()
-        
+
         if state == .completed {
             seek(to: 0.0)
             accumulator?.reset()
             hasCompletedCurrentSession = false
             hasFinalizedCurrentSession = false
         }
-        
+
+        wantsToPlay = true
         player.playImmediately(atRate: speed.rawValue)
         state = .playing
         updateNowPlayingCenter()
     }
-    
+
     public func pause() {
         guard let player = player else { return }
+        wantsToPlay = false
         player.pause()
         state = .paused
         accumulator?.tick(currentTime: currentTime, isPlaying: false, speed: Double(speed.rawValue))
@@ -343,6 +343,7 @@ public final class PlaybackEngine: ObservableObject {
     public func stop(preserveMiniPlayer: Bool = false) {
         cancelSleepTimer()
         cleanupObservers()
+        wantsToPlay = false
         
         if currentTrack != nil && !hasFinalizedCurrentSession && currentPhase == .audio {
             if let acc = accumulator, acc.hasQualified {
@@ -502,7 +503,7 @@ public final class PlaybackEngine: ObservableObject {
                 guard let self = self, self.observedItem === observed else { return }
                 switch observed.status {
                 case .readyToPlay:
-                    if self.player?.currentItem === observed {
+                    if self.player?.currentItem === observed, self.wantsToPlay {
                         self.applyPendingInitialSeekIfNeeded()
                         self.state = .playing
                     }
@@ -618,14 +619,41 @@ public final class PlaybackEngine: ObservableObject {
             self.pause()
             self.state = .interrupted
         }
-        
+
+        asm.onInterruptionEnded = { [weak self] in
+            guard let self = self else { return }
+            if self.state == .interrupted {
+                self.state = .paused
+            }
+        }
+
         asm.onInterruptionEndedShouldResume = { [weak self] in
             guard let self = self else { return }
             if self.wasPlayingBeforeInterruption {
                 self.play()
+            } else if self.state == .interrupted {
+                self.state = .paused
             }
         }
-        
+
+        asm.onMediaServicesReset = { [weak self] in
+            guard let self = self else { return }
+            guard let track = self.currentTrack, self.player != nil else { return }
+            let position = self.currentTime
+            let accumulated = self.accumulator?.accumulatedSeconds ?? 0.0
+            let resumePlayback = self.wantsToPlay
+            self.stop(preserveMiniPlayer: true)
+            _ = self.loadAndPlay(
+                track: track,
+                startPosition: position,
+                accumulatedListenedSeconds: accumulated,
+                startInAudioPhase: true
+            )
+            if !resumePlayback {
+                self.pause()
+            }
+        }
+
         asm.onHeadphonesDisconnected = { [weak self] in
             self?.pause()
         }

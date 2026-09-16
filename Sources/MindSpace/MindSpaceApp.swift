@@ -19,7 +19,7 @@ struct MindSpaceApp: App {
 
         var resolvedContainer: ModelContainer?
         var resolvedState: PersistenceState = .healthy
-        let versionedSchema = Schema(versionedSchema: MindSpaceSchemaV1_1.self)
+        let versionedSchema = Schema(versionedSchema: MindSpaceSchemaV1_2.self)
 
         do {
             let config = ModelConfiguration(

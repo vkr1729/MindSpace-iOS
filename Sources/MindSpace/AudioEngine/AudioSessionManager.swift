@@ -12,6 +12,8 @@ public final class AudioSessionManager: ObservableObject {
     
     public var onInterruptionBegan: (() -> Void)?
     public var onInterruptionEndedShouldResume: (() -> Void)?
+    public var onInterruptionEnded: (() -> Void)?
+    public var onMediaServicesReset: (() -> Void)?
     public var onHeadphonesDisconnected: (() -> Void)?
     
     private var isConfigured = false
@@ -62,13 +64,21 @@ public final class AudioSessionManager: ObservableObject {
         ) { [weak self] notification in
             self?.handleInterruption(notification: notification)
         }
-        
+
         NotificationCenter.default.addObserver(
             forName: AVAudioSession.routeChangeNotification,
             object: AVAudioSession.sharedInstance(),
             queue: .main
         ) { [weak self] notification in
             self?.handleRouteChange(notification: notification)
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: AVAudioSession.mediaServicesWereResetNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] _ in
+            self?.onMediaServicesReset?()
         }
         #endif
     }
@@ -85,6 +95,7 @@ public final class AudioSessionManager: ObservableObject {
         case .began:
             onInterruptionBegan?()
         case .ended:
+            onInterruptionEnded?()
             if let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt {
                 let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
                 if options.contains(.shouldResume) {

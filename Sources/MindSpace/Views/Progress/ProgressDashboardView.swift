@@ -77,7 +77,7 @@ public struct ProgressDashboardView: View {
                             
                             Spacer()
                             
-                            NavigationLink(destination: SettingsView()) {
+                            NavigationLink(destination: MonthlyHeatmapView(activeDates: orbitStats.activeDates, dailyMinutes: orbitStats.dailyMinutes)) {
                                 Image(systemName: "calendar")
                                     .font(.system(size: 20))
                                     .foregroundColor(CosmosTheme.moonLavender)

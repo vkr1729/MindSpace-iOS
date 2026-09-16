@@ -31,8 +31,12 @@ jobs:
       - name: Install XcodeGen (if missing)
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
+          # Pinned so CI never silently changes project generation under us.
+          XCODEGEN_VERSION: "2.46.0"
         run: |
-          command -v xcodegen >/dev/null || brew install xcodegen
+          if ! command -v xcodegen >/dev/null; then
+            brew install xcodegen
+          fi
           xcodegen --version
 
       - name: Synchronize Canonical Version Across Codebase
@@ -140,14 +144,14 @@ jobs:
           
           app = data['apps'][0]
           app['version'] = '$VERSION'
-          app['versionDate'] = '2026-08-21'
+          app['versionDate'] = '$(date -u +%Y-%m-%d)'
           app['versionDescription'] = '''$DESC'''
           app['downloadURL'] = f'https://github.com/vkr1729/mindspace-source/releases/download/v$VERSION/MindSpace.ipa'
           app['size'] = int('$IPA_SIZE')
-          
+
           new_version_entry = {
               'version': '$VERSION',
-              'date': '2026-08-21',
+              'date': '$(date -u +%Y-%m-%d)',
               'localizedDescription': '''$DESC''',
               'downloadURL': f'https://github.com/vkr1729/mindspace-source/releases/download/v$VERSION/MindSpace.ipa',
               'size': int('$IPA_SIZE')

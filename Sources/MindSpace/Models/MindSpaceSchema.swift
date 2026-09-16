@@ -57,12 +57,22 @@ public enum MindSpaceSchemaV1_1: VersionedSchema {
     }
 }
 
+public enum MindSpaceSchemaV1_2: VersionedSchema {
+    public static let versionIdentifier = Schema.Version(1, 2, 0)
+    public static var models: [any PersistentModel.Type] {
+        [CompletionEvent.self, PlaybackResume.self, FavoriteItem.self, UserSettings.self, PendingCompletion.self]
+    }
+}
+
 public enum MindSpaceMigrationPlan: SchemaMigrationPlan {
     public static var schemas: [any VersionedSchema.Type] {
-        [MindSpaceSchemaV1.self, MindSpaceSchemaV1_1.self]
+        [MindSpaceSchemaV1.self, MindSpaceSchemaV1_1.self, MindSpaceSchemaV1_2.self]
     }
 
     public static var stages: [MigrationStage] {
-        [MigrationStage.lightweight(fromVersion: MindSpaceSchemaV1.self, toVersion: MindSpaceSchemaV1_1.self)]
+        [
+            MigrationStage.lightweight(fromVersion: MindSpaceSchemaV1.self, toVersion: MindSpaceSchemaV1_1.self),
+            MigrationStage.lightweight(fromVersion: MindSpaceSchemaV1_1.self, toVersion: MindSpaceSchemaV1_2.self),
+        ]
     }
 }

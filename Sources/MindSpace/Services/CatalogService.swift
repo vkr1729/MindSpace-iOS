@@ -26,6 +26,7 @@ public final class CatalogService: ObservableObject {
     @Published public private(set) var manifest: CatalogManifest?
     @Published public private(set) var isLoading = false
     @Published public private(set) var loadError: String?
+    @Published public private(set) var loadWarning: String?
     
     // In-memory indexing for sub-millisecond search
     private var sessionIndex: [String: CatalogSession] = [:]
@@ -40,10 +41,40 @@ public final class CatalogService: ObservableObject {
     public init() {
         loadCatalog()
     }
-    
+
+    /// Reloads the catalog and reports completion on the main actor so
+    /// callers (rescan, verify) can await the fresh manifest first.
+    @discardableResult
+    public func reloadCatalog() async -> Bool {
+        await withCheckedContinuation { continuation in
+            Task.detached(priority: .userInitiated) { [weak self] in
+                let result = Self.loadCatalogData()
+                await MainActor.run {
+                    guard let self = self else {
+                        continuation.resume(returning: false)
+                        return
+                    }
+                    switch result {
+                    case .success(let (manifest, warning)):
+                        self.manifest = manifest
+                        self.buildIndices(manifest)
+                        self.loadWarning = warning
+                        self.isLoading = false
+                        continuation.resume(returning: true)
+                    case .failure(let error):
+                        self.loadError = error.message
+                        self.isLoading = false
+                        continuation.resume(returning: false)
+                    }
+                }
+            }
+        }
+    }
+
     public func loadCatalog() {
         isLoading = true
         loadError = nil
+        loadWarning = nil
 
         Task.detached(priority: .userInitiated) { [weak self] in
             let result = Self.loadCatalogData()
@@ -53,7 +84,7 @@ public final class CatalogService: ObservableObject {
                 case .success(let (manifest, warning)):
                     self.manifest = manifest
                     self.buildIndices(manifest)
-                    self.loadError = warning
+                    self.loadWarning = warning
                     self.isLoading = false
                 case .failure(let error):
                     self.loadError = error.message

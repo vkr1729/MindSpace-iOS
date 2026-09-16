@@ -146,7 +146,10 @@ public actor ProgressActor {
         courseName: String?,
         position: Double,
         duration: Double,
-        accumulatedListenedSeconds: Double = 0.0
+        accumulatedListenedSeconds: Double = 0.0,
+        contentType: String? = nil,
+        dayNumber: Int? = nil,
+        videoAttachmentPath: String? = nil
     ) throws {
         let descriptor = FetchDescriptor<PlaybackResume>(
             predicate: #Predicate { $0.sessionStableId == sessionStableId }
@@ -159,6 +162,9 @@ public actor ProgressActor {
             existing.lastPositionSeconds = position
             existing.durationSeconds = duration
             existing.accumulatedListenedSeconds = accumulatedListenedSeconds
+            if let contentType { existing.contentType = contentType }
+            if let dayNumber { existing.dayNumber = dayNumber }
+            if let videoAttachmentPath { existing.videoAttachmentPath = videoAttachmentPath }
             existing.updatedAt = Date()
         } else {
             let newResume = PlaybackResume(
@@ -168,7 +174,10 @@ public actor ProgressActor {
                 courseName: courseName,
                 position: position,
                 duration: duration,
-                accumulatedListenedSeconds: accumulatedListenedSeconds
+                accumulatedListenedSeconds: accumulatedListenedSeconds,
+                contentType: contentType ?? "meditation",
+                dayNumber: dayNumber,
+                videoAttachmentPath: videoAttachmentPath
             )
             modelContext.insert(newResume)
         }
