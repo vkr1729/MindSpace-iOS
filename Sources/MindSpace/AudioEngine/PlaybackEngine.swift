@@ -71,12 +71,23 @@ public struct PlaybackCompletionInfo: Sendable, Equatable {
     public let actualMinutes: Int
     public let isQualifying: Bool
     public let completionId: UUID
-    
-    public init(track: PlayableTrack, actualMinutes: Int, isQualifying: Bool, completionId: UUID) {
+    public let finalizedByStopOrSwitch: Bool
+    public var isPersisted: Bool
+
+    public init(
+        track: PlayableTrack,
+        actualMinutes: Int,
+        isQualifying: Bool,
+        completionId: UUID,
+        finalizedByStopOrSwitch: Bool = false,
+        isPersisted: Bool = false
+    ) {
         self.track = track
         self.actualMinutes = actualMinutes
         self.isQualifying = isQualifying
         self.completionId = completionId
+        self.finalizedByStopOrSwitch = finalizedByStopOrSwitch
+        self.isPersisted = isPersisted
     }
 }
 
@@ -267,8 +278,18 @@ public final class PlaybackEngine: ObservableObject {
         _ = startAudioPhase(track: track, startPosition: 0.0, accumulatedSeconds: 0.0)
     }
 
+    public func markLastCompletionPersisted(id: UUID) {
+        guard lastCompletionInfo?.completionId == id else { return }
+        lastCompletionInfo?.isPersisted = true
+    }
+
     public func clearPlaybackError() {
         playbackError = nil
+    }
+
+    public func acknowledgeLastCompletion() {
+        lastCompletionInfo = nil
+        hasCompletedCurrentSession = false
     }
     
     public func togglePlayPause() {
@@ -545,18 +566,21 @@ public final class PlaybackEngine: ObservableObject {
         guard let track = currentTrack, !hasFinalizedCurrentSession else { return }
         hasFinalizedCurrentSession = true
         clearedResumeTrackIds.insert(track.id)
-        
+
         let acc = accumulator
         let isQualifying = acc?.hasQualified ?? false
         let listenedSeconds = acc?.actualPlayedSeconds ?? (acc?.accumulatedSeconds ?? currentTime)
         let actualMinutes = max(1, Int(round(listenedSeconds / 60.0)))
         let completionId = UUID()
-        
+        let finalizedByStopOrSwitch = trigger == "stop" || trigger == "track_switch"
+
         lastCompletionInfo = PlaybackCompletionInfo(
             track: track,
             actualMinutes: actualMinutes,
             isQualifying: isQualifying,
-            completionId: completionId
+            completionId: completionId,
+            finalizedByStopOrSwitch: finalizedByStopOrSwitch,
+            isPersisted: false
         )
         
         hasCompletedCurrentSession = true

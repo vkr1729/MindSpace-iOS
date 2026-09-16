@@ -391,14 +391,18 @@ public struct MeditationPlayerView: View {
                     sessionTitle: comp.track.title,
                     courseName: comp.track.courseName,
                     durationMinutes: comp.actualMinutes,
-                    isQualifying: comp.isQualifying
+                    isQualifying: comp.isQualifying,
+                    finalizedByStopOrSwitch: comp.finalizedByStopOrSwitch,
+                    isPersisted: comp.isPersisted,
+                    onDismiss: { playbackEngine.acknowledgeLastCompletion() }
                 )
             } else if let trk = track {
                 CompletionView(
                     sessionTitle: trk.title,
                     courseName: trk.courseName,
                     durationMinutes: max(1, Int(round(duration / 60.0))),
-                    isQualifying: true
+                    isQualifying: true,
+                    onDismiss: { playbackEngine.acknowledgeLastCompletion() }
                 )
             }
         }
@@ -411,7 +415,9 @@ public struct MeditationPlayerView: View {
         .onChange(of: playbackEngine.hasCompletedCurrentSession) { _, completed in
             if completed {
                 HapticService.shared.success()
-                isShowingCompletionSheet = true
+                if playbackEngine.isFullPlayerPresented {
+                    isShowingCompletionSheet = true
+                }
             }
         }
         .alert("Playback error", isPresented: Binding(

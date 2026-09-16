@@ -15,6 +15,9 @@ public struct CompletionView: View {
     public let courseName: String?
     public let durationMinutes: Int
     public let isQualifying: Bool
+    public let finalizedByStopOrSwitch: Bool
+    public let isPersisted: Bool
+    public let onDismiss: (() -> Void)?
     
     @Query(sort: \CompletionEvent.timestamp, order: .reverse) private var completionEvents: [CompletionEvent]
     @Query private var settingsList: [UserSettings]
@@ -30,13 +33,19 @@ public struct CompletionView: View {
         sessionTitle: String = "Basics — Day 4",
         courseName: String? = "Basics",
         durationMinutes: Int = 12,
-        isQualifying: Bool = true
+        isQualifying: Bool = true,
+        finalizedByStopOrSwitch: Bool = false,
+        isPersisted: Bool = true,
+        onDismiss: (() -> Void)? = nil
     ) {
         self.completionId = completionId
         self.sessionTitle = sessionTitle
         self.courseName = courseName
         self.durationMinutes = max(1, durationMinutes)
         self.isQualifying = isQualifying
+        self.finalizedByStopOrSwitch = finalizedByStopOrSwitch
+        self.isPersisted = isPersisted
+        self.onDismiss = onDismiss
     }
     
     private var orbitStats: OrbitStats {
@@ -47,6 +56,11 @@ public struct CompletionView: View {
             existingCompassionPasses: passes,
             lastUsedPassDate: lastPassDate
         )
+    }
+
+    private var celebrationTitle: String {
+        if finalizedByStopOrSwitch { return "Session Saved" }
+        return isQualifying ? "Orbit Continued" : "Session Recorded"
     }
     
     /// Resolves the next session in the active course (including Pregnancy gap waiver from Day 26 -> Day 30)
@@ -99,6 +113,7 @@ public struct CompletionView: View {
                         HapticService.shared.light()
                         saveReflection()
                         dismiss()
+                        onDismiss?()
                     }) {
                         Image(systemName: "xmark")
                             .font(.system(size: 16, weight: .bold))
@@ -117,13 +132,28 @@ public struct CompletionView: View {
                 
                 // MARK: - Celebration Title with Starlight Aura
                 VStack(spacing: 6) {
-                    Text(isQualifying ? "Orbit Continued" : "Session Recorded")
+                    Text(celebrationTitle)
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundColor(CosmosTheme.textPrimary)
-                    
+
                     Text("\(durationMinutes) Mindful \(durationMinutes == 1 ? "Minute" : "Minutes") Recorded")
                         .font(.system(size: 17, weight: .semibold, design: .rounded))
                         .foregroundColor(isQualifying ? CosmosTheme.starlightGold : CosmosTheme.moonLavender)
+
+                    if finalizedByStopOrSwitch {
+                        Text("You wrapped up early — this session was saved from where you stopped.")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(CosmosTheme.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                    }
+                    if !isPersisted {
+                        Text("Still saving your session — your reflection will attach once it's in your history.")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(CosmosTheme.starlightGold)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                    }
                 }
                 
                 // MARK: - Constellation Arc Celebration Visual
@@ -223,7 +253,8 @@ public struct CompletionView: View {
                             HapticService.shared.medium()
                             saveReflection()
                             dismiss()
-                            
+                            onDismiss?()
+
                             let nextTrack = PlayableTrack(
                                 id: next.session.id,
                                 title: next.session.title,
@@ -258,6 +289,7 @@ public struct CompletionView: View {
                         HapticService.shared.light()
                         saveReflection()
                         dismiss()
+                        onDismiss?()
                     }) {
                         Text("Done")
                             .font(.system(size: 16, weight: .semibold, design: .rounded))
@@ -290,26 +322,21 @@ public struct CompletionView: View {
     private func saveReflection() {
         guard let reflection = selectedReflection else { return }
         reflectionSaveError = nil
-        if let completionId = completionId {
-            guard let targetEvent = completionEvents.first(where: { $0.id == completionId }) else {
-                reflectionSaveError = "Couldn't attach your reflection — the session isn't in the store yet."
-                return
+        guard let completionId = completionId,
+              let targetEvent = completionEvents.first(where: { $0.id == completionId }) else {
+            if completionId == nil {
+                reflectionSaveError = "This celebration isn't linked to a saved session — dismiss and try again."
+            } else {
+                reflectionSaveError = "Still saving your session — your reflection will attach once it's in your history."
             }
-            targetEvent.reflectionNote = reflection
-            do {
-                try modelContext.save()
-            } catch {
-                reflectionSaveError = "Couldn't save your reflection. Please try again."
-            }
-        } else if let latest = completionEvents.first {
-            latest.reflectionNote = reflection
-            do {
-                try modelContext.save()
-            } catch {
-                reflectionSaveError = "Couldn't save your reflection. Please try again."
-            }
-        } else {
-            reflectionSaveError = "No session found to attach your reflection to."
+            return
+        }
+        targetEvent.reflectionNote = reflection
+        do {
+            try modelContext.save()
+            selectedReflection = nil
+        } catch {
+            reflectionSaveError = "Couldn't save your reflection. Please try again."
         }
     }
     

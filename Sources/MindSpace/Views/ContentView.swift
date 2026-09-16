@@ -73,6 +73,21 @@ public struct ContentView: View {
             .fullScreenCover(isPresented: $playbackEngine.isFullPlayerPresented) {
                 MeditationPlayerView()
             }
+            .sheet(item: Binding(
+                get: { playbackEngine.lastCompletionInfo },
+                set: { if $0 == nil { playbackEngine.acknowledgeLastCompletion() } }
+            )) { info in
+                CompletionView(
+                    completionId: info.completionId,
+                    sessionTitle: info.track.title,
+                    courseName: info.track.courseName,
+                    durationMinutes: info.actualMinutes,
+                    isQualifying: info.isQualifying,
+                    finalizedByStopOrSwitch: info.finalizedByStopOrSwitch,
+                    isPersisted: info.isPersisted,
+                    onDismiss: { playbackEngine.acknowledgeLastCompletion() }
+                )
+            }
         }
         .fullScreenCover(isPresented: $showOnboarding) {
             OnboardingView()
@@ -82,6 +97,7 @@ public struct ContentView: View {
             checkOnboardingStatus()
             playbackEngine.restoreSleepTimerIfNeeded()
             NotificationScheduler.shared.reconcileReminderSetting(modelContext: modelContext)
+            flushCompletionOutbox()
         }
         .onChange(of: settingsList) { _, newList in
             if let settings = newList.first, !settings.hasCompletedOnboarding {
@@ -91,8 +107,10 @@ public struct ContentView: View {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .background || newPhase == .inactive {
                 playbackEngine.saveCurrentResumePosition()
+                flushCompletionOutbox()
             } else if newPhase == .active {
                 NotificationScheduler.shared.reconcileReminderSetting(modelContext: modelContext)
+                flushCompletionOutbox()
             }
         }
         .onOpenURL { url in
@@ -115,7 +133,7 @@ public struct ContentView: View {
         } else if persistenceState == .inMemory {
             message = "Storage unavailable — progress is NOT being saved. Restart the app; nothing is written while this banner shows."
         } else {
-            message = "Library recovered from backup. Verify your history in Progress."
+            message = "Your history couldn't be opened, so the app started fresh. Your old data was kept — export a backup from Settings before reinstalling."
         }
         return HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
@@ -145,6 +163,27 @@ public struct ContentView: View {
             }
         } else {
             showOnboarding = true
+        }
+    }
+
+    private func flushCompletionOutbox() {
+        guard persistenceState == .healthy else { return }
+        let container = modelContext.container
+        let errorRelay = self.errorRelay
+        Task {
+            let actor = ProgressActor(modelContainer: container)
+            do {
+                let remaining = try await actor.flushPendingCompletions()
+                if remaining > 0 {
+                    await MainActor.run {
+                        errorRelay.report("Some saved sessions still need to sync to your history — they'll keep retrying.")
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    errorRelay.report("Some saved sessions still need to sync to your history — they'll keep retrying.")
+                }
+            }
         }
     }
 
@@ -193,6 +232,7 @@ public struct ContentView: View {
         let errorRelay = self.errorRelay
 
         playbackEngine.onSessionCompleted = { track, playedSeconds, isQualifying, completionId in
+            let stampedAt = Date()
             Task {
                 guard persistenceState == .healthy else {
                     await MainActor.run {
@@ -210,8 +250,11 @@ public struct ContentView: View {
                         isQualifying: isQualifying,
                         contentType: track.contentType,
                         reflection: nil,
-                        timestamp: Date()
+                        timestamp: stampedAt
                     )
+                    await MainActor.run {
+                        playbackEngine.markLastCompletionPersisted(id: completionId)
+                    }
                 } catch {
                     try? await Task.sleep(nanoseconds: 500_000_000)
                     do {
@@ -223,10 +266,30 @@ public struct ContentView: View {
                             isQualifying: isQualifying,
                             contentType: track.contentType,
                             reflection: nil,
-                            timestamp: Date()
+                            timestamp: stampedAt
                         )
+                        await MainActor.run {
+                            playbackEngine.markLastCompletionPersisted(id: completionId)
+                        }
                     } catch {
-                        errorRelay.report("Couldn't save your session. It will retry on next launch — don't reinstall.")
+                        do {
+                            try await actor.enqueuePendingCompletion(
+                                id: completionId,
+                                sessionStableId: track.id,
+                                courseId: track.courseName,
+                                playedSeconds: playedSeconds,
+                                isQualifying: isQualifying,
+                                contentType: track.contentType,
+                                timestamp: stampedAt,
+                                timeZoneIdentifier: TimeZone.current.identifier,
+                                gmtOffsetSeconds: TimeZone.current.secondsFromGMT()
+                            )
+                            await MainActor.run {
+                                errorRelay.report("Couldn't save your session yet — it's queued and will retry automatically.")
+                            }
+                        } catch {
+                            errorRelay.report("Couldn't save your session, and the retry queue is unavailable. Your history for this session was NOT saved.")
+                        }
                     }
                 }
             }
@@ -258,7 +321,7 @@ public struct ContentView: View {
                             accumulatedListenedSeconds: accumulatedListenedSeconds
                         )
                     } catch {
-                        errorRelay.report("Couldn't save resume position.")
+                        errorRelay.report("Couldn't save resume position. It will retry while this session is open.")
                     }
                 }
             }
@@ -278,6 +341,7 @@ public struct ContentView: View {
 /// Handles `.mindspace` files opened from Files/share sheet.
 private struct BackupImportView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismissSheet
     let sourceURL: URL
     let onDone: () -> Void
 
@@ -299,6 +363,9 @@ private struct BackupImportView: View {
                                 isCleanRestore: false
                             )
                             message = "Imported successfully."
+                            HapticService.shared.success()
+                            dismissSheet()
+                            onDone()
                         } catch {
                             message = "Import error: \(error.localizedDescription)"
                         }
@@ -312,18 +379,25 @@ private struct BackupImportView: View {
                                 isCleanRestore: true
                             )
                             message = "Restored successfully."
+                            HapticService.shared.success()
+                            dismissSheet()
+                            onDone()
                         } catch {
                             message = "Import error: \(error.localizedDescription)"
                         }
                     }
                 }
-                Button("Close", action: onDone)
+                Button("Close") {
+                    dismissSheet()
+                    onDone()
+                }
             }
             .navigationTitle("Import Backup")
             .onAppear {
-                document = try? ProgressTransferManager.shared.parseBackupDocument(from: sourceURL)
-                if document == nil {
-                    message = "Couldn't read that .mindspace file."
+                do {
+                    document = try ProgressTransferManager.shared.parseBackupDocument(gainingAccessTo: sourceURL)
+                } catch {
+                    message = "Couldn't read that .mindspace file: \(error.localizedDescription)"
                 }
             }
         }

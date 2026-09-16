@@ -107,6 +107,29 @@ public struct ProgressTransferManager: Sendable {
         let decoder = JSONDecoder()
         return try decoder.decode(MindSpaceBackupDocument.self, from: data)
     }
+
+    /// Parses a backup opened from Files/share/AirDrop: takes security-scoped
+    /// access, copies to a temp file, parses the copy, then releases access.
+    /// In-place opens fail to read without scoped access.
+    public func parseBackupDocument(gainingAccessTo url: URL) throws -> MindSpaceBackupDocument {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if accessing { url.stopAccessingSecurityScopedResource() }
+        }
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MindSpace-Import-\(UUID().uuidString).mindspace")
+        do {
+            if url.isFileURL {
+                try FileManager.default.copyItem(at: url, to: tempURL)
+            } else {
+                throw ImportError.invalidEvent("unsupported backup URL")
+            }
+        } catch {
+            throw ImportError.invalidEvent("couldn't copy the backup file for reading (\(error.localizedDescription))")
+        }
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+        return try parseBackupDocument(from: tempURL)
+    }
     
     public enum ImportError: Error, LocalizedError {
         case unsupportedBackupVersion(Int)

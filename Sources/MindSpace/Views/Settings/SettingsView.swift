@@ -896,11 +896,12 @@ public struct SettingsView: View {
     }
     
     private func handlePickedDocument(url: URL) {
-        if let doc = try? ProgressTransferManager.shared.parseBackupDocument(from: url) {
+        do {
+            let doc = try ProgressTransferManager.shared.parseBackupDocument(gainingAccessTo: url)
             self.pendingImportDocument = doc
             self.activeSheet = .importPreview(IdentifiableBackup(doc: doc))
-        } else {
-            self.importStatusMessage = "Failed to parse .mindspace backup file."
+        } catch {
+            self.importStatusMessage = "Couldn't read that .mindspace file: \(error.localizedDescription)"
         }
     }
     
