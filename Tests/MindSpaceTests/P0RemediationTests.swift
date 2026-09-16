@@ -68,7 +68,7 @@ final class P0RemediationTests: XCTestCase {
 
     @MainActor
     func testP0_4_FetchOrCreateNeverDuplicatesSettings() throws {
-        let schema = Schema([UserSettings.self])
+        let schema = Schema(versionedSchema: MindSpaceSchemaV1_2.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let context = ModelContext(container)
@@ -84,7 +84,7 @@ final class P0RemediationTests: XCTestCase {
 
     @MainActor
     func testP0_4_ConcurrentSettingsCreationYieldsSingleRow() throws {
-        let schema = Schema([UserSettings.self])
+        let schema = Schema(versionedSchema: MindSpaceSchemaV1_2.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let context = ModelContext(container)

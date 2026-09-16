@@ -102,12 +102,7 @@ final class HardenedBehavioralTests: XCTestCase {
     
     // MARK: - Scenario 3: Play 45 seconds, pause, recreate app store -> Position is restored
     func testPlay45SecondsPauseRecreateStorePositionIsRestored() async throws {
-        let schema = Schema([
-            CompletionEvent.self,
-            PlaybackResume.self,
-            FavoriteItem.self,
-            UserSettings.self
-        ])
+        let schema = Schema(versionedSchema: MindSpaceSchemaV1_2.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container1 = try ModelContainer(for: schema, configurations: [config])
         let actor1 = ProgressActor(modelContainer: container1)
@@ -139,12 +134,7 @@ final class HardenedBehavioralTests: XCTestCase {
     // MARK: - Scenario 4: Switch tracks -> Old track resume is retained
     @MainActor
     func testSwitchTracksRetainsOldTrackResume() async throws {
-        let schema = Schema([
-            CompletionEvent.self,
-            PlaybackResume.self,
-            FavoriteItem.self,
-            UserSettings.self
-        ])
+        let schema = Schema(versionedSchema: MindSpaceSchemaV1_2.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let actor = ProgressActor(modelContainer: container)
@@ -206,12 +196,7 @@ final class HardenedBehavioralTests: XCTestCase {
     
     // MARK: - Scenario 6: Complete normally -> Exactly one event & correct reflection association
     func testCompleteNormallyProducesExactlyOneEventAndCorrectReflection() async throws {
-        let schema = Schema([
-            CompletionEvent.self,
-            PlaybackResume.self,
-            FavoriteItem.self,
-            UserSettings.self
-        ])
+        let schema = Schema(versionedSchema: MindSpaceSchemaV1_2.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let actor = ProgressActor(modelContainer: container)
@@ -271,12 +256,7 @@ final class HardenedBehavioralTests: XCTestCase {
     // MARK: - Scenario 8: Export and clean-import -> Events, favorites, settings, and resumes match
     @MainActor
     func testExportAndCleanImportAllModelsMatch() throws {
-        let schema = Schema([
-            CompletionEvent.self,
-            FavoriteItem.self,
-            PlaybackResume.self,
-            UserSettings.self
-        ])
+        let schema = Schema(versionedSchema: MindSpaceSchemaV1_2.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let context = ModelContext(container)
