@@ -25,8 +25,8 @@ public final class NotificationScheduler: Sendable {
         
         let parts = timeString.split(separator: ":")
         guard parts.count == 2,
-              let hour = Int(parts[0]),
-              let minute = Int(parts[1]) else { return }
+              let hour = Int(parts[0]), (0...23).contains(hour),
+              let minute = Int(parts[1]), (0...59).contains(minute) else { return }
         
         var dateComponents = DateComponents()
         dateComponents.hour = hour

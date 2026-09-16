@@ -4,8 +4,7 @@ import SwiftData
 public struct OnboardingView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Query private var settingsList: [UserSettings]
-    
+
     @State private var currentStep: Int = 0
     @State private var selectedGoals: Set<String> = ["Stress", "Focus", "Sleep"]
     @State private var defaultDuration: Int = 10
@@ -393,11 +392,7 @@ public struct OnboardingView: View {
     }
     
     private func completeOnboarding() {
-        let isNewSettings = settingsList.first == nil
-        let settings = settingsList.first ?? UserSettings()
-        if isNewSettings {
-            modelContext.insert(settings)
-        }
+        let settings = SettingsStore.fetchOrCreate(in: modelContext)
         settings.hasCompletedOnboarding = true
         settings.hasAcknowledgedDisclaimer = true
         settings.selectedGoals = Array(selectedGoals)

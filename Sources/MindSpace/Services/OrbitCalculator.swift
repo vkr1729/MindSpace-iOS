@@ -10,6 +10,9 @@ public struct OrbitStats: Sendable {
     public let compassionPassUsedCount: Int
     public let activeDates: Set<String> // YYYY-MM-DD (all mindful activity)
     public let dailyMinutes: [String: Int] // YYYY-MM-DD -> total minutes
+    /// Day-keys (YYYY-MM-DD) where a compassion pass protected a miss.
+    /// Persist these via `CompassionPassStore` so used passes don't regenerate.
+    public let passProtectedDayKeys: [String]
 }
 
 public struct CelestialAchievement: Identifiable, Sendable {
@@ -140,7 +143,9 @@ public struct OrbitCalculator: Sendable {
 
         var checkedCount = 0
         var confirmedStreak = 0
-        while checkedCount < 3650 {
+        // Bound: ~150 years of daily iteration. Streaks beyond this are
+        // physically implausible; the loop must terminate for corrupt clocks.
+        while checkedCount < 54_750 {
             let key = DateFormatterCache.dayKey(from: cursor)
             if streakDays.contains(key) {
                 consecutiveDays += 1
@@ -201,7 +206,10 @@ public struct OrbitCalculator: Sendable {
             compassionPassesAvailable: passesAvailable,
             compassionPassUsedCount: confirmedPassesUsed,
             activeDates: allActiveDays,
-            dailyMinutes: dailyMinutes
+            dailyMinutes: dailyMinutes,
+            passProtectedDayKeys: recordedUsedDates
+                .map { DateFormatterCache.dayKey(from: $0) }
+                .sorted()
         )
     }
     

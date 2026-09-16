@@ -11,6 +11,7 @@ public struct ProgressTransferManager: Sendable {
     public static let maxImportFavorites = 20_000
     public static let maxImportResumes = 20_000
     public static let maxPlayedSecondsPerEvent = 24.0 * 60.0 * 60.0
+    public static let maxBackupFileBytes = 256 * 1024 * 1024
 
     public init() {}
     
@@ -57,11 +58,12 @@ public struct ProgressTransferManager: Sendable {
             hasAcknowledgedDisclaimer: settings.hasAcknowledgedDisclaimer
         )
         
+        let exportedAt = DateFormatterCache.iso8601String(from: Date())
         let achievements = OrbitCalculator().getAchievements(
             currentStreak: orbitStats.currentStreak,
             totalSessions: orbitStats.completedSessionsCount
         ).filter { $0.isUnlocked }.map {
-            BackupAchievement(id: $0.id, unlockedAt: DateFormatterCache.iso8601String(from: Date()))
+            BackupAchievement(id: $0.id, unlockedAt: exportedAt)
         }
         
         let backupResumes = resumes.map { r in
@@ -73,7 +75,10 @@ public struct ProgressTransferManager: Sendable {
                 lastPositionSeconds: r.lastPositionSeconds,
                 durationSeconds: r.durationSeconds,
                 accumulatedListenedSeconds: r.accumulatedListenedSeconds,
-                updatedAt: DateFormatterCache.iso8601String(from: r.updatedAt)
+                updatedAt: DateFormatterCache.iso8601String(from: r.updatedAt),
+                contentType: r.contentType,
+                dayNumber: r.dayNumber,
+                videoAttachmentPath: r.videoAttachmentPath
             )
         }
         
@@ -103,15 +108,43 @@ public struct ProgressTransferManager: Sendable {
     
     /// Parses and validates incoming .mindspace file data.
     public func parseBackupDocument(from url: URL) throws -> MindSpaceBackupDocument {
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        if let size = attributes[.size] as? Int, size > Self.maxBackupFileBytes {
+            throw ImportError.fileTooLarge(size)
+        }
         let data = try Data(contentsOf: url)
         let decoder = JSONDecoder()
         return try decoder.decode(MindSpaceBackupDocument.self, from: data)
+    }
+
+    /// Parses a backup opened from Files/share/AirDrop: takes security-scoped
+    /// access, copies to a temp file, parses the copy, then releases access.
+    /// In-place opens fail to read without scoped access.
+    public func parseBackupDocument(gainingAccessTo url: URL) throws -> MindSpaceBackupDocument {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if accessing { url.stopAccessingSecurityScopedResource() }
+        }
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MindSpace-Import-\(UUID().uuidString).mindspace")
+        do {
+            if url.isFileURL {
+                try FileManager.default.copyItem(at: url, to: tempURL)
+            } else {
+                throw ImportError.invalidEvent("unsupported backup URL")
+            }
+        } catch {
+            throw ImportError.invalidEvent("couldn't copy the backup file for reading (\(error.localizedDescription))")
+        }
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+        return try parseBackupDocument(from: tempURL)
     }
     
     public enum ImportError: Error, LocalizedError {
         case unsupportedBackupVersion(Int)
         case unsupportedCatalogSchema(Int)
         case eventLimitExceeded(Int)
+        case fileTooLarge(Int)
         case invalidEvent(String)
         case invalidResume(String)
 
@@ -120,6 +153,7 @@ public struct ProgressTransferManager: Sendable {
             case .unsupportedBackupVersion(let v): return "Unsupported backup version \(v)."
             case .unsupportedCatalogSchema(let v): return "Unsupported catalog schema \(v)."
             case .eventLimitExceeded(let n): return "Backup has too many events (\(n))."
+            case .fileTooLarge(let n): return "Backup file is too large (\(n) bytes)."
             case .invalidEvent(let reason): return "Invalid backup event: \(reason)."
             case .invalidResume(let reason): return "Invalid backup resume: \(reason)."
             }
@@ -135,7 +169,7 @@ public struct ProgressTransferManager: Sendable {
         modelContext: ModelContext,
         isCleanRestore: Bool
     ) throws {
-        guard document.backupVersion <= Self.supportedBackupVersion else {
+        guard document.backupVersion >= 1, document.backupVersion <= Self.supportedBackupVersion else {
             throw ImportError.unsupportedBackupVersion(document.backupVersion)
         }
         guard document.catalogSchemaVersion <= Self.supportedCatalogSchemaVersion else {
@@ -210,6 +244,9 @@ public struct ProgressTransferManager: Sendable {
                     existing.lastPositionSeconds = bResume.lastPositionSeconds
                     existing.durationSeconds = bResume.durationSeconds
                     existing.accumulatedListenedSeconds = accSecs
+                    if let contentType = bResume.contentType { existing.contentType = contentType }
+                    if let dayNumber = bResume.dayNumber { existing.dayNumber = dayNumber }
+                    if let videoPath = bResume.videoAttachmentPath { existing.videoAttachmentPath = videoPath }
                     if let updatedDate = DateFormatterCache.dateFromISO8601(bResume.updatedAt) {
                         existing.updatedAt = updatedDate
                     }
@@ -221,7 +258,10 @@ public struct ProgressTransferManager: Sendable {
                         courseName: bResume.courseName,
                         position: bResume.lastPositionSeconds,
                         duration: bResume.durationSeconds,
-                        accumulatedListenedSeconds: accSecs
+                        accumulatedListenedSeconds: accSecs,
+                        contentType: bResume.contentType ?? "meditation",
+                        dayNumber: bResume.dayNumber,
+                        videoAttachmentPath: bResume.videoAttachmentPath
                     )
                     if let updatedDate = DateFormatterCache.dateFromISO8601(bResume.updatedAt) {
                         resume.updatedAt = updatedDate
@@ -264,6 +304,9 @@ public struct ProgressTransferManager: Sendable {
         }
         if isNewSettings {
             modelContext.insert(settings)
+        } else if isCleanRestore, let goals = incoming.selectedGoals {
+            // Clean restore replaces everything, including an empty goal list.
+            settings.selectedGoals = goals
         }
 
         try modelContext.save()
@@ -272,7 +315,7 @@ public struct ProgressTransferManager: Sendable {
     /// Validates a backup document without touching SwiftData. Used by tests
     /// and pre-import checks; `applyImport` runs the same gates internally.
     public func stagedValidation(of document: MindSpaceBackupDocument) throws {
-        guard document.backupVersion <= Self.supportedBackupVersion else {
+        guard document.backupVersion >= 1, document.backupVersion <= Self.supportedBackupVersion else {
             throw ImportError.unsupportedBackupVersion(document.backupVersion)
         }
         guard document.catalogSchemaVersion <= Self.supportedCatalogSchemaVersion else {

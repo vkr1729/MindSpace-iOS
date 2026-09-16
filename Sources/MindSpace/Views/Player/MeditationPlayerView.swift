@@ -140,6 +140,11 @@ public struct MeditationPlayerView: View {
                         .buttonStyle(.cosmicPressable)
                         .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
                     }
+                    if let favoriteError {
+                        Text(favoriteError)
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(CosmosTheme.solarCoral)
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
@@ -391,14 +396,18 @@ public struct MeditationPlayerView: View {
                     sessionTitle: comp.track.title,
                     courseName: comp.track.courseName,
                     durationMinutes: comp.actualMinutes,
-                    isQualifying: comp.isQualifying
+                    isQualifying: comp.isQualifying,
+                    finalizedByStopOrSwitch: comp.finalizedByStopOrSwitch,
+                    isPersisted: comp.isPersisted,
+                    onDismiss: { playbackEngine.acknowledgeLastCompletion() }
                 )
             } else if let trk = track {
                 CompletionView(
                     sessionTitle: trk.title,
                     courseName: trk.courseName,
                     durationMinutes: max(1, Int(round(duration / 60.0))),
-                    isQualifying: true
+                    isQualifying: true,
+                    onDismiss: { playbackEngine.acknowledgeLastCompletion() }
                 )
             }
         }
@@ -411,8 +420,21 @@ public struct MeditationPlayerView: View {
         .onChange(of: playbackEngine.hasCompletedCurrentSession) { _, completed in
             if completed {
                 HapticService.shared.success()
-                isShowingCompletionSheet = true
+                if playbackEngine.isFullPlayerPresented {
+                    isShowingCompletionSheet = true
+                }
             }
+        }
+        .alert("Playback error", isPresented: Binding(
+            get: { playbackEngine.playbackError != nil },
+            set: { if !$0 { playbackEngine.clearPlaybackError() } }
+        )) {
+            Button("Dismiss", role: .cancel) {
+                playbackEngine.clearPlaybackError()
+                playbackEngine.isFullPlayerPresented = false
+            }
+        } message: {
+            Text(playbackEngine.playbackError ?? "An unknown playback error occurred.")
         }
     }
     
@@ -487,6 +509,8 @@ public struct MeditationPlayerView: View {
         }
     }
     
+    @State private var favoriteError: String?
+
     private func toggleFavorite() {
         guard let track = track else { return }
         if let existing = favorites.first(where: { $0.sessionStableId == track.id }) {
@@ -499,7 +523,13 @@ public struct MeditationPlayerView: View {
             )
             modelContext.insert(fav)
         }
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+            favoriteError = nil
+        } catch {
+            modelContext.rollback()
+            favoriteError = "Couldn't save that favorite. Please try again."
+        }
     }
     
     private func formatTime(_ seconds: Double) -> String {

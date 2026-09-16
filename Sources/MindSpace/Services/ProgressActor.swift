@@ -6,7 +6,84 @@ import SwiftData
 public actor ProgressActor {
     
     // MARK: - Completion Events
-    
+
+    public func hasCompletion(id: UUID) throws -> Bool {
+        let descriptor = FetchDescriptor<CompletionEvent>(
+            predicate: #Predicate { $0.id == id }
+        )
+        return try !modelContext.fetch(descriptor).isEmpty
+    }
+
+    public func enqueuePendingCompletion(
+        id: UUID,
+        sessionStableId: String,
+        courseId: String?,
+        playedSeconds: Double,
+        isQualifying: Bool,
+        contentType: String,
+        timestamp: Date,
+        timeZoneIdentifier: String,
+        gmtOffsetSeconds: Int
+    ) throws {
+        let entry = PendingCompletion(
+            id: id,
+            sessionStableId: sessionStableId,
+            courseId: courseId,
+            playedSeconds: playedSeconds,
+            isQualifying: isQualifying,
+            contentType: contentType,
+            timestamp: timestamp,
+            timeZoneIdentifier: timeZoneIdentifier,
+            gmtOffsetSeconds: gmtOffsetSeconds
+        )
+        modelContext.insert(entry)
+        try modelContext.save()
+    }
+
+    /// Replays queued completions into the event log. Returns the number
+    /// of entries still pending (failed again or skipped as duplicates).
+    @discardableResult
+    public func flushPendingCompletions() throws -> Int {
+        let descriptor = FetchDescriptor<PendingCompletion>(
+            sortBy: [SortDescriptor(\.createdAt, order: .forward)]
+        )
+        let pending = try modelContext.fetch(descriptor)
+        var remaining = 0
+        for entry in pending {
+            entry.attempts += 1
+            do {
+                let eventId = entry.id
+                let existing = FetchDescriptor<CompletionEvent>(
+                    predicate: #Predicate { $0.id == eventId }
+                )
+                if try modelContext.fetch(existing).isEmpty {
+                    let event = CompletionEvent(
+                        id: entry.id,
+                        sessionStableId: entry.sessionStableId,
+                        courseId: entry.courseId,
+                        actualPlayedSeconds: entry.playedSeconds,
+                        isQualifying: entry.isQualifying,
+                        contentType: entry.contentType,
+                        timestamp: entry.timestamp,
+                        timeZoneIdentifier: entry.timeZoneIdentifier,
+                        gmtOffsetSeconds: entry.gmtOffsetSeconds
+                    )
+                    modelContext.insert(event)
+                }
+                modelContext.delete(entry)
+                try modelContext.save()
+            } catch {
+                remaining += 1
+                try? modelContext.save()
+            }
+        }
+        return remaining
+    }
+
+    public func pendingCompletionCount() throws -> Int {
+        try modelContext.fetch(FetchDescriptor<PendingCompletion>()).count
+    }
+
     @discardableResult
     public func recordCompletion(
         id: UUID = UUID(),
@@ -69,7 +146,10 @@ public actor ProgressActor {
         courseName: String?,
         position: Double,
         duration: Double,
-        accumulatedListenedSeconds: Double = 0.0
+        accumulatedListenedSeconds: Double = 0.0,
+        contentType: String? = nil,
+        dayNumber: Int? = nil,
+        videoAttachmentPath: String? = nil
     ) throws {
         let descriptor = FetchDescriptor<PlaybackResume>(
             predicate: #Predicate { $0.sessionStableId == sessionStableId }
@@ -82,6 +162,9 @@ public actor ProgressActor {
             existing.lastPositionSeconds = position
             existing.durationSeconds = duration
             existing.accumulatedListenedSeconds = accumulatedListenedSeconds
+            if let contentType { existing.contentType = contentType }
+            if let dayNumber { existing.dayNumber = dayNumber }
+            if let videoAttachmentPath { existing.videoAttachmentPath = videoAttachmentPath }
             existing.updatedAt = Date()
         } else {
             let newResume = PlaybackResume(
@@ -91,7 +174,10 @@ public actor ProgressActor {
                 courseName: courseName,
                 position: position,
                 duration: duration,
-                accumulatedListenedSeconds: accumulatedListenedSeconds
+                accumulatedListenedSeconds: accumulatedListenedSeconds,
+                contentType: contentType ?? "meditation",
+                dayNumber: dayNumber,
+                videoAttachmentPath: videoAttachmentPath
             )
             modelContext.insert(newResume)
         }

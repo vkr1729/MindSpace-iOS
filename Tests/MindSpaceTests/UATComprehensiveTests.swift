@@ -117,13 +117,8 @@ final class UATComprehensiveTests: XCTestCase {
     
     // MARK: - UAT Area 4: Favorites & Progress Persistence
     func testFavoritesAndCompletionPersistence() throws {
-        let schema = Schema([
-            CompletionEvent.self,
-            FavoriteItem.self,
-            PlaybackResume.self,
-            UserSettings.self
-        ])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let schema = Schema(versionedSchema: MindSpaceSchemaV1_2.self)
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let context = ModelContext(container)
         

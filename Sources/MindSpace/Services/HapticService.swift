@@ -5,6 +5,7 @@ import UIKit
 /// Follows Apple Human Interface Guidelines for subtle, non-intrusive haptic cues.
 /// Designed for safe synchronous invocation from any SwiftUI view modifier or ButtonStyle.
 /// Uses retained generator singletons to prevent repeated system IPC and battery consumption.
+/// @unchecked Sendable because generators are MainActor-isolated and all triggers hop via dispatchOnMain.
 public final class HapticService: @unchecked Sendable {
     public static let shared = HapticService()
     

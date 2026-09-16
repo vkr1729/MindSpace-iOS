@@ -198,6 +198,19 @@ public struct LibraryView: View {
                         } else {
                             categoryHierarchyView
                         }
+
+                        // Catalog load problems surface here, not as silent emptiness
+                        if let loadError = catalogService.loadError {
+                            Text(loadError)
+                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .foregroundColor(CosmosTheme.solarCoral)
+                                .padding(.horizontal, 20)
+                        } else if let loadWarning = catalogService.loadWarning {
+                            Text(loadWarning)
+                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .foregroundColor(CosmosTheme.starlightGold)
+                                .padding(.horizontal, 20)
+                        }
                         
                         Spacer(minLength: 90)
                     }
@@ -328,6 +341,9 @@ public struct LibraryView: View {
                             
                             ForEach(categoriesWithMatches) { cat in
                                 let matchingSessions = cat.sessions.filter { matchesFilters(session: $0) }
+                                let onDiskCount = matchingSessions.filter {
+                                    LibraryPathResolver.shared.isFileAvailable(relativePath: $0.relativePath)
+                                }.count
                                 if !matchingSessions.isEmpty {
                                     NavigationLink(destination: SinglesListView(category: cat, onSelectSession: { single in
                                         HapticService.shared.medium()
@@ -339,10 +355,11 @@ public struct LibraryView: View {
                                             duration: single.duration,
                                             contentType: cat.name.lowercased().contains("sleep") ? "sleep" : "meditation"
                                         )
-                                        playbackEngine.loadAndPlay(track: track)
-                                        playbackEngine.isFullPlayerPresented = true
+                                        if playbackEngine.loadAndPlay(track: track) {
+                                            playbackEngine.isFullPlayerPresented = true
+                                        }
                                     })) {
-                                        singlesCategoryRow(category: cat, count: matchingSessions.count)
+                                        singlesCategoryRow(category: cat, count: onDiskCount)
                                     }
                                     .buttonStyle(.plain)
                                     .padding(.horizontal, 20)
@@ -356,8 +373,9 @@ public struct LibraryView: View {
     }
     
     private func courseRow(course: CatalogCourse, category: CatalogCategory) -> some View {
-        let isAvailable = course.sessions.allSatisfy { LibraryPathResolver.shared.isFileAvailable(relativePath: $0.relativePath) }
-        
+        let counts = LibraryPathResolver.shared.courseAvailableTrackCount(course: course)
+        let isAvailable = counts.total > 0 && counts.found == counts.total
+
         return CosmicCard(padding: 14) {
             HStack(spacing: 14) {
                 CelestialPlanetView(style: planetStyle(for: category.name), size: 44, hasRings: category.name.contains("Foundation"))
@@ -383,7 +401,7 @@ public struct LibraryView: View {
                 Spacer()
                 
                 if !isAvailable {
-                    Text("Unavailable")
+                    Text("\(counts.found)/\(counts.total) ready")
                         .font(.system(size: 10, weight: .bold, design: .rounded))
                         .foregroundColor(CosmosTheme.solarCoral)
                         .padding(.horizontal, 6)
@@ -416,7 +434,7 @@ public struct LibraryView: View {
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(CosmosTheme.textPrimary)
                     
-                    Text("\(count) sessions available")
+                    Text("\(count) sessions on disk")
                         .font(.system(size: 12, weight: .regular, design: .rounded))
                         .foregroundColor(CosmosTheme.textSecondary)
                 }
@@ -491,8 +509,9 @@ public struct LibraryView: View {
                         videoDuration: session.videoAttachments?.first?.duration,
                         contentType: "meditation"
                     )
-                    playbackEngine.loadAndPlay(track: track)
-                    playbackEngine.isFullPlayerPresented = true
+                    if playbackEngine.loadAndPlay(track: track) {
+                        playbackEngine.isFullPlayerPresented = true
+                    }
                 }) {
                     CosmicCard(padding: 14) {
                         HStack(spacing: 12) {
@@ -533,8 +552,9 @@ public struct LibraryView: View {
                         relativePath: single.relativePath,
                         duration: single.duration
                     )
-                    playbackEngine.loadAndPlay(track: track)
-                    playbackEngine.isFullPlayerPresented = true
+                    if playbackEngine.loadAndPlay(track: track) {
+                        playbackEngine.isFullPlayerPresented = true
+                    }
                 }) {
                     CosmicCard(padding: 14) {
                         HStack(spacing: 12) {
@@ -692,6 +712,9 @@ public struct LibraryView: View {
             return false
         }
         if selectedMedia == .video { return false } // Single sessions are all audio
+        if selectedMedia == .audio && !LibraryPathResolver.shared.isFileAvailable(relativePath: session.relativePath) {
+            return false
+        }
         if selectedStatus == .completed && !completedIDs.contains(session.id) { return false }
         if selectedStatus == .unplayed && completedIDs.contains(session.id) { return false }
         if selectedStatus == .favorites && !favoriteIDs.contains(session.id) { return false }

@@ -106,6 +106,9 @@ final class LockScreenPlaybackTests: XCTestCase {
         )
         
         engine.loadAndPlay(track: track)
+        // Drive the engine to a deterministic playing state: the dummy file
+        // can never become readyToPlay on its own, so play() explicitly.
+        engine.play()
         XCTAssertEqual(engine.state, .playing)
         
         // Simulate headphone disconnect callback from AudioSessionManager

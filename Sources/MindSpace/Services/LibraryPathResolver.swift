@@ -94,32 +94,36 @@ public struct LibraryPathResolver: Sendable {
     }
     
     /// Resolves an authenticated AVURLAsset for on-demand online streaming from private GitHub repository.
+    /// Uses the Contents API URL form so the Authorization header survives
+    /// redirects: raw.githubusercontent.com redirects and AVFoundation does
+    /// not forward custom headers across them, but api.github.com serves the
+    /// bytes directly with `Accept: application/vnd.github.raw`.
     public func resolveRemoteStreamAsset(for relativePath: String) -> (asset: AVURLAsset, remoteURL: URL)? {
         guard Self.isSafeRelativePath(relativePath) else { return nil }
         let pat = (KeychainManager.shared.get(key: "github_sync_pat") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !pat.isEmpty else {
             return nil
         }
-        
+
         let repo = (UserDefaults.standard.string(forKey: "github_sync_repo") ?? "vkr1729/MindSpace-Content")
             .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        let branch = "main"
-        
+
         // URL encode each path component individually so slashes are preserved
         let components = relativePath.split(separator: "/").map {
             $0.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? String($0)
         }
         let encodedPath = components.joined(separator: "/")
-        
-        guard let remoteURL = URL(string: "https://raw.githubusercontent.com/\(repo)/\(branch)/\(encodedPath)") else {
+
+        guard let remoteURL = URL(string: "https://api.github.com/repos/\(repo)/contents/\(encodedPath)") else {
             return nil
         }
-        
+
         let headers: [String: String] = [
             "Authorization": "Bearer \(pat)",
+            "Accept": "application/vnd.github.raw",
             "User-Agent": "MindSpace-iOS"
         ]
-        
+
         let asset = AVURLAsset(
             url: remoteURL,
             options: [
@@ -330,10 +334,12 @@ public struct LibraryPathResolver: Sendable {
                 ))
             }
         }
-        
+
         totalCount = items.count
-        
+
         for item in items {
+            if Task.isCancelled { break }
+            await Task.yield()
             guard let resolvedURL = resolveURL(for: item.relativePath) else {
                 missingCount += 1
                 missingList.append(item.relativePath)

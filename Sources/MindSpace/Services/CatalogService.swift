@@ -1,6 +1,23 @@
 import Foundation
 import CryptoKit
 
+public enum CatalogLoadError: Error, Sendable, Equatable {
+    case notFound
+    case decodeFailed(String)
+    case schemaMismatch(found: Int, expected: Int)
+
+    public var message: String {
+        switch self {
+        case .notFound:
+            return "Catalog manifest not found in Library or Bundle."
+        case .decodeFailed(let detail):
+            return "Failed to decode catalog: \(detail)"
+        case .schemaMismatch(let found, let expected):
+            return "Catalog schema v\(found) isn't supported by this app (expects v\(expected)). Update the app to read this library."
+        }
+    }
+}
+
 /// Service responsible for loading, indexing, and querying the immutable offline catalog.
 @MainActor
 public final class CatalogService: ObservableObject {
@@ -9,12 +26,13 @@ public final class CatalogService: ObservableObject {
     @Published public private(set) var manifest: CatalogManifest?
     @Published public private(set) var isLoading = false
     @Published public private(set) var loadError: String?
+    @Published public private(set) var loadWarning: String?
     
     // In-memory indexing for sub-millisecond search
     private var sessionIndex: [String: CatalogSession] = [:]
     private var courseIndex: [String: CatalogCourse] = [:]
     private var singleIndex: [String: SingleSession] = [:]
-    
+
     // Pre-sorted and tokenized search records for 0-overhead query filtering
     private var sortedCourses: [(course: CatalogCourse, searchToken: String)] = []
     private var sortedSessions: [(session: CatalogSession, searchToken: String)] = []
@@ -23,10 +41,40 @@ public final class CatalogService: ObservableObject {
     public init() {
         loadCatalog()
     }
-    
+
+    /// Reloads the catalog and reports completion on the main actor so
+    /// callers (rescan, verify) can await the fresh manifest first.
+    @discardableResult
+    public func reloadCatalog() async -> Bool {
+        await withCheckedContinuation { continuation in
+            Task.detached(priority: .userInitiated) { [weak self] in
+                let result = Self.loadCatalogData()
+                await MainActor.run {
+                    guard let self = self else {
+                        continuation.resume(returning: false)
+                        return
+                    }
+                    switch result {
+                    case .success(let (manifest, warning)):
+                        self.manifest = manifest
+                        self.buildIndices(manifest)
+                        self.loadWarning = warning
+                        self.isLoading = false
+                        continuation.resume(returning: true)
+                    case .failure(let error):
+                        self.loadError = error.message
+                        self.isLoading = false
+                        continuation.resume(returning: false)
+                    }
+                }
+            }
+        }
+    }
+
     public func loadCatalog() {
         isLoading = true
         loadError = nil
+        loadWarning = nil
 
         Task.detached(priority: .userInitiated) { [weak self] in
             let result = Self.loadCatalogData()
@@ -36,17 +84,17 @@ public final class CatalogService: ObservableObject {
                 case .success(let (manifest, warning)):
                     self.manifest = manifest
                     self.buildIndices(manifest)
-                    self.loadError = warning
+                    self.loadWarning = warning
                     self.isLoading = false
-                case .failure(let message):
-                    self.loadError = message
+                case .failure(let error):
+                    self.loadError = error.message
                     self.isLoading = false
                 }
             }
         }
     }
 
-    private nonisolated static func loadCatalogData() -> Result<(CatalogManifest, String?), String> {
+    private nonisolated static func loadCatalogData() -> Result<(CatalogManifest, String?), CatalogLoadError> {
         var catalogData: Data?
         var catalogSource = "bundle"
 
@@ -68,11 +116,17 @@ public final class CatalogService: ObservableObject {
         }
 
         guard let data = catalogData else {
-            return .failure("Catalog manifest not found in Library or Bundle.")
+            return .failure(.notFound)
         }
 
         do {
             let decodedManifest = try JSONDecoder().decode(CatalogManifest.self, from: data)
+            guard decodedManifest.schemaVersion == ProgressTransferManager.supportedCatalogSchemaVersion else {
+                return .failure(.schemaMismatch(
+                    found: decodedManifest.schemaVersion,
+                    expected: ProgressTransferManager.supportedCatalogSchemaVersion
+                ))
+            }
             var warning: String?
             if catalogSource == "bundle",
                FileManager.default.fileExists(atPath: libraryURL.path),
@@ -82,7 +136,7 @@ public final class CatalogService: ObservableObject {
             }
             return .success((decodedManifest, warning))
         } catch {
-            return .failure("Failed to decode catalog: \(error.localizedDescription)")
+            return .failure(.decodeFailed(error.localizedDescription))
         }
     }
 

@@ -9,13 +9,8 @@ final class SettingsAndPortabilityTests: XCTestCase {
     func testExportAndImportMergeModePreservesAndDeduplicatesRecords() throws {
         let manager = ProgressTransferManager.shared
         
-        let schema = Schema([
-            CompletionEvent.self,
-            FavoriteItem.self,
-            PlaybackResume.self,
-            UserSettings.self
-        ])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let schema = Schema(versionedSchema: MindSpaceSchemaV1_2.self)
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let context = ModelContext(container)
         
@@ -82,13 +77,8 @@ final class SettingsAndPortabilityTests: XCTestCase {
     func testExportAndImportCleanRestoreModeWipesPreviousState() throws {
         let manager = ProgressTransferManager.shared
         
-        let schema = Schema([
-            CompletionEvent.self,
-            FavoriteItem.self,
-            PlaybackResume.self,
-            UserSettings.self
-        ])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let schema = Schema(versionedSchema: MindSpaceSchemaV1_2.self)
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let context = ModelContext(container)
         
@@ -130,8 +120,8 @@ final class SettingsAndPortabilityTests: XCTestCase {
     }
     
     func testUserSettingsMutationsAndPersistence() throws {
-        let schema = Schema([UserSettings.self])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let schema = Schema(versionedSchema: MindSpaceSchemaV1_2.self)
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let context = ModelContext(container)
         

@@ -103,7 +103,7 @@ public struct FullScreenVideoPlayerViewController: UIViewControllerRepresentable
         let controller = AVPlayerViewController()
         controller.player = player
         controller.showsPlaybackControls = true
-        controller.entersFullScreenWhenPlaybackBegins = true
+        controller.entersFullScreenWhenPlaybackBegins = false
         controller.exitsFullScreenWhenPlaybackEnds = true
         controller.videoGravity = .resizeAspect
         controller.delegate = context.coordinator

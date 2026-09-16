@@ -4,7 +4,6 @@ import UserNotifications
 
 /// Settings & Library Management Screen
 public struct SettingsView: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var catalogService = CatalogService.shared
@@ -24,6 +23,8 @@ public struct SettingsView: View {
     @State private var verificationReport: LibraryVerificationReport?
     @State private var reminderDate: Date = Date()
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
+    @State private var cachedStorageSizeBytes: Int64?
+    @State private var reminderToggleTask: Task<Void, Never>?
 
     private enum ActiveSheet: Identifiable {
         case share
@@ -64,13 +65,7 @@ public struct SettingsView: View {
     }
     
     private func getOrCreateSettings() -> UserSettings {
-        if let existing = settingsList.first {
-            return existing
-        }
-        let newSettings = UserSettings()
-        modelContext.insert(newSettings)
-        try? modelContext.save()
-        return newSettings
+        SettingsStore.fetchOrCreate(in: modelContext)
     }
     
     private var orbitStats: OrbitStats {
@@ -84,7 +79,11 @@ public struct SettingsView: View {
     }
     
     private var storageSizeBytes: Int64 {
-        LibraryPathResolver.shared.getLibraryStorageSizeBytes()
+        cachedStorageSizeBytes ?? 0
+    }
+
+    private func refreshStorageSize() {
+        cachedStorageSizeBytes = LibraryPathResolver.shared.getLibraryStorageSizeBytes()
     }
     
     public var body: some View {
@@ -94,27 +93,8 @@ public struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     // MARK: - Navigation Bar / Header
-                    HStack {
-                        Button(action: {
-                            HapticService.shared.light()
-                            dismiss()
-                        }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 16, weight: .bold))
-                                Text("Back")
-                                    .font(.system(size: 16, weight: .medium, design: .rounded))
-                            }
-                            .foregroundColor(CosmosTheme.moonLavender)
-                            .padding(.vertical, 8)
-                        }
-                        .buttonStyle(.plain)
-                        
-                        Spacer()
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                    
+                    // Settings is a tab root (always mounted); there is no
+                    // navigation stack to dismiss from, so no Back button here.
                     Text("Settings")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundColor(CosmosTheme.textPrimary)
@@ -712,23 +692,23 @@ public struct SettingsView: View {
                         .padding(.horizontal, 20)
                     }
                     
-                    // MARK: - Privacy & Zero Network Guarantee
+                    // MARK: - Privacy & Optional Sync
                     CosmicCard(padding: 16) {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 8) {
                                 Image(systemName: "lock.shield.fill")
                                     .foregroundColor(CosmosTheme.auroraTeal)
-                                Text("Zero Network & 100% Private")
+                                Text("Private by Design")
                                     .font(.system(size: 15, weight: .bold, design: .rounded))
                                     .foregroundColor(CosmosTheme.textPrimary)
                             }
-                            Text("MindSpace has no accounts, telemetry, ads, or network access. Your mindful practice never leaves this iPhone.")
+                            Text("MindSpace has no accounts, telemetry, or ads. Everything stays on this iPhone except the optional GitHub sync: when you configure your own private repo + token, the app talks only to api.github.com and raw.githubusercontent.com to download or stream your library.")
                                 .font(.system(size: 13, weight: .regular, design: .rounded))
                                 .foregroundColor(CosmosTheme.textSecondary)
                         }
                     }
                     .padding(.horizontal, 20)
-                    
+
                     Spacer(minLength: 80)
                 }
             }
@@ -740,10 +720,12 @@ public struct SettingsView: View {
             checkNotificationAuth()
             githubRepoInput = syncService.savedRepo
             githubPATInput = syncService.savedPAT
+            refreshStorageSize()
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 checkNotificationAuth()
+                refreshStorageSize()
             }
         }
         #if os(iOS)
@@ -834,8 +816,9 @@ public struct SettingsView: View {
     }
     
     private func handleReminderToggle(_ val: Bool) {
+        reminderToggleTask?.cancel()
         if val {
-            Task {
+            reminderToggleTask = Task {
                 let notifSettings = await UNUserNotificationCenter.current().notificationSettings()
                 if notifSettings.authorizationStatus == .denied {
                     await MainActor.run {
@@ -902,11 +885,12 @@ public struct SettingsView: View {
     }
     
     private func handlePickedDocument(url: URL) {
-        if let doc = try? ProgressTransferManager.shared.parseBackupDocument(from: url) {
+        do {
+            let doc = try ProgressTransferManager.shared.parseBackupDocument(gainingAccessTo: url)
             self.pendingImportDocument = doc
             self.activeSheet = .importPreview(IdentifiableBackup(doc: doc))
-        } else {
-            self.importStatusMessage = "Failed to parse .mindspace backup file."
+        } catch {
+            self.importStatusMessage = "Couldn't read that .mindspace file: \(error.localizedDescription)"
         }
     }
     
@@ -927,11 +911,11 @@ public struct SettingsView: View {
         isScanningLibrary = true
         isVerifyingChecksums = validateChecksums
         HapticService.shared.medium()
-        
+
         LibraryPathResolver.shared.applyHardeningAndProtection()
-        catalogService.loadCatalog()
-        
+
         Task {
+            _ = await catalogService.reloadCatalog()
             let report = await LibraryPathResolver.shared.verifyAllCatalogEntries(
                 manifest: catalogService.manifest,
                 validateChecksums: validateChecksums
@@ -943,6 +927,7 @@ public struct SettingsView: View {
                     self.isScanningLibrary = false
                     self.isVerifyingChecksums = false
                 }
+                self.refreshStorageSize()
                 
                 if report.isFullyVerified {
                     HapticService.shared.success()

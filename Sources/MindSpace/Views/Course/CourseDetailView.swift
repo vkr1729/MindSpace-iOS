@@ -544,8 +544,9 @@ public struct CourseDetailView: View {
             videoDuration: videoAttachment?.duration,
             contentType: Self.contentType(forCourseNamed: course.name)
         )
-        playbackEngine.loadAndPlay(track: track)
-        playbackEngine.isFullPlayerPresented = true
+        if playbackEngine.loadAndPlay(track: track) {
+            playbackEngine.isFullPlayerPresented = true
+        }
     }
     
     private func playIntroVideo(_ intro: VideoAttachment) {
@@ -571,8 +572,9 @@ public struct CourseDetailView: View {
             videoDuration: intro.duration,
             contentType: "video"
         )
-        playbackEngine.loadAndPlay(track: track)
-        playbackEngine.isFullPlayerPresented = true
+        if playbackEngine.loadAndPlay(track: track) {
+            playbackEngine.isFullPlayerPresented = true
+        }
     }
 
     

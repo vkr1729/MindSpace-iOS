@@ -15,6 +15,11 @@ DerivedData/
 Payload/
 *.zip
 
+# Never commit binaries: IPAs are built by CI and uploaded as artifacts.
+# Existing tracked IPAs stay in history; all future ones are ignored.
+*.ipa
+*.ipa.sha256
+
 # Temporary test artifacts
 *.tmp
 *.log

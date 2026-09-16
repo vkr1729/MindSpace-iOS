@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Combine
+import UIKit
 
 /// Screen 1: Elevated Today Screen & Cosmic Orbit Hub
 /// Reference: Mock Screen Codex.png & UI/UX Pro Max Design Intelligence
@@ -16,6 +17,7 @@ public struct TodayView: View {
     
     @State private var dailyJourneyItems: [DailyJourneyItem] = []
     @State private var isShowingReminderSheet = false
+    @State private var cachedStorageSizeBytes: Int64?
 
     @Binding private var path: NavigationPath
 
@@ -129,16 +131,18 @@ public struct TodayView: View {
             }
             .onAppear {
                 buildDailyJourney()
+                refreshStorageSize()
             }
             .onChange(of: completionEvents) { _, _ in
                 buildDailyJourney()
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSCalendarDayChanged)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
                 buildDailyJourney()
             }
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .active {
                     buildDailyJourney()
+                    refreshStorageSize()
                 }
             }
         }
@@ -228,7 +232,7 @@ public struct TodayView: View {
     
     @ViewBuilder
     private var storageNoticeCard: some View {
-        if LibraryPathResolver.shared.getLibraryStorageSizeBytes() == 0 {
+        if (cachedStorageSizeBytes ?? 0) == 0 {
             CosmicCard(padding: 14) {
                 HStack(spacing: 12) {
                     Image(systemName: "info.circle.fill")
@@ -281,8 +285,9 @@ public struct TodayView: View {
                     ForEach(recommendations) { item in
                         Button(action: {
                             HapticService.shared.medium()
-                            playbackEngine.loadAndPlay(track: item.track)
-                            playbackEngine.isFullPlayerPresented = true
+                            if playbackEngine.loadAndPlay(track: item.track) {
+                                playbackEngine.isFullPlayerPresented = true
+                            }
                         }) {
                             CosmicCard(padding: 14) {
                                 VStack(alignment: .leading, spacing: 6) {
@@ -329,15 +334,19 @@ public struct TodayView: View {
                         courseName: resume.courseName,
                         relativePath: resume.relativePath,
                         duration: resume.durationSeconds,
-                        contentType: (resume.courseName ?? "").lowercased().contains("sleep") ? "sleep" : "meditation"
+                        videoAttachmentPath: resume.videoAttachmentPath,
+                        dayNumber: resume.dayNumber,
+                        contentType: resume.contentType
                     )
-                    playbackEngine.loadAndPlay(
+                    let loaded = playbackEngine.loadAndPlay(
                         track: track,
                         startPosition: resume.lastPositionSeconds,
                         accumulatedListenedSeconds: resume.accumulatedListenedSeconds,
                         startInAudioPhase: true
                     )
-                    playbackEngine.isFullPlayerPresented = true
+                    if loaded {
+                        playbackEngine.isFullPlayerPresented = true
+                    }
                 }) {
                     ZStack {
                         Circle()
@@ -410,8 +419,9 @@ public struct TodayView: View {
                                 duration: session.duration,
                                 contentType: "sleep"
                             )
-                            playbackEngine.loadAndPlay(track: track)
-                            playbackEngine.isFullPlayerPresented = true
+                            if playbackEngine.loadAndPlay(track: track) {
+                                playbackEngine.isFullPlayerPresented = true
+                            }
                         }) {
                             Text("\(mins) min")
                                 .font(.system(size: 13, weight: .medium, design: .rounded))
@@ -430,8 +440,13 @@ public struct TodayView: View {
     
     private func handleTrackTap(track: PlayableTrack) {
         HapticService.shared.medium()
-        playbackEngine.loadAndPlay(track: track)
-        playbackEngine.isFullPlayerPresented = true
+        if playbackEngine.loadAndPlay(track: track) {
+            playbackEngine.isFullPlayerPresented = true
+        }
+    }
+
+    private func refreshStorageSize() {
+        cachedStorageSizeBytes = LibraryPathResolver.shared.getLibraryStorageSizeBytes()
     }
     
     private func buildDailyJourney() {
