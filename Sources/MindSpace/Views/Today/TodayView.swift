@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Combine
+import UIKit
 
 /// Screen 1: Elevated Today Screen & Cosmic Orbit Hub
 /// Reference: Mock Screen Codex.png & UI/UX Pro Max Design Intelligence
@@ -133,7 +134,7 @@ public struct TodayView: View {
             .onChange(of: completionEvents) { _, _ in
                 buildDailyJourney()
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSCalendarDayChanged)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
                 buildDailyJourney()
             }
             .onChange(of: scenePhase) { _, newPhase in
