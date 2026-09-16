@@ -66,7 +66,8 @@ public struct PlayableTrack: Identifiable, Sendable, Equatable {
     }
 }
 
-public struct PlaybackCompletionInfo: Sendable, Equatable {
+public struct PlaybackCompletionInfo: Sendable, Equatable, Identifiable {
+    public var id: UUID { completionId }
     public let track: PlayableTrack
     public let actualMinutes: Int
     public let isQualifying: Bool
